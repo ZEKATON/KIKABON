@@ -139,10 +139,19 @@ const Admin = (() => {
       isMultipleChoice = mode === 'multiple';
       qData.multipleAnswers = isMultipleChoice;
       if (isMultipleChoice) {
+        if (correctIndices.length === 0) {
+          App.showToast('Cochez au moins une bonne réponse', 'error');
+          return;
+        }
         qData.correctIndices = correctIndices;
         // Pour la compatibilité, garder le premier correcte
         qData.correct = correctIndices.length > 0 ? correctIndices[0] : 0;
       } else {
+        if (correctIndices.length !== 1) {
+          App.showToast('En choix unique, cochez une seule bonne réponse', 'error');
+          return;
+        }
+        correctIdx = correctIndices[0];
         qData.correct = correctIdx;
         qData.correctIndices = [correctIdx];
       }
@@ -226,11 +235,15 @@ const Admin = (() => {
       } else {
         correctIndices.push(idx);
       }
-      if (correctIndices.length === 0) correctIndices = [idx]; // Au moins une réponse
     } else {
-      // Mode choix unique: remplacer
-      correctIdx = idx;
-      correctIndices = [idx];
+      // Mode choix unique: toggle d'un seul choix
+      if (correctIndices.includes(idx)) {
+        correctIdx = 0;
+        correctIndices = [];
+      } else {
+        correctIdx = idx;
+        correctIndices = [idx];
+      }
     }
     updateCorrectDisplay();
   }
