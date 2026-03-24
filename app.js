@@ -273,7 +273,11 @@ const App = (() => {
     // Routage initial: /admin ouvre directement les quiz sauvegardés
     if (document.getElementById('screen-home')) {
       const path = window.location.pathname;
-      const isAdminPath = path === '/admin' || path === '/admin/' || path.startsWith('/admin/');
+      const isAdminPath =
+        path === '/admin' ||
+        path === '/admin/' ||
+        path === '/admin/index.html' ||
+        path.startsWith('/admin/');
       if (isAdminPath) {
         showScreen('screen-quiz-list');
       } else {

@@ -86,8 +86,8 @@
     
     <div class="quiz-list-header">
       <h1 class="quiz-list-title">📚 Mes Quiz</h1>
-      <button class="btn btn-primary" onclick="Admin.startNewQuiz()">
-        <span class="btn-icon">➕</span> Créer un quiz
+      <button class="btn btn-primary" onclick="App.showScreen('screen-admin'); Admin.showTab('tab-import');">
+        <span class="btn-icon">📥</span> Importer un quiz
       </button>
     </div>
 
@@ -97,7 +97,7 @@
 
     <div class="empty-state" id="quiz-empty" style="display:none">
       <p>📭 Aucun quiz créé</p>
-      <p>Cliquez sur "Créer nouveau quiz" pour commencer</p>
+      <p>Cliquez sur "Importer un quiz" pour commencer</p>
     </div>
   </div>
 </div>
