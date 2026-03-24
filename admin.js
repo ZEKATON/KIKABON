@@ -403,7 +403,7 @@ const Admin = (() => {
           <p>${quiz.count} question(s) — ${quiz.date}</p>
         </div>
         <div class="saved-actions">
-          <button class="btn btn-secondary sm" onclick="Admin.loadSavedQuiz(${quiz.id})">📂 Charger</button>
+          <button class="btn btn-secondary sm" onclick="Admin.loadSavedQuiz(${quiz.id})">✏️ Modifier</button>
           <button class="btn btn-ghost sm" onclick="Admin.downloadSavedQuiz(${quiz.id})">⬇️ JSON</button>
           <button class="btn btn-ghost sm" onclick="Admin.deleteSavedQuiz(${quiz.id})" style="color:var(--accent2)">🗑️</button>
         </div>
@@ -415,7 +415,7 @@ const Admin = (() => {
   function loadSavedQuiz(id) {
     const quiz = App.state.savedQuizzes.find(q => q.id === id);
     if (!quiz) return;
-    if (!confirm(`Charger "${quiz.name}" ? (remplace les questions actuelles)`)) return;
+    if (!confirm(`Modifier "${quiz.name}" ? (remplace les questions actuelles)`)) return;
     App.state.questions = [...quiz.questions];
     if (!quiz.gameCode) quiz.gameCode = generateUniqueSavedQuizCode(quiz.id);
     App.state.currentQuiz = quiz;
@@ -423,7 +423,7 @@ const Admin = (() => {
       showTab('tab-saved');
     App.showScreen('screen-admin');
     App.persistSavedQuizzes();
-    App.showToast(`Quiz "${quiz.name}" chargé ✓`, 'success');
+    App.showToast(`Quiz "${quiz.name}" prêt à modifier ✓`, 'success');
   }
 
   function loadAndLaunchQuiz(id) {
