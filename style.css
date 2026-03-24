@@ -790,8 +790,8 @@ html, body {
 .admin-control-panel {
   display: flex; flex-direction: column; gap: 12px;
   padding: 16px; background: var(--card2);
-  border-top: 2px solid var(--border); border-radius: 12px;
-  margin-top: 20px;
+  border: 1px solid var(--border); border-radius: 12px;
+  margin-top: 0;
 }
 .admin-controls-title {
   font-size: 12px; font-weight: 700; text-transform: uppercase;
@@ -810,6 +810,7 @@ html, body {
 .admin-shell .question-zone {
   order: 1;
   padding-bottom: 12px;
+  padding-top: 12px;
 }
 
 .admin-shell .race-track-container {
@@ -834,13 +835,12 @@ html, body {
   font-size: 13px;
 }
 
-.admin-shell #question-card .choices-grid,
-.admin-shell #question-card .open-answer {
+/* Admin: masquer tout ce qui est au-dessus des contrôles prof */
+.admin-shell .timer-bar-wrap,
+.admin-shell #question-card,
+.admin-shell #question-result,
+.admin-shell .game-status {
   display: none !important;
-}
-
-.admin-shell .question-card {
-  gap: 12px;
 }
 
 .admin-shell .admin-control-panel {
