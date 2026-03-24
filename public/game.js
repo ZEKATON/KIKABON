@@ -163,8 +163,12 @@ const Game = (() => {
 
     showCorrectAnswer(correctAnswerText);
 
-    adminBroadcast('questionEnd', { correctIndices, correctAnswer: correctAnswerText });
-    processResults();
+    const results = processResults();
+    adminBroadcast('questionEnd', {
+      correctIndices,
+      correctAnswer: correctAnswerText,
+      results,
+    });
 
     document.getElementById('btn-stop-timer').style.display = 'none';
     document.getElementById('btn-pause-game').style.display = 'none';
@@ -184,35 +188,46 @@ const Game = (() => {
   // ---- Traiter les résultats et avancer les joueurs ----
   function processResults() {
     const q = App.state.questions[currentQuestionIdx];
+    const results = [];
     
     // Pour chaque joueur, vérifier sa réponse
     App.state.players.forEach(player => {
-      if (!player.answeredCurrentQuestion) return; // Non répondu
-
+      const scoreBefore = player.score || 0;
       let isCorrect = false;
-      
-      if (q.type === 'qcm') {
-        const correctAnswers = normalizeIndexArray(q.correctIndices || [q.correct]);
-        const playerAnswers = normalizeIndexArray(
-          Array.isArray(player.lastAnswerIndices)
-            ? player.lastAnswerIndices
-            : (typeof player.lastAnswerIndex === 'number' ? [player.lastAnswerIndex] : [])
-        );
-        isCorrect = areSameIndexSets(playerAnswers, correctAnswers);
-      } else {
-        const playerAnswer = normalizeAnswerText(player.lastAnswer);
-        const keywords = String(q.answer || '')
-          .split(',')
-          .map(k => normalizeAnswerText(k))
-          .filter(Boolean);
-        isCorrect = keywords.some(kw => playerAnswer.includes(kw));
+
+      if (player.answeredCurrentQuestion) {
+        if (q.type === 'qcm') {
+          const correctAnswers = normalizeIndexArray(q.correctIndices || [q.correct]);
+          const playerAnswers = normalizeIndexArray(
+            Array.isArray(player.lastAnswerIndices)
+              ? player.lastAnswerIndices
+              : (typeof player.lastAnswerIndex === 'number' ? [player.lastAnswerIndex] : [])
+          );
+          isCorrect = areSameIndexSets(playerAnswers, correctAnswers);
+        } else {
+          const playerAnswer = normalizeAnswerText(player.lastAnswer);
+          const keywords = String(q.answer || '')
+            .split(',')
+            .map(k => normalizeAnswerText(k))
+            .filter(Boolean);
+          isCorrect = keywords.some(kw => playerAnswer.includes(kw));
+        }
       }
 
       // Avancer si correct
       if (isCorrect) {
         advance(player);
       }
+
+      results.push({
+        playerId: player.id,
+        isCorrect,
+        score: player.score || 0,
+        scoreDelta: (player.score || 0) - scoreBefore,
+      });
     });
+
+    return results;
   }
 
   // ---- Construction de la piste ----

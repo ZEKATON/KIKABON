@@ -218,7 +218,16 @@ function connectSSE(code) {
 
     sse.addEventListener('questionEnd', function(e) {
       const data = JSON.parse(e.data);
-      PlayerGame.showAnswer(data.correctIndices, data.correctAnswer);
+      let myResult = null;
+      if (playerState.currentPlayer && Array.isArray(data.results)) {
+        myResult = data.results.find(r => r.playerId === playerState.currentPlayer.id) || null;
+      }
+      if (myResult && typeof myResult.score === 'number') {
+        playerState.score = myResult.score;
+        if (playerState.currentPlayer) playerState.currentPlayer.score = myResult.score;
+        updatePlayerHeader();
+      }
+      PlayerGame.showAnswer(data.correctIndices, data.correctAnswer, myResult);
     });
 
     sse.addEventListener('gameEnd', function(e) {
@@ -406,7 +415,7 @@ const PlayerGame = (function() {
     if (text) text.textContent = time;
   }
 
-  function showAnswer(correctIndices, correctAnswer) {
+  function showAnswer(correctIndices, correctAnswer, myResult) {
     const grid = document.getElementById('choices-grid');
     if (grid) {
       grid.querySelectorAll('.choice-btn').forEach((btn, i) => {
@@ -427,9 +436,22 @@ const PlayerGame = (function() {
     const ans = document.getElementById('result-answer');
     if (qCard) qCard.style.display = 'none';
     if (result) {
-      if (icon) icon.textContent = 'Reponse';
-      if (text) text.textContent = 'Resultat';
-      if (ans) ans.textContent = correctAnswer ? 'Reponse: ' + correctAnswer : '';
+      if (myResult && myResult.isCorrect) {
+        if (icon) icon.textContent = '✅';
+        if (text) text.textContent = 'Bravo ! Bonne reponse';
+      } else if (myResult && !myResult.isCorrect) {
+        if (icon) icon.textContent = '❌';
+        if (text) text.textContent = 'Bonne reponse affichee';
+      } else {
+        if (icon) icon.textContent = 'ℹ️';
+        if (text) text.textContent = 'Resultat';
+      }
+      if (ans) {
+        const scoreLine = myResult
+          ? ('Score: ' + (myResult.scoreDelta > 0 ? '+' + myResult.scoreDelta : myResult.scoreDelta) + ' | Total: ' + (myResult.score || 0))
+          : '';
+        ans.textContent = (correctAnswer ? 'Reponse: ' + correctAnswer : '') + (scoreLine ? ' | ' + scoreLine : '');
+      }
       result.style.display = 'flex';
     }
   }
