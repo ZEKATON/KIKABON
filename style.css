@@ -743,6 +743,10 @@ html, body {
   background: rgba(247,201,72,0.08);
   transform: translateY(-2px);
 }
+.choice-btn.selected {
+  border-color: var(--accent);
+  background: rgba(247,201,72,0.18);
+}
 .choice-btn:disabled { cursor: default; }
 .choice-btn.correct { border-color: var(--green); background: rgba(78,203,113,0.15); color: var(--green); }
 .choice-btn.wrong { border-color: var(--accent2); background: rgba(255,107,107,0.1); opacity: 0.7; }
@@ -763,6 +767,11 @@ html, body {
   transition: border-color 0.2s;
 }
 .open-answer input:focus { border-color: var(--accent); }
+
+#qcm-submit-btn {
+  width: 100%;
+  margin-top: 4px;
+}
 
 .question-result {
   background: var(--card); border: 1px solid var(--border);

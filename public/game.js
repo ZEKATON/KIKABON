@@ -11,6 +11,26 @@ const Game = (() => {
   let gamePaused = false;
   let waitingForNextLaunch = false;
 
+  function normalizeAnswerText(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function normalizeIndexArray(values) {
+    if (!Array.isArray(values)) return [];
+    const unique = [...new Set(values.filter(v => Number.isInteger(v) && v >= 0))];
+    return unique.sort((a, b) => a - b);
+  }
+
+  function areSameIndexSets(a, b) {
+    if (a.length !== b.length) return false;
+    return a.every((value, idx) => value === b[idx]);
+  }
+
   // ---- Diffuser un événement aux joueurs via l'API ----
   function adminBroadcast(type, payload) {
     const code  = App.state.gameCode;
@@ -172,16 +192,19 @@ const Game = (() => {
       let isCorrect = false;
       
       if (q.type === 'qcm') {
-        // Récupérer l'index de la réponse donnée
-        const playerAnswer = player.lastAnswerIndex;
-        
-        // Déterminer si c'est un QCM avec choix multiples
-        const correctAnswers = q.correctIndices || [q.correct];
-        isCorrect = correctAnswers.includes(playerAnswer);
+        const correctAnswers = normalizeIndexArray(q.correctIndices || [q.correct]);
+        const playerAnswers = normalizeIndexArray(
+          Array.isArray(player.lastAnswerIndices)
+            ? player.lastAnswerIndices
+            : (typeof player.lastAnswerIndex === 'number' ? [player.lastAnswerIndex] : [])
+        );
+        isCorrect = areSameIndexSets(playerAnswers, correctAnswers);
       } else {
-        // Pour les réponses ouvertes, check les mots-clés
-        const playerAnswer = player.lastAnswer?.toLowerCase() || '';
-        const keywords = q.answer.split(',').map(k => k.trim().toLowerCase());
+        const playerAnswer = normalizeAnswerText(player.lastAnswer);
+        const keywords = String(q.answer || '')
+          .split(',')
+          .map(k => normalizeAnswerText(k))
+          .filter(Boolean);
         isCorrect = keywords.some(kw => playerAnswer.includes(kw));
       }
 

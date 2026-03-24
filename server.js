@@ -202,13 +202,22 @@ const server = http.createServer(async (req, res) => {
     const game = games.get(code);
     if (!game) return json(404, { error: 'Partie introuvable' });
     const body = await readBody(req);
-    const { playerId, answerIndex, answer } = body;
+    const { playerId, answerIndices, answerIndex, answer } = body;
     const player = game.players.find(p => p.id === playerId);
     if (player && !player.answeredCurrentQuestion) {
+      const normalizedIndices = Array.isArray(answerIndices)
+        ? [...new Set(answerIndices.filter(i => Number.isInteger(i) && i >= 0))].sort((a, b) => a - b)
+        : (typeof answerIndex === 'number' ? [answerIndex] : []);
       player.answeredCurrentQuestion = true;
-      player.lastAnswerIndex = typeof answerIndex === 'number' ? answerIndex : null;
+      player.lastAnswerIndices = normalizedIndices;
+      player.lastAnswerIndex = normalizedIndices.length > 0 ? normalizedIndices[0] : null;
       player.lastAnswer = typeof answer === 'string' ? answer.slice(0, 200) : null;
-      broadcast(code, 'playerAnswer', { playerId, answerIndex, answer });
+      broadcast(code, 'playerAnswer', {
+        playerId,
+        answerIndices: normalizedIndices,
+        answerIndex: normalizedIndices.length > 0 ? normalizedIndices[0] : null,
+        answer,
+      });
     }
     return json(200, { ok: true });
   }
@@ -226,6 +235,7 @@ const server = http.createServer(async (req, res) => {
     if (body.type === 'question') {
       game.players.forEach(p => {
         p.answeredCurrentQuestion = false;
+        p.lastAnswerIndices = undefined;
         p.lastAnswerIndex = undefined;
         p.lastAnswer = undefined;
       });

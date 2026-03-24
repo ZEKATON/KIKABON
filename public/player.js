@@ -254,9 +254,11 @@ function addPlayerToLobby(player) {
 // ============================================================
 const PlayerGame = (function() {
   let answered = false;
+  let selectedIndices = [];
 
   function showQuestion(q, idx, total, time) {
     answered = false;
+    selectedIndices = [];
     showScreen('screen-game');
 
     const counter = document.getElementById('track-question-num');
@@ -286,11 +288,29 @@ const PlayerGame = (function() {
         btn.className = 'choice-btn';
         btn.type = 'button';
         btn.innerHTML = '<span class="choice-letter">' + letters[i] + '</span>' + choice;
-        btn.onclick = function() { submitAnswer(i, null); };
+        btn.onclick = function() { toggleChoiceSelection(i); };
         grid.appendChild(btn);
       });
+
+      let submitBtn = document.getElementById('qcm-submit-btn');
+      if (!submitBtn) {
+        submitBtn = document.createElement('button');
+        submitBtn.id = 'qcm-submit-btn';
+        submitBtn.className = 'btn btn-primary';
+        submitBtn.type = 'button';
+        submitBtn.textContent = 'Valider mes reponses';
+        submitBtn.onclick = submitQcmAnswer;
+        grid.insertAdjacentElement('afterend', submitBtn);
+      }
+      submitBtn.style.display = 'block';
+      submitBtn.disabled = true;
     } else if (q.type === 'open') {
       if (grid) grid.style.display = 'none';
+      const submitBtn = document.getElementById('qcm-submit-btn');
+      if (submitBtn) {
+        submitBtn.style.display = 'none';
+        submitBtn.disabled = true;
+      }
       if (openAns) {
         openAns.style.display = 'flex';
         const input = document.getElementById('open-input');
@@ -304,17 +324,52 @@ const PlayerGame = (function() {
     updateTimer(time);
   }
 
-  function submitAnswer(answerIndex, answerText) {
+  function toggleChoiceSelection(choiceIndex) {
+    if (answered) return;
+    const pos = selectedIndices.indexOf(choiceIndex);
+    if (pos >= 0) {
+      selectedIndices.splice(pos, 1);
+    } else {
+      selectedIndices.push(choiceIndex);
+    }
+
+    const grid = document.getElementById('choices-grid');
+    if (grid) {
+      grid.querySelectorAll('.choice-btn').forEach((b, i) => {
+        b.classList.toggle('selected', selectedIndices.includes(i));
+      });
+    }
+
+    const submitBtn = document.getElementById('qcm-submit-btn');
+    if (submitBtn) submitBtn.disabled = selectedIndices.length === 0;
+  }
+
+  function submitQcmAnswer() {
+    if (selectedIndices.length === 0) {
+      showToast('Selectionnez au moins une reponse', 'error');
+      return;
+    }
+    submitAnswer(selectedIndices.slice(), null);
+  }
+
+  function submitAnswer(answerIndices, answerText) {
     if (answered) return;
     answered = true;
+
+    const normalizedIndices = Array.isArray(answerIndices)
+      ? answerIndices.filter(i => typeof i === 'number')
+      : (typeof answerIndices === 'number' ? [answerIndices] : []);
+    const firstIndex = normalizedIndices.length > 0 ? normalizedIndices[0] : null;
 
     const grid = document.getElementById('choices-grid');
     if (grid) {
       grid.querySelectorAll('.choice-btn').forEach((b, i) => {
         b.disabled = true;
-        if (i === answerIndex) b.classList.add('selected');
+        b.classList.toggle('selected', normalizedIndices.includes(i));
       });
     }
+    const submitBtn = document.getElementById('qcm-submit-btn');
+    if (submitBtn) submitBtn.disabled = true;
 
     const player = playerState.currentPlayer;
     const code = playerState.gameCode;
@@ -324,7 +379,8 @@ const PlayerGame = (function() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           playerId: player.id,
-          answerIndex: answerIndex,
+          answerIndices: normalizedIndices,
+          answerIndex: firstIndex,
           answer: answerText
         })
       }).catch(e => console.log('Answer error:', e));
@@ -362,6 +418,8 @@ const PlayerGame = (function() {
         }
       });
     }
+    const submitBtn = document.getElementById('qcm-submit-btn');
+    if (submitBtn) submitBtn.style.display = 'none';
     const qCard = document.getElementById('question-card');
     const result = document.getElementById('question-result');
     const icon = document.getElementById('result-icon');
@@ -401,6 +459,8 @@ const PlayerGame = (function() {
 
   return {
     showQuestion: showQuestion,
+    toggleChoiceSelection: toggleChoiceSelection,
+    submitQcmAnswer: submitQcmAnswer,
     submitAnswer: submitAnswer,
     submitOpenAnswer: submitOpenAnswer,
     updateTimer: updateTimer,

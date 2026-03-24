@@ -140,7 +140,7 @@ const Admin = (() => {
     } else {
       const ans = document.getElementById('modal-open-answer').value.trim();
       if (!ans) { App.showToast('Saisissez la réponse attendue !', 'error'); return; }
-      qData.answer = ans.toLowerCase();
+      qData.answer = ans;
     }
 
     if (editingId) {
@@ -301,7 +301,7 @@ const Admin = (() => {
         let answer = '';
         lines.slice(1).forEach(line => {
           const match = line.match(/^R[ÉE]PONSE\s*:\s*(.+)/i);
-          if (match) answer = match[1].trim().toLowerCase();
+          if (match) answer = match[1].trim();
         });
         if (questionText && answer) {
           questions.push({ id: Date.now() + Math.random(), type: 'open', text: questionText, answer, category: '' });
@@ -447,11 +447,14 @@ const Admin = (() => {
     });
 
     adminSSE.addEventListener('playerAnswer', e => {
-      const { playerId, answerIndex, answer } = JSON.parse(e.data);
+      const { playerId, answerIndices, answerIndex, answer } = JSON.parse(e.data);
       const player = App.state.players.find(p => p.id === playerId);
       if (player && !player.answeredCurrentQuestion) {
         player.answeredCurrentQuestion = true;
-        player.lastAnswerIndex = answerIndex;
+        player.lastAnswerIndices = Array.isArray(answerIndices)
+          ? answerIndices.filter(i => typeof i === 'number')
+          : (typeof answerIndex === 'number' ? [answerIndex] : []);
+        player.lastAnswerIndex = player.lastAnswerIndices.length > 0 ? player.lastAnswerIndices[0] : null;
         player.lastAnswer = answer;
       }
     });
