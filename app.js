@@ -473,23 +473,24 @@ const Lobby = (() => {
 })();
 
 // ============================================================
-//  GESTION DES MESSAGES REÇUS (page joueur)
+//  GESTION DES MESSAGES REÇUS côté admin
+//  (playerJoin, playerAnswer — envoyés par player.js)
 // ============================================================
-syncChannel.onmessage = (e) => {
-  const { type, payload } = e.data || {};
+syncChannel.onmessage = ({ data }) => {
+  if (!data || !data.type) return;
+  const { type, payload } = data;
 
-  // Joueur reçoit un autre joueur qui a rejoint → afficher dans le lobby
-  if (type === 'playerJoin') {
-    const p = payload;
-    if (!document.getElementById(`lobby-player-${p.id}`)) {
-      App.state.players.push(p);
-      Lobby.addPlayer(p);
+  // Un joueur a rejoint → l'ajouter dans le state et le lobby admin
+  if (type === 'playerJoin' && payload) {
+    if (!App.state.players.find(p => p.id === payload.id)) {
+      App.state.players.push(payload);
+      Lobby.addPlayer(payload);
     }
     return;
   }
 
-  // Admin reçoit la soumission d'un joueur
-  if (type === 'playerAnswer') {
+  // Un joueur a répondu → stocker sa réponse pour le traitement admin
+  if (type === 'playerAnswer' && payload) {
     const { playerId, answerIndex, answer } = payload;
     const player = App.state.players.find(p => p.id === playerId);
     if (player && !player.answeredCurrentQuestion) {
@@ -499,161 +500,8 @@ syncChannel.onmessage = (e) => {
     }
     return;
   }
-
-  // Page joueur uniquement — ne pas traiter si c'est la page admin
-  if (document.getElementById('screen-home')) return;
-
-  if (type === 'gameStart') {
-    App.showScreen('screen-game');
-    return;
-  }
-
-  if (type === 'question') {
-    const { question, idx, total, timeLeft } = payload;
-    App.showScreen('screen-game');
-    PlayerGame.showQuestion(question, idx, total, timeLeft);
-    return;
-  }
-
-  if (type === 'timerTick') {
-    PlayerGame.updateTimer(payload.timeLeft);
-    return;
-  }
-
-  if (type === 'questionEnd') {
-    PlayerGame.showAnswer(payload.correctIndices, payload.correctAnswer);
-    return;
-  }
-
-  if (type === 'gameEnd') {
-    PlayerGame.showPodium(payload.players);
-    return;
-  }
 };
 
-// ============================================================
-//  MOTEUR CÔTÉ JOUEUR (page /play uniquement)
-// ============================================================
-const PlayerGame = (() => {
-  let answered = false;
-
-  function showQuestion(q, idx, total, timeLeft) {
-    answered = false;
-    const qText = document.getElementById('question-text');
-    const qCounter = document.getElementById('track-question-num') || document.getElementById('question-counter');
-    const qCard = document.getElementById('question-card');
-    const qResult = document.getElementById('question-result');
-    const choicesGrid = document.getElementById('choices-grid') || document.getElementById('answers-grid');
-    const openAnswer = document.getElementById('open-answer');
-    const gameStatus = document.getElementById('game-status');
-
-    if (!qText) return;
-    if (qCounter) qCounter.textContent = `Q${idx + 1}/${total}`;
-    if (qCard) qCard.style.display = 'flex';
-    if (qResult) qResult.style.display = 'none';
-    if (gameStatus) gameStatus.textContent = '';
-    qText.textContent = q.text;
-
-    if (q.type === 'qcm' && choicesGrid) {
-      choicesGrid.style.display = 'grid';
-      if (openAnswer) openAnswer.style.display = 'none';
-      choicesGrid.innerHTML = '';
-      const letters = ['A', 'B', 'C', 'D'];
-      q.choices.forEach((choice, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'choice-btn';
-        btn.innerHTML = `<span class="choice-letter">${letters[i]}</span>${choice}`;
-        btn.onclick = () => submitAnswer(i, null, btn, choicesGrid);
-        choicesGrid.appendChild(btn);
-      });
-    } else if (q.type === 'open') {
-      if (choicesGrid) choicesGrid.style.display = 'none';
-      if (openAnswer) {
-        openAnswer.style.display = 'flex';
-        const input = document.getElementById('open-input');
-        if (input) {
-          input.value = '';
-          input.disabled = false;
-          input.onkeydown = e => { if (e.key === 'Enter') submitAnswer(null, input.value.trim(), null, null); };
-        }
-      }
-    }
-    updateTimer(timeLeft);
-  }
-
-  function submitAnswer(answerIndex, answerText, clickedBtn, grid) {
-    if (answered) return;
-    answered = true;
-    const player = App.state.currentPlayer;
-    if (!player) return;
-    player.answeredCurrentQuestion = true;
-    player.lastAnswerIndex = answerIndex;
-    player.lastAnswer = answerText;
-
-    // Désactiver les boutons
-    if (grid) grid.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
-    if (clickedBtn) clickedBtn.classList.add('selected');
-    if (answerText === null && document.getElementById('open-input')) {
-      document.getElementById('open-input').disabled = true;
-    }
-
-    // Informer l'admin
-    syncChannel.postMessage({ type: 'playerAnswer', payload: { playerId: player.id, answerIndex, answer: answerText } });
-    App.showToast('Réponse envoyée ! ✅', 'success');
-  }
-
-  function updateTimer(timeLeft) {
-    const bar = document.getElementById('timer-bar');
-    const text = document.getElementById('timer-text');
-    const simpleTimer = document.getElementById('timer');
-    if (bar) {
-      bar.style.setProperty('--progress', (timeLeft / 60 * 100) + '%');
-      bar.className = 'timer-bar' + (timeLeft <= 10 ? ' warning' : '');
-    }
-    if (text) text.textContent = timeLeft;
-    if (simpleTimer) simpleTimer.textContent = timeLeft;
-  }
-
-  function showAnswer(correctIndices, correctAnswer) {
-    const grid = document.getElementById('choices-grid') || document.getElementById('answers-grid');
-    if (grid) {
-      grid.querySelectorAll('.choice-btn').forEach((btn, i) => {
-        btn.disabled = true;
-        if (correctIndices && correctIndices.includes(i)) btn.classList.add('correct');
-        else if (btn.classList.contains('selected')) btn.classList.add('wrong');
-      });
-    }
-    const resultEl = document.getElementById('question-result');
-    const iconEl = document.getElementById('result-icon');
-    const textEl = document.getElementById('result-text');
-    const ansEl = document.getElementById('result-answer');
-    if (resultEl) {
-      if (iconEl) iconEl.textContent = '💡';
-      if (textEl) textEl.textContent = 'Résultat !';
-      if (ansEl) ansEl.textContent = correctAnswer ? `Réponse : ${correctAnswer}` : '';
-      resultEl.style.display = 'flex';
-    }
-    const qCard = document.getElementById('question-card');
-    if (qCard) qCard.style.display = 'none';
-  }
-
-  function showPodium(players) {
-    const standings = document.getElementById('podium-standings');
-    if (!standings) return;
-    const sorted = [...players].sort((a, b) => b.score - a.score);
-    standings.innerHTML = sorted.map((p, i) => `
-      <div class="podium-entry rank-${i + 1}">
-        <span class="podium-rank">${['🥇','🥈','🥉'][i] || (i + 1)}</span>
-        <span class="podium-avatar">${p.avatar}</span>
-        <span class="podium-name" style="color:${p.color}">${p.name}</span>
-        <span class="podium-score">${p.score} pts</span>
-      </div>
-    `).join('');
-    App.showScreen('screen-podium');
-  }
-
-  return { showQuestion, updateTimer, showAnswer, showPodium, submitAnswer };
-})();
-
 document.addEventListener('DOMContentLoaded', App.init);
+
 

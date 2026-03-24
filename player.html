@@ -29,7 +29,7 @@
           <label>Code d'accès (4 chiffres)</label>
           <input type="text" id="join-code" placeholder="Ex: 1234" maxlength="4" inputmode="numeric">
         </div>
-        <button class="btn btn-primary full" onclick="App.goToJoinStep('info')">
+        <button class="btn btn-primary full" onclick="goToJoinStep('info')">
           ▶ Suivant
         </button>
       </div>
@@ -46,10 +46,10 @@
         </div>
         <div class="join-avatar-preview" id="join-avatar-preview">🐼</div>
         <div style="display:flex; gap:10px">
-          <button class="btn btn-ghost full" onclick="App.goToJoinStep('code')">
+          <button class="btn btn-ghost full" onclick="goToJoinStep('code')">
             ← Retour
           </button>
-          <button class="btn btn-primary full" onclick="App.joinGameWithCode(document.getElementById('join-code').value)">
+          <button class="btn btn-primary full" onclick="joinGameWithCode()">
             🚀 C'est parti !
           </button>
         </div>
@@ -101,7 +101,7 @@
       <div class="choices-grid" id="choices-grid"></div>
       <div class="open-answer" id="open-answer" style="display:none">
         <input type="text" id="open-input" placeholder="Votre réponse...">
-        <button class="btn btn-primary" onclick="PlayerGame.submitAnswer(null, document.getElementById('open-input').value.trim(), null, null)">✓ Valider</button>
+        <button class="btn btn-primary" type="button" onclick="PlayerGame.submitOpenAnswer()">✓ Valider</button>
       </div>
     </div>
 
@@ -137,36 +137,8 @@
 <!-- Toast pour les notifications -->
 <div id="toast" class="toast"></div>
 
-<!-- Scripts -->
-<script src="app.js"></script>
-<script src="game.js"></script>
-
-<script>
-// Initialisation pour la page joueur
-document.addEventListener('DOMContentLoaded', function() {
-  App.showScreen('screen-join');
-  
-  // Afficher les infos du joueur sur l'écran de jeu
-  const currentPlayer = App.state.currentPlayer;
-  if (currentPlayer) {
-    const avatarEl = document.getElementById('player-avatar');
-    const nameEl = document.getElementById('player-name');
-    if (avatarEl) avatarEl.textContent = currentPlayer.avatar;
-    if (nameEl) nameEl.textContent = currentPlayer.name;
-  }
-
-  // Vérifier si un code est passé dans l'URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const codeFromUrl = urlParams.get('code');
-  if (codeFromUrl) {
-    const codeInput = document.getElementById('join-code');
-    if (codeInput) {
-      codeInput.value = codeFromUrl;
-      setTimeout(() => App.goToJoinStep('info'), 500);
-    }
-  }
-});
-</script>
+<!-- Script joueur autonome (aucune dépendance admin) -->
+<script src="player.js"></script>
 
 </body>
 </html>
