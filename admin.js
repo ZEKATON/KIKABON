@@ -429,6 +429,41 @@ const Admin = (() => {
     // Afficher le code dans le lobby
     const codeDisplay = document.getElementById('lobby-code');
     if (codeDisplay) codeDisplay.textContent = code;
+    
+    // Générer le QR code
+    generateQRCode(code);
+  }
+
+  // ---- Générer QR Code ----
+  function generateQRCode(code) {
+    const qrContainer = document.getElementById('qrcode');
+    if (!qrContainer) return;
+    
+    // Vider le conteneur
+    qrContainer.innerHTML = '';
+    
+    // URL du jeu avec le code
+    const gameUrl = `${window.location.origin}/play?code=${code}`;
+    
+    // Générer le QR code
+    QRCode.toCanvas(qrContainer, gameUrl, {
+      width: 150,
+      height: 150,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    }, function (error) {
+      if (error) {
+        console.error('Erreur génération QR code:', error);
+        qrContainer.innerHTML = '<p style="color: red;">Erreur QR code</p>';
+      }
+    });
+    
+    // Afficher le lien
+    const linkElement = document.getElementById('game-link');
+    if (linkElement) {
+      linkElement.textContent = gameUrl;
+    }
   }
 
   return {

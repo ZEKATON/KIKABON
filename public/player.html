@@ -6,6 +6,7 @@
   <title>KIKABON — Rejoindre une partie</title>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -133,6 +134,20 @@
 document.addEventListener('DOMContentLoaded', function() {
   App.init();
   App.showScreen('screen-join');
+  
+  // Vérifier si un code est passé dans l'URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const codeFromUrl = urlParams.get('code');
+  if (codeFromUrl) {
+    const codeInput = document.getElementById('join-code');
+    if (codeInput) {
+      codeInput.value = codeFromUrl;
+      // Passer automatiquement à l'étape suivante
+      setTimeout(() => {
+        App.goToJoinStep('info');
+      }, 500);
+    }
+  }
 });
 </script>
 
