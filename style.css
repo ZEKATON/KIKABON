@@ -916,6 +916,12 @@ html, body {
   font-size: 15px;
 }
 
+.player-shell .join-code-hint {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .player-shell .join-actions-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

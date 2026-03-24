@@ -17,6 +17,8 @@ const PLAYER_COLORS = [
   '#fd79a8','#6c5ce7','#00b894','#e17055'
 ];
 
+const DEFAULT_GAME_CODE = '4242';
+
 // ---- Etat joueur ----
 const playerState = {
   currentPlayer: null,
@@ -100,16 +102,17 @@ async function goToJoinStep(step) {
       showToast('Code invalide', 'error');
       return;
     }
+    if (code !== DEFAULT_GAME_CODE) {
+      showToast('Utilisez le code 4242', 'error');
+      return;
+    }
     try {
       const res = await fetch('/api/game/' + code);
       if (!res.ok) {
-        showToast('Code incorrect', 'error');
-        return;
+        showToast('Code valide, en attente du professeur', 'success');
       }
     } catch (e) {
       console.error('API error:', e);
-      showToast('Erreur serveur', 'error');
-      return;
     }
     playerState.gameCode = code;
     codeStep.style.display = 'none';
@@ -134,6 +137,10 @@ async function joinGameWithCode() {
     showToast('Code manquant', 'error');
     return;
   }
+  if (code !== DEFAULT_GAME_CODE) {
+    showToast('Utilisez le code 4242', 'error');
+    return;
+  }
 
   try {
     const res = await fetch('/api/join/' + code, {
@@ -147,7 +154,11 @@ async function joinGameWithCode() {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      showToast(err.error || 'Erreur', 'error');
+      if (res.status === 404) {
+        showToast('Le professeur n a pas encore lance la partie', 'error');
+      } else {
+        showToast(err.error || 'Erreur', 'error');
+      }
       return;
     }
     const data = await res.json();
@@ -406,12 +417,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const params = new URLSearchParams(window.location.search);
   const codeFromUrl = params.get('code');
+  const input = document.getElementById('join-code');
+  if (input) {
+    input.value = codeFromUrl || DEFAULT_GAME_CODE;
+  }
   if (codeFromUrl) {
-    const input = document.getElementById('join-code');
-    if (input) {
-      input.value = codeFromUrl;
-      playerState.gameCode = codeFromUrl;
-      setTimeout(function() { goToJoinStep('info'); }, 400);
-    }
+    playerState.gameCode = codeFromUrl;
+    setTimeout(function() { goToJoinStep('info'); }, 400);
   }
 });
