@@ -557,10 +557,15 @@ const PlayerGame = (function() {
         if (text) text.textContent = 'Resultat';
       }
       if (ans) {
-        const scoreLine = myResult
-          ? ('Score: ' + (myResult.scoreDelta > 0 ? '+' + myResult.scoreDelta : myResult.scoreDelta) + ' | Total: ' + (myResult.score || 0))
-          : '';
-        ans.textContent = (correctAnswer ? 'Reponse: ' + correctAnswer : '') + (scoreLine ? ' | ' + scoreLine : '');
+        if (correctAnswer) {
+          const hasMultiple = String(correctAnswer).toLowerCase().includes('reponses correctes');
+          const cleanAnswer = String(correctAnswer).replace(/^reponses\s+correctes\s*:\s*/i, '');
+          ans.textContent = hasMultiple
+            ? ('Les bonnes reponses sont : ' + cleanAnswer)
+            : ('La bonne reponse est : ' + cleanAnswer);
+        } else {
+          ans.textContent = '';
+        }
       }
       result.style.display = 'flex';
     }

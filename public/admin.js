@@ -420,7 +420,8 @@ const Admin = (() => {
     if (!quiz.gameCode) quiz.gameCode = generateUniqueSavedQuizCode(quiz.id);
     App.state.currentQuiz = quiz;
     renderQuestions();
-      showTab('tab-saved');
+    // Ouvrir directement l'editeur des questions pour visualiser/modifier/ajouter
+    showTab('tab-questions');
     App.showScreen('screen-admin');
     App.persistSavedQuizzes();
     App.showToast(`Quiz "${quiz.name}" prêt à modifier ✓`, 'success');
