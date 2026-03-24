@@ -409,24 +409,61 @@ const Admin = (() => {
   }
 
   // ---- Lancer le jeu ----
-  function launchGame() {
+  let adminSSE = null;
+
+  function connectAdminSSE(code) {
+    if (adminSSE) { adminSSE.close(); adminSSE = null; }
+    adminSSE = new EventSource(`/api/events/${code}`);
+
+    adminSSE.addEventListener('playerJoin', e => {
+      const player = JSON.parse(e.data);
+      if (!App.state.players.find(p => p.id === player.id)) {
+        App.state.players.push(player);
+        Lobby.addPlayer(player);
+      }
+    });
+
+    adminSSE.addEventListener('playerAnswer', e => {
+      const { playerId, answerIndex, answer } = JSON.parse(e.data);
+      const player = App.state.players.find(p => p.id === playerId);
+      if (player && !player.answeredCurrentQuestion) {
+        player.answeredCurrentQuestion = true;
+        player.lastAnswerIndex = answerIndex;
+        player.lastAnswer = answer;
+      }
+    });
+  }
+
+  async function launchGame() {
     if (App.state.questions.length === 0) {
       App.showToast('Ajoutez au moins une question !', 'error');
       return;
     }
-    // Reset des joueurs si relance
-    App.state.players = [];
-    App.state.currentPlayer = null;
-    Lobby.clearPlayers();
-    
-    // Générer le code de jeu et mettre à jour la longueur de la piste
-    const code = App.generateGameCode();
-    App.updateTrackLength();
-    
-    // Afficher le code dans le lobby
-    App.showScreen('screen-lobby');
-    const codeDisplay = document.getElementById('lobby-code');
-    if (codeDisplay) codeDisplay.textContent = code;
+    try {
+      const res = await fetch('/api/host', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions: App.state.questions }),
+      });
+      if (!res.ok) throw new Error('server error');
+      const { code, adminToken } = await res.json();
+
+      App.state.players = [];
+      App.state.currentPlayer = null;
+      App.state.gameCode = code;
+      App.state.adminToken = adminToken;
+      Lobby.clearPlayers();
+      App.updateTrackLength();
+
+      // Se connecter au flux SSE pour recevoir les joueurs
+      connectAdminSSE(code);
+
+      App.showScreen('screen-lobby');
+      const codeDisplay = document.getElementById('lobby-code');
+      if (codeDisplay) codeDisplay.textContent = code;
+    } catch {
+      App.showToast('Erreur de connexion au serveur', 'error');
+    }
   }
 
   return {

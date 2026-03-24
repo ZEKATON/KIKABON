@@ -1,14 +1,14 @@
-// ============================================================
-//  PLAYER.JS — Script autonome pour la page joueur (/play)
-//  Aucune dépendance à app.js ou game.js
+﻿// ============================================================
+//  PLAYER.JS â€” Script autonome pour la page joueur (/play)
+//  Utilise SSE (EventSource) + fetch pour la communication cross-device
 // ============================================================
 
 // ---- Constantes ----
 const AVATARS = [
-  '🐼','🦊','🐸','🦁','🐯','🐨',
-  '🦄','🐺','🐻','🦝','🐙','🦋',
-  '🐵','🐔','🦆','🦉','🐧','🐠',
-  '🦖','🦕','🐲','🦑','🦀','🐝',
+  'ðŸ¼','ðŸ¦Š','ðŸ¸','ðŸ¦','ðŸ¯','ðŸ¨',
+  'ðŸ¦„','ðŸº','ðŸ»','ðŸ¦','ðŸ™','ðŸ¦‹',
+  'ðŸµ','ðŸ”','ðŸ¦†','ðŸ¦‰','ðŸ§','ðŸ ',
+  'ðŸ¦–','ðŸ¦•','ðŸ²','ðŸ¦‘','ðŸ¦€','ðŸ',
 ];
 
 const PLAYER_COLORS = [
@@ -17,16 +17,15 @@ const PLAYER_COLORS = [
   '#fd79a8','#6c5ce7','#00b894','#e17055',
 ];
 
-// ---- État joueur ----
+// ---- Ã‰tat joueur ----
 const playerState = {
   currentPlayer: null,
+  gameCode: null,
   selectedAvatar: AVATARS[0],
+  sse: null,
 };
 
-// ---- Canal de synchronisation avec la page admin ----
-const playerChannel = new BroadcastChannel('kikabon_sync');
-
-// ---- Navigation entre écrans ----
+// ---- Navigation entre Ã©crans ----
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => {
     s.classList.remove('active');
@@ -51,7 +50,7 @@ function showToast(msg, type = '') {
 
 // ---- Grille d'avatars ----
 function initAvatarGrid() {
-  const grid = document.getElementById('avatar-grid');
+  const grid    = document.getElementById('avatar-grid');
   const preview = document.getElementById('join-avatar-preview');
   if (!grid) return;
   grid.innerHTML = '';
@@ -72,8 +71,8 @@ function initAvatarGrid() {
   if (preview) preview.textContent = AVATARS[0];
 }
 
-// ---- Étapes du formulaire "rejoindre" ----
-function goToJoinStep(step) {
+// ---- Ã‰tapes du formulaire "rejoindre" ----
+async function goToJoinStep(step) {
   const codeStep = document.getElementById('join-step-code');
   const infoStep = document.getElementById('join-step-info');
   if (!codeStep || !infoStep) return;
@@ -90,11 +89,18 @@ function goToJoinStep(step) {
       showToast('Entrez un code valide (4 chiffres)', 'error');
       return;
     }
-    const activeCode = localStorage.getItem('kikabon_gameCode');
-    if (!activeCode || code !== activeCode) {
-      showToast('Code incorrect ! 🚫', 'error');
+    // VÃ©rifier que la partie existe sur le serveur
+    try {
+      const res = await fetch(`/api/game/${code}`);
+      if (!res.ok) {
+        showToast('Code incorrect ! ðŸš«', 'error');
+        return;
+      }
+    } catch {
+      showToast('Impossible de joindre le serveur', 'error');
       return;
     }
+    playerState.gameCode = code;
     codeStep.style.display = 'none';
     infoStep.style.display = 'block';
     setTimeout(initAvatarGrid, 50);
@@ -102,42 +108,94 @@ function goToJoinStep(step) {
 }
 
 // ---- Rejoindre la partie ----
-function joinGameWithCode() {
-  const code = (document.getElementById('join-code')?.value || '').trim();
-  const name = (document.getElementById('join-name')?.value || '').trim();
+async function joinGameWithCode() {
+  const code   = playerState.gameCode || (document.getElementById('join-code')?.value || '').trim();
+  const name   = (document.getElementById('join-name')?.value || '').trim();
   const avatar = playerState.selectedAvatar;
 
-  if (!name) { showToast('Entrez votre prénom !', 'error'); return; }
+  if (!name) { showToast('Entrez votre prÃ©nom !', 'error'); return; }
+  if (!code) { showToast('Code de partie manquant', 'error'); return; }
 
-  const activeCode = localStorage.getItem('kikabon_gameCode');
-  if (!activeCode || code !== activeCode) {
-    showToast('Code incorrect ! 🚫', 'error');
-    return;
+  try {
+    const res = await fetch(`/api/join/${code}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        avatar,
+        color: PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)],
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Impossible de rejoindre', 'error');
+      return;
+    }
+    const { player } = await res.json();
+    playerState.currentPlayer = player;
+    playerState.gameCode = code;
+
+    // Afficher dans le lobby
+    addPlayerToLobby(player);
+    const codeDisplay = document.getElementById('lobby-code');
+    if (codeDisplay) codeDisplay.textContent = code;
+    showScreen('screen-lobby');
+
+    // Se connecter au flux SSE
+    connectSSE(code);
+    showToast(`Bienvenue ${name} ! ðŸŽ‰`, 'success');
+  } catch {
+    showToast('Erreur de connexion', 'error');
   }
+}
 
-  const colorIdx = Math.floor(Math.random() * PLAYER_COLORS.length);
-  const player = {
-    id: Date.now(),
-    name,
-    avatar,
-    color: PLAYER_COLORS[colorIdx],
-    score: 0,
-    answeredCurrentQuestion: false,
+// ---- Connexion SSE ----
+function connectSSE(code) {
+  if (playerState.sse) { playerState.sse.close(); playerState.sse = null; }
+  const sse = new EventSource(`/api/events/${code}`);
+  playerState.sse = sse;
+
+  // Ã‰tat initial : liste des joueurs dÃ©jÃ  connectÃ©s
+  sse.addEventListener('init', e => {
+    const { players } = JSON.parse(e.data);
+    const container = document.getElementById('players-list');
+    if (container) container.innerHTML = '';
+    (players || []).forEach(p => addPlayerToLobby(p));
+  });
+
+  // Un nouveau joueur a rejoint
+  sse.addEventListener('playerJoin', e => {
+    addPlayerToLobby(JSON.parse(e.data));
+  });
+
+  // La partie dÃ©marre
+  sse.addEventListener('gameStart', () => {
+    showScreen('screen-game');
+    const status = document.getElementById('game-status');
+    if (status) status.textContent = 'â³ En attente de la premiÃ¨re question...';
+  });
+
+  // Une question est lancÃ©e
+  sse.addEventListener('question', e => {
+    const { question, idx, total, timeLeft } = JSON.parse(e.data);
+    PlayerGame.showQuestion(question, idx, total, timeLeft);
+  });
+
+  // Fin de question â†’ rÃ©vÃ©ler la rÃ©ponse
+  sse.addEventListener('questionEnd', e => {
+    const { correctIndices, correctAnswer } = JSON.parse(e.data);
+    PlayerGame.showAnswer(correctIndices, correctAnswer);
+  });
+
+  // Fin de partie â†’ podium
+  sse.addEventListener('gameEnd', e => {
+    const { players } = JSON.parse(e.data);
+    PlayerGame.showPodium(players);
+  });
+
+  sse.onerror = () => {
+    // Le navigateur tente de reconnecter automatiquement pour EventSource
   };
-  playerState.currentPlayer = player;
-
-  // Afficher dans le lobby
-  addPlayerToLobby(player);
-
-  // Afficher le code dans le lobby
-  const codeDisplay = document.getElementById('lobby-code');
-  if (codeDisplay) codeDisplay.textContent = code;
-
-  showScreen('screen-lobby');
-
-  // Informer l'admin
-  playerChannel.postMessage({ type: 'playerJoin', player });
-  showToast(`Bienvenue ${name} ! 🎉`, 'success');
 }
 
 // ---- Lobby ----
@@ -156,7 +214,7 @@ function addPlayerToLobby(player) {
 }
 
 // ============================================================
-//  MOTEUR JEU CÔTÉ JOUEUR
+//  MOTEUR JEU CÃ”TÃ‰ JOUEUR
 // ============================================================
 const PlayerGame = (() => {
   let answered = false;
@@ -215,29 +273,26 @@ const PlayerGame = (() => {
 
     const grid = document.getElementById('choices-grid');
     if (grid) {
-      const btns = grid.querySelectorAll('.choice-btn');
-      btns.forEach((b, i) => {
+      grid.querySelectorAll('.choice-btn').forEach((b, i) => {
         b.disabled = true;
         if (i === answerIndex) b.classList.add('selected');
       });
     }
 
     const player = playerState.currentPlayer;
-    if (player) {
-      player.answeredCurrentQuestion = true;
-      player.lastAnswerIndex = answerIndex;
-      player.lastAnswer = answerText;
+    const code   = playerState.gameCode;
+    if (player && code) {
+      fetch(`/api/answer/${code}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId:    player.id,
+          answerIndex: answerIndex,
+          answer:      answerText,
+        }),
+      }).catch(() => {});
     }
-
-    playerChannel.postMessage({
-      type: 'playerAnswer',
-      payload: {
-        playerId: player?.id,
-        answerIndex,
-        answer: answerText,
-      },
-    });
-    showToast('Réponse envoyée ! ✅', 'success');
+    showToast('RÃ©ponse envoyÃ©e ! âœ…', 'success');
   }
 
   function submitOpenAnswer() {
@@ -277,9 +332,9 @@ const PlayerGame = (() => {
     const ans    = document.getElementById('result-answer');
     if (qCard)  qCard.style.display = 'none';
     if (result) {
-      if (icon) icon.textContent = '💡';
-      if (text) text.textContent = 'Résultat !';
-      if (ans)  ans.textContent = correctAnswer ? `Réponse : ${correctAnswer}` : '';
+      if (icon) icon.textContent = 'ðŸ’¡';
+      if (text) text.textContent = 'RÃ©sultat !';
+      if (ans)  ans.textContent = correctAnswer ? `RÃ©ponse : ${correctAnswer}` : '';
       result.style.display = 'flex';
     }
   }
@@ -288,7 +343,7 @@ const PlayerGame = (() => {
     const standings = document.getElementById('podium-standings');
     if (!standings) return;
     const sorted = [...players].sort((a, b) => b.score - a.score);
-    const medals = ['🥇', '🥈', '🥉'];
+    const medals = ['ðŸ¥‡', 'ðŸ¥ˆ', 'ðŸ¥‰'];
     standings.innerHTML = sorted.map((p, i) => `
       <div class="podium-entry rank-${i + 1}">
         <span class="podium-rank">${medals[i] || (i + 1)}</span>
@@ -304,64 +359,19 @@ const PlayerGame = (() => {
 })();
 
 // ============================================================
-//  MESSAGES DU CANAL (envoyés par la page admin)
-// ============================================================
-playerChannel.onmessage = ({ data }) => {
-  if (!data || !data.type) return;
-  const { type, payload } = data;
-
-  // Un autre joueur a rejoint → afficher dans le lobby
-  if (type === 'playerJoin' && payload) {
-    addPlayerToLobby(payload);
-    return;
-  }
-
-  // La partie démarre
-  if (type === 'gameStart') {
-    showScreen('screen-game');
-    const status = document.getElementById('game-status');
-    if (status) status.textContent = '⏳ En attente de la première question...';
-    return;
-  }
-
-  // Une question est affichée
-  if (type === 'question' && payload) {
-    PlayerGame.showQuestion(payload.question, payload.idx, payload.total, payload.timeLeft);
-    return;
-  }
-
-  // Tick du chrono
-  if (type === 'timerTick' && payload) {
-    PlayerGame.updateTimer(payload.timeLeft);
-    return;
-  }
-
-  // Fin de question → révéler la réponse
-  if (type === 'questionEnd' && payload) {
-    PlayerGame.showAnswer(payload.correctIndices, payload.correctAnswer);
-    return;
-  }
-
-  // Fin de partie → podium
-  if (type === 'gameEnd' && payload) {
-    PlayerGame.showPodium(payload.players);
-    return;
-  }
-};
-
-// ============================================================
 //  INITIALISATION
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
   showScreen('screen-join');
 
-  // Préremplir le code depuis l'URL (?code=1234)
+  // PrÃ©remplir le code depuis l'URL (?code=1234)
   const params = new URLSearchParams(window.location.search);
   const codeFromUrl = params.get('code');
   if (codeFromUrl) {
     const input = document.getElementById('join-code');
     if (input) {
       input.value = codeFromUrl;
+      playerState.gameCode = codeFromUrl;
       setTimeout(() => goToJoinStep('info'), 400);
     }
   }

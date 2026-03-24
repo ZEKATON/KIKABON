@@ -16,7 +16,8 @@ const App = (() => {
     },
     savedQuizzes: [],
     // Pour la gestion des jeux
-    gameCode: null,  // Code à 4 chiffres pour la session actuelle
+    gameCode: null,     // Code à 4 chiffres pour la session actuelle
+    adminToken: null,   // Token d'authentification admin (retourné par /api/host)
     currentQuiz: null,  // Quiz en cours (referential)
     accessGranted: true, // accès admin automatique
   };
@@ -422,11 +423,6 @@ const App = (() => {
 })();
 
 // ============================================================
-//  CANAL DE SYNCHRONISATION (BroadcastChannel même appareil/onglets)
-// ============================================================
-const syncChannel = new BroadcastChannel('kikabon_sync');
-
-// ============================================================
 //  LOBBY
 // ============================================================
 const Lobby = (() => {
@@ -471,36 +467,6 @@ const Lobby = (() => {
 
   return { addPlayer, removePlayer, refreshPlayers, clearPlayers };
 })();
-
-// ============================================================
-//  GESTION DES MESSAGES REÇUS côté admin
-//  (playerJoin, playerAnswer — envoyés par player.js)
-// ============================================================
-syncChannel.onmessage = ({ data }) => {
-  if (!data || !data.type) return;
-  const { type, payload } = data;
-
-  // Un joueur a rejoint → l'ajouter dans le state et le lobby admin
-  if (type === 'playerJoin' && payload) {
-    if (!App.state.players.find(p => p.id === payload.id)) {
-      App.state.players.push(payload);
-      Lobby.addPlayer(payload);
-    }
-    return;
-  }
-
-  // Un joueur a répondu → stocker sa réponse pour le traitement admin
-  if (type === 'playerAnswer' && payload) {
-    const { playerId, answerIndex, answer } = payload;
-    const player = App.state.players.find(p => p.id === playerId);
-    if (player && !player.answeredCurrentQuestion) {
-      player.answeredCurrentQuestion = true;
-      player.lastAnswerIndex = answerIndex;
-      player.lastAnswer = answer;
-    }
-    return;
-  }
-};
 
 document.addEventListener('DOMContentLoaded', App.init);
 

@@ -1,13 +1,6 @@
 services:
   - type: web
     name: kikabon
-    env: static
+    env: node
     buildCommand: npm ci && npm run build
-    staticPublishPath: ./public
-    routes:
-      - type: rewrite
-        source: /play
-        destination: /player.html
-      - type: rewrite
-        source: /admin
-        destination: /index.html
+    startCommand: node server.js
