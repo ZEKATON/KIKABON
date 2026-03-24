@@ -1,7 +1,7 @@
 {
-  "name": "quizrace",
+  "name": "kikabon",
   "version": "1.0.0",
-  "description": "QuizRace - jeu quiz live pour la formation",
+  "description": "KIKABON - jeu quiz live pour la formation",
   "private": true,
   "scripts": {
     "start": "node server.js",
