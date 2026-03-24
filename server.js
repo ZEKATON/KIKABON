@@ -17,12 +17,14 @@ const mimeTypes = {
 };
 
 const server = http.createServer((req, res) => {
-  let filePath = '.' + req.url;
+  const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+  const pathname = requestUrl.pathname;
+  let filePath = '.' + pathname;
 
   // Routing pour séparer admin et joueurs
-  if (req.url === '/' || req.url === '/admin') {
+  if (pathname === '/' || pathname === '/admin') {
     filePath = './index (2).html'; // Page admin/professeur
-  } else if (req.url === '/play' || req.url === '/jouer') {
+  } else if (pathname === '/play' || pathname === '/jouer') {
     filePath = './player.html'; // Page joueurs uniquement
   } else if (filePath === './') {
     filePath = './index (2).html';
