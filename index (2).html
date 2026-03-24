@@ -110,10 +110,7 @@
         <span>🏎️</span> KIKABON
       </div>
       <nav class="sidebar-nav">
-        <button class="nav-item active" onclick="Admin.showTab('tab-questions')" id="nav-questions">
-          ❓ Questions
-        </button>
-        <button class="nav-item" onclick="Admin.showTab('tab-import')" id="nav-import">
+        <button class="nav-item active" onclick="Admin.showTab('tab-import')" id="nav-import">
           📥 Importer
         </button>
         <button class="nav-item" onclick="Admin.showTab('tab-saved')" id="nav-saved">
@@ -303,7 +300,12 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
 
       <!-- Panneau de contrôle admin -->
       <div class="admin-control-panel" id="admin-control-panel">
-        <div class="admin-controls-title">🎓 Contrôles Prof</div>
+        <div class="admin-controls-title" id="admin-controls-title">🎓 Contrôles Prof</div>
+        <div class="admin-panel-chrono" id="admin-panel-chrono" style="display:none">
+          <span class="admin-panel-chrono-icon">⏱️</span>
+          <span class="admin-panel-chrono-value" id="admin-panel-chrono-value">30</span>
+          <span class="admin-panel-chrono-unit">sec</span>
+        </div>
         <button class="btn btn-primary" id="btn-launch-question" onclick="Game.launchQuestion()" style="display:block">
           ▶️ Afficher la question
         </button>

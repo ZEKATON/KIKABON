@@ -111,6 +111,12 @@ const Game = (() => {
     document.getElementById('question-category').textContent = q.category || 'Question';
     document.getElementById('question-text').textContent = q.text;
 
+    // Afficher la question dans le panneau de contrôle admin
+    const ctrlTitle = document.getElementById('admin-controls-title');
+    if (ctrlTitle) { ctrlTitle.textContent = q.text; ctrlTitle.classList.add('has-question'); }
+    const adminChrono = document.getElementById('admin-panel-chrono');
+    if (adminChrono) adminChrono.style.display = 'flex';
+
     // Résultat précédent masqué
     document.getElementById('question-result').style.display = 'none';
     document.getElementById('question-card').style.display = 'flex';
@@ -190,6 +196,11 @@ const Game = (() => {
     document.getElementById('btn-launch-question').textContent =
       currentQuestionIdx >= App.state.questions.length - 1 ? '🏁 Voir les résultats' : '▶️ Lancer la question suivante';
     document.getElementById('game-status').textContent = statusText;
+    // Remettre le titre par défaut et masquer le chrono
+    const ctrlTitle = document.getElementById('admin-controls-title');
+    if (ctrlTitle) { ctrlTitle.textContent = '🎓 Contrôles Prof'; ctrlTitle.classList.remove('has-question'); }
+    const adminChronoDiv = document.getElementById('admin-panel-chrono');
+    if (adminChronoDiv) adminChronoDiv.style.display = 'none';
     waitingForNextLaunch = true;
   }
 
@@ -285,17 +296,19 @@ const Game = (() => {
     }
     const bar = document.getElementById('timer-bar');
     const text = document.getElementById('timer-text');
+    const adminChronoEl = document.getElementById('admin-panel-chrono-value');
     const totalTime = getQuestionTime();
     const pct = (timeLeft / totalTime) * 100;
     bar.style.setProperty('--progress', pct + '%');
     bar.className = 'timer-bar';
-    bar.className = 'timer-bar';
+    if (adminChronoEl) adminChronoEl.textContent = timeLeft;
 
     timer = setInterval(() => {
       timeLeft--;
       const pct = (timeLeft / getQuestionTime()) * 100;
       bar.style.setProperty('--progress', pct + '%');
       text.textContent = timeLeft;
+      if (adminChronoEl) adminChronoEl.textContent = timeLeft;
       if (timeLeft <= 10) bar.className = 'timer-bar warning';
       if (timeLeft <= 0) {
         clearInterval(timer);
