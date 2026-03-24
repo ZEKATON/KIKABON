@@ -18,7 +18,7 @@ const App = (() => {
     // Pour la gestion des jeux
     gameCode: null,  // Code à 4 chiffres pour la session actuelle
     currentQuiz: null,  // Quiz en cours (referential)
-    accessGranted: false, // accès admin requis par mot de passe
+    accessGranted: true, // accès admin automatique
   };
 
   // ---- Avatars disponibles ----
@@ -60,19 +60,7 @@ const App = (() => {
     }
   }
 
-  // ---- Vérification du mot de passe admin ----
-  function unlockAccess() {
-    const password = document.getElementById('login-password').value.trim();
-    if (password === 'FORMA974') {
-      state.accessGranted = true;
-      App.showToast('Accès autorisé. Bienvenue !', 'success');
-      showScreen('screen-home');
-      document.getElementById('login-password').value = '';
-    } else {
-      App.showToast('Mot de passe incorrect. Réessayez.', 'error');
-      document.getElementById('login-password').value = '';
-    }
-  }
+  // ---- Fonction supprimée: vérification du mot de passe ----
 
   // ---- Init avatars sur écran Join ----
   function initAvatarGrid() {
