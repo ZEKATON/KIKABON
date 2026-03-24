@@ -10,6 +10,7 @@ const Game = (() => {
   let finishRankCounter = 0;
   let gamePaused = false;
   let waitingForNextLaunch = false;
+  let questionStatsHistory = [];
 
   function normalizeAnswerText(value) {
     return String(value || '')
@@ -61,6 +62,7 @@ const Game = (() => {
     finishRankCounter = 0;
     gamePaused = false;
     waitingForNextLaunch = false;
+    questionStatsHistory = [];
     players.forEach(p => {
       p.score = 0;
       p.position = 0;
@@ -164,6 +166,17 @@ const Game = (() => {
     showCorrectAnswer(correctAnswerText);
 
     const results = processResults();
+
+    // Statistiques de réussite par question et globales
+    const qCorrect = results.filter(r => r.isCorrect).length;
+    const qTotal = App.state.players.length;
+    const qPct = qTotal > 0 ? Math.round(qCorrect / qTotal * 100) : 0;
+    questionStatsHistory.push({ correct: qCorrect, total: qTotal, pct: qPct });
+    const allCorrect = questionStatsHistory.reduce((s, q) => s + q.correct, 0);
+    const allTotal   = questionStatsHistory.reduce((s, q) => s + q.total, 0);
+    const overallPct = allTotal > 0 ? Math.round(allCorrect / allTotal * 100) : 0;
+    updateAdminStats(qPct, overallPct);
+
     adminBroadcast('questionEnd', {
       correctIndices,
       correctAnswer: correctAnswerText,
@@ -409,6 +422,16 @@ const Game = (() => {
     document.getElementById('result-answer').textContent = `Réponse : ${correctAnswer}`;
     document.getElementById('question-result').style.display = 'flex';
     document.getElementById('question-card').style.display = 'flex';
+  }
+
+  // ---- Statistiques admin ----
+  function updateAdminStats(questPct, overallPct) {
+    const bar = document.getElementById('admin-stats-bar');
+    const statCurrent = document.getElementById('stat-current');
+    const statOverall = document.getElementById('stat-overall');
+    if (bar) bar.style.display = 'flex';
+    if (statCurrent) statCurrent.textContent = questPct + '%';
+    if (statOverall) statOverall.textContent = overallPct + '%';
   }
 
   // ---- Avancer un joueur ----

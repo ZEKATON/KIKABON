@@ -25,8 +25,11 @@ const playerState = {
   gameCode: null,
   selectedAvatar: AVATARS[0],
   sse: null,
-  score: 0
+  score: 0,
+  correctCount: 0,
+  totalQuestions: 0,
 };
+let reconnectTimeout = null;
 
 function updatePlayerHeader() {
   const avatar = document.getElementById('player-avatar');
@@ -35,6 +38,54 @@ function updatePlayerHeader() {
   if (avatar && playerState.currentPlayer) avatar.textContent = playerState.currentPlayer.avatar;
   if (name && playerState.currentPlayer) name.textContent = playerState.currentPlayer.name;
   if (score) score.textContent = 'Score: ' + playerState.score;
+}
+
+function updatePlayerStats() {
+  const el = document.getElementById('stats-display');
+  if (!el) return;
+  if (playerState.totalQuestions === 0) { el.style.display = 'none'; return; }
+  const pct = Math.round(playerState.correctCount / playerState.totalQuestions * 100);
+  el.textContent = '\u2713 ' + playerState.correctCount + '/' + playerState.totalQuestions + ' (' + pct + '%)';
+  el.style.display = 'block';
+}
+
+function saveSession() {
+  if (!playerState.currentPlayer || !playerState.gameCode) return;
+  try {
+    sessionStorage.setItem('kikabon_session', JSON.stringify({
+      playerId:       playerState.currentPlayer.id,
+      name:           playerState.currentPlayer.name,
+      avatar:         playerState.currentPlayer.avatar,
+      color:          playerState.currentPlayer.color,
+      gameCode:       playerState.gameCode,
+      score:          playerState.score,
+      correctCount:   playerState.correctCount,
+      totalQuestions: playerState.totalQuestions,
+    }));
+  } catch (e) {}
+}
+
+function clearSession() {
+  try { sessionStorage.removeItem('kikabon_session'); } catch (e) {}
+}
+
+async function tryRestoreSession() {
+  let saved;
+  try { saved = JSON.parse(sessionStorage.getItem('kikabon_session') || 'null'); } catch (e) { saved = null; }
+  if (!saved || !saved.playerId || !saved.gameCode) return false;
+  try {
+    const res = await fetch('/api/game/' + saved.gameCode);
+    if (!res.ok) { clearSession(); return false; }
+  } catch (e) { return false; }
+  playerState.currentPlayer = { id: saved.playerId, name: saved.name, avatar: saved.avatar, color: saved.color, score: saved.score || 0 };
+  playerState.gameCode       = saved.gameCode;
+  playerState.score          = saved.score || 0;
+  playerState.correctCount   = saved.correctCount || 0;
+  playerState.totalQuestions = saved.totalQuestions || 0;
+  updatePlayerHeader();
+  updatePlayerStats();
+  connectSSE(saved.gameCode);
+  return true;
 }
 
 // ---- Navigation entre ecrans ----
@@ -166,12 +217,16 @@ async function joinGameWithCode() {
     playerState.currentPlayer = player;
     playerState.gameCode = code;
     playerState.score = 0;
+    playerState.correctCount = 0;
+    playerState.totalQuestions = 0;
 
     addPlayerToLobby(player);
     const codeDisplay = document.getElementById('lobby-code');
     if (codeDisplay) codeDisplay.textContent = code;
     showScreen('screen-lobby');
     updatePlayerHeader();
+    updatePlayerStats();
+    saveSession();
 
     connectSSE(code);
     showToast('Bienvenue ' + name, 'success');
@@ -187,6 +242,7 @@ function connectSSE(code) {
     playerState.sse.close();
     playerState.sse = null;
   }
+  clearTimeout(reconnectTimeout);
 
   try {
     const sse = new EventSource('/api/events/' + code);
@@ -198,6 +254,32 @@ function connectSSE(code) {
       const container = document.getElementById('players-list');
       if (container) container.innerHTML = '';
       players.forEach(p => addPlayerToLobby(p));
+
+      // Reconnexion : restaurer état depuis serveur
+      if (playerState.currentPlayer) {
+        const serverPlayer = players.find(p => p.id === playerState.currentPlayer.id);
+        if (serverPlayer) {
+          playerState.score = serverPlayer.score || playerState.score;
+          playerState.currentPlayer.score = playerState.score;
+          updatePlayerHeader();
+          saveSession();
+        }
+        if (data.gamePhase === 'game') {
+          showScreen('screen-game');
+          if (data.currentQuestion) {
+            PlayerGame.showQuestion(data.currentQuestion.question, data.currentQuestion.idx, data.currentQuestion.total, data.currentQuestion.timeLeft);
+          } else {
+            const st = document.getElementById('game-status');
+            if (st) st.textContent = '\u23f3 Prochaine question...';
+          }
+        } else if (data.gamePhase === 'ended') {
+          clearSession();
+        } else {
+          const codeDisplay = document.getElementById('lobby-code');
+          if (codeDisplay) codeDisplay.textContent = code;
+          showScreen('screen-lobby');
+        }
+      }
     });
 
     sse.addEventListener('playerJoin', function(e) {
@@ -225,7 +307,11 @@ function connectSSE(code) {
       if (myResult && typeof myResult.score === 'number') {
         playerState.score = myResult.score;
         if (playerState.currentPlayer) playerState.currentPlayer.score = myResult.score;
+        playerState.totalQuestions++;
+        if (myResult.isCorrect) playerState.correctCount++;
+        saveSession();
         updatePlayerHeader();
+        updatePlayerStats();
       }
       PlayerGame.showAnswer(data.correctIndices, data.correctAnswer, myResult);
     });
@@ -236,11 +322,17 @@ function connectSSE(code) {
     });
 
     sse.onerror = function() {
-      console.log('SSE error');
+      if (playerState.sse === sse) playerState.sse = null;
+      clearTimeout(reconnectTimeout);
+      if (playerState.currentPlayer && playerState.gameCode) {
+        reconnectTimeout = setTimeout(function() {
+          connectSSE(playerState.gameCode);
+        }, 3000);
+      }
     };
   } catch (e) {
     console.error('SSE error:', e);
-    showToast('Erreur SSE', 'error');
+    showToast('Erreur connexion', 'error');
   }
 }
 
@@ -264,6 +356,8 @@ function addPlayerToLobby(player) {
 const PlayerGame = (function() {
   let answered = false;
   let selectedIndices = [];
+  let playerTimerInterval = null;
+  let playerTimerTotal = 60;
 
   function showQuestion(q, idx, total, time) {
     answered = false;
@@ -330,7 +424,7 @@ const PlayerGame = (function() {
         }
       }
     }
-    updateTimer(time);
+    startPlayerTimer(time);
   }
 
   function toggleChoiceSelection(choiceIndex) {
@@ -405,17 +499,38 @@ const PlayerGame = (function() {
     submitAnswer(null, text);
   }
 
-  function updateTimer(time) {
+  function startPlayerTimer(time) {
+    clearInterval(playerTimerInterval);
+    playerTimerTotal = time || 60;
+    renderTimerUI(time);
+    playerTimerInterval = setInterval(function() {
+      time--;
+      renderTimerUI(time);
+      if (time <= 0) clearInterval(playerTimerInterval);
+    }, 1000);
+  }
+
+  function stopPlayerTimer() {
+    clearInterval(playerTimerInterval);
+  }
+
+  function renderTimerUI(time) {
     const bar = document.getElementById('timer-bar');
     const text = document.getElementById('timer-text');
     if (bar) {
-      bar.style.setProperty('--progress', (time / 60 * 100) + '%');
+      const pct = playerTimerTotal > 0 ? (time / playerTimerTotal) * 100 : 0;
+      bar.style.setProperty('--progress', Math.max(0, pct) + '%');
       bar.className = 'timer-bar' + (time <= 10 ? ' warning' : '');
     }
-    if (text) text.textContent = time;
+    if (text) text.textContent = Math.max(0, time);
+  }
+
+  function updateTimer(time) {
+    renderTimerUI(time);
   }
 
   function showAnswer(correctIndices, correctAnswer, myResult) {
+    stopPlayerTimer();
     const grid = document.getElementById('choices-grid');
     if (grid) {
       grid.querySelectorAll('.choice-btn').forEach((btn, i) => {
@@ -457,6 +572,7 @@ const PlayerGame = (function() {
   }
 
   function showPodium(players) {
+    clearSession();
     const standings = document.getElementById('podium-standings');
     if (!standings) return;
     const sorted = players.slice().sort((a, b) => b.score - a.score);
@@ -506,5 +622,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (codeFromUrl) {
     playerState.gameCode = codeFromUrl;
     setTimeout(function() { goToJoinStep('info'); }, 400);
+  } else {
+    tryRestoreSession();
   }
 });

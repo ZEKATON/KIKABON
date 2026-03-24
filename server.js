@@ -124,10 +124,12 @@ const server = http.createServer(async (req, res) => {
     }
     games.set(code, {
       code, adminToken,
-      questions:  body.questions,
-      players:    [],
-      sseClients: new Set(),
-      createdAt:  Date.now(),
+      questions:       body.questions,
+      players:         [],
+      sseClients:      new Set(),
+      createdAt:       Date.now(),
+      gamePhase:       'lobby',
+      currentQuestion: null,
     });
     return json(200, { code, adminToken });
   }
@@ -177,8 +179,19 @@ const server = http.createServer(async (req, res) => {
       'X-Accel-Buffering': 'no',
     });
     res.write(': stream open\n\n');
-    // Envoyer l'état courant aux nouveaux connectés
-    res.write(`event: init\ndata: ${JSON.stringify({ players: game.players })}\n\n`);
+    // Envoyer l'état courant aux nouveaux connectés (y compris question active pour reconnexion)
+    const initPayload = { players: game.players, gamePhase: game.gamePhase };
+    if (game.currentQuestion) {
+      const elapsed = Math.floor((Date.now() - game.currentQuestion.startedAt) / 1000);
+      const remaining = Math.max(0, game.currentQuestion.duration - elapsed);
+      initPayload.currentQuestion = {
+        question: game.currentQuestion.question,
+        idx:      game.currentQuestion.idx,
+        total:    game.currentQuestion.total,
+        timeLeft: remaining,
+      };
+    }
+    res.write(`event: init\ndata: ${JSON.stringify(initPayload)}\n\n`);
 
     game.sseClients.add(res);
 
@@ -246,6 +259,24 @@ const server = http.createServer(async (req, res) => {
         const p = game.players.find(p => p.id === upd.id);
         if (p) { p.score = upd.score || 0; p.position = upd.position || 0; }
       });
+    }
+
+    // Suivre la phase de jeu et la question courante (pour reconnexion)
+    if (body.type === 'gameStart') {
+      game.gamePhase = 'game';
+    } else if (body.type === 'question') {
+      game.currentQuestion = {
+        question:  body.payload.question,
+        idx:       body.payload.idx,
+        total:     body.payload.total,
+        duration:  body.payload.timeLeft,
+        startedAt: Date.now(),
+      };
+    } else if (body.type === 'questionEnd') {
+      game.currentQuestion = null;
+    } else if (body.type === 'gameEnd') {
+      game.gamePhase = 'ended';
+      game.currentQuestion = null;
     }
 
     broadcast(code, body.type, body.payload || {});
