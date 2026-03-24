@@ -384,21 +384,21 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
       <div id="modal-qcm-section">
         <p class="form-hint">Marquez la(les) bonne(s) réponse(s) avec ✓</p>
         <div id="modal-choices">
-          <div class="choice-row">
+          <div class="choice-row" onclick="Admin.toggleCorrectFromRow(event, 0)">
             <input type="text" placeholder="Choix A" class="choice-input" data-idx="0">
-            <button class="choice-correct active" data-idx="0" onclick="Admin.toggleCorrect(0)">✓</button>
+            <button class="choice-correct active" data-idx="0" onclick="Admin.toggleCorrect(0, event)">✓</button>
           </div>
-          <div class="choice-row">
+          <div class="choice-row" onclick="Admin.toggleCorrectFromRow(event, 1)">
             <input type="text" placeholder="Choix B" class="choice-input" data-idx="1">
-            <button class="choice-correct" data-idx="1" onclick="Admin.toggleCorrect(1)">✓</button>
+            <button class="choice-correct" data-idx="1" onclick="Admin.toggleCorrect(1, event)">✓</button>
           </div>
-          <div class="choice-row">
+          <div class="choice-row" onclick="Admin.toggleCorrectFromRow(event, 2)">
             <input type="text" placeholder="Choix C" class="choice-input" data-idx="2">
-            <button class="choice-correct" data-idx="2" onclick="Admin.toggleCorrect(2)">✓</button>
+            <button class="choice-correct" data-idx="2" onclick="Admin.toggleCorrect(2, event)">✓</button>
           </div>
-          <div class="choice-row">
+          <div class="choice-row" onclick="Admin.toggleCorrectFromRow(event, 3)">
             <input type="text" placeholder="Choix D" class="choice-input" data-idx="3">
-            <button class="choice-correct" data-idx="3" onclick="Admin.toggleCorrect(3)">✓</button>
+            <button class="choice-correct" data-idx="3" onclick="Admin.toggleCorrect(3, event)">✓</button>
           </div>
         </div>
       </div>

@@ -227,7 +227,17 @@ const Admin = (() => {
     }
   }
 
-  function toggleCorrect(idx) {
+  function toggleCorrectFromRow(event, idx) {
+    if (event && event.target && event.target.classList && event.target.classList.contains('choice-input')) {
+      return;
+    }
+    toggleCorrect(idx);
+  }
+
+  function toggleCorrect(idx, event) {
+    if (event && typeof event.stopPropagation === 'function') {
+      event.stopPropagation();
+    }
     if (isMultipleChoice) {
       // Mode choix multiples: toggle
       if (correctIndices.includes(idx)) {
@@ -523,7 +533,7 @@ const Admin = (() => {
   return {
     showTab, renderQuestions, renderSaved,
     addQuestion, editQuestion, deleteQuestion, moveQuestion,
-    saveQuestion, closeModal, updateModalType, setCorrect,
+    saveQuestion, closeModal, updateModalType, setCorrect, toggleCorrectFromRow,
     importFromText, importFromFile, importFromFileObj,
     saveQuiz, loadSavedQuiz, loadAndLaunchQuiz, downloadSavedQuiz, deleteSavedQuiz,
     startNewQuiz,
