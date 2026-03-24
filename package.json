@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "build": "mkdir public 2>nul || echo. && copy \"index (2).html\" \"public\\index.html\" && copy \"style.css\" \"public\\style.css\" && copy \"app.js\" \"public\\app.js\" && copy \"admin.js\" \"public\\admin.js\" && copy \"game.js\" \"public\\game.js\" && echo Build completed - files copied to ./public",
+    "build": "node -e \"const fs=require('fs'); const files=[['index (2).html','public/index.html'],['style.css','public/style.css'],['app.js','public/app.js'],['admin.js','public/admin.js'],['game.js','public/game.js']]; if(!fs.existsSync('public')) fs.mkdirSync('public'); files.forEach(([src,dest])=>fs.copyFileSync(src,dest)); console.log('Build completed - files copied to ./public');\"",
+    "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('public')) fs.rmSync('public',{recursive:true,force:true}); console.log('Clean completed - public directory removed');\"",
     "test": "echo \"No tests configured\" && exit 0"
   },
   "keywords": [
