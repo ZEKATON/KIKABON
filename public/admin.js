@@ -83,7 +83,7 @@ const Admin = (() => {
     editingId = null;
     correctIdx = 0;
     resetModal(type);
-    document.getElementById('modal-title').textContent = type === 'qcm' ? 'Nouvelle question QCM' : 'Nouvelle question ouverte';
+    document.getElementById('modal-title').textContent = type === 'open' ? 'Nouvelle question ouverte' : 'Nouvelle question QCM';
     openModal();
   }
 
@@ -97,7 +97,9 @@ const Admin = (() => {
     correctIndices = q.type === 'qcm' && q.correctIndices ? [...q.correctIndices] : [q.correct || 0];
     
     document.getElementById('modal-title').textContent = 'Modifier la question';
-    document.getElementById('modal-type').value = q.type;
+    document.getElementById('modal-type').value = q.type === 'open'
+      ? 'open'
+      : (q.multipleAnswers ? 'multiple' : 'single');
     document.getElementById('modal-question-text').value = q.text;
     document.getElementById('modal-category').value = q.category || '';
     updateModalType();
@@ -105,16 +107,8 @@ const Admin = (() => {
     if (q.type === 'qcm') {
       const inputs = document.querySelectorAll('.choice-input');
       q.choices.forEach((c, i) => { if (inputs[i]) inputs[i].value = c; });
-      
-      // Charger le type de réponse
-      const answerTypeRadios = document.querySelectorAll('input[name="answer-type"]');
-      answerTypeRadios.forEach(radio => {
-        radio.checked = (isMultipleChoice && radio.value === 'multiple') || 
-                       (!isMultipleChoice && radio.value === 'unique');
-      });
-      
+
       // Charger les réponses correctes
-      updateAnswerType();
       correctIndices.forEach(idx => {
         const btn = document.querySelector(`.choice-correct[data-idx="${idx}"]`);
         if (btn) btn.classList.add('active');
@@ -127,7 +121,8 @@ const Admin = (() => {
 
   // ---- Save question from modal ----
   function saveQuestion() {
-    const type = document.getElementById('modal-type').value;
+    const mode = document.getElementById('modal-type').value;
+    const type = mode === 'open' ? 'open' : 'qcm';
     const text = document.getElementById('modal-question-text').value.trim();
     const category = document.getElementById('modal-category').value.trim();
     if (!text) { App.showToast('Saisissez la question !', 'error'); return; }
@@ -141,6 +136,7 @@ const Admin = (() => {
       qData.choices = choices;
       
       // Déterminer le type de réponse
+      isMultipleChoice = mode === 'multiple';
       qData.multipleAnswers = isMultipleChoice;
       if (isMultipleChoice) {
         qData.correctIndices = correctIndices;
@@ -194,7 +190,7 @@ const Admin = (() => {
     document.getElementById('modal-question').style.display = 'none';
   }
   function resetModal(type) {
-    document.getElementById('modal-type').value = type;
+    document.getElementById('modal-type').value = type === 'open' ? 'open' : 'single';
     document.getElementById('modal-question-text').value = '';
     document.getElementById('modal-category').value = '';
     document.querySelectorAll('.choice-input').forEach(i => i.value = '');
@@ -204,22 +200,15 @@ const Admin = (() => {
     correctIdx = 0;
     correctIndices = [0];
     
-    // Réinitialiser les radios
-    const answerTypeRadios = document.querySelectorAll('input[name="answer-type"]');
-    answerTypeRadios.forEach(radio => radio.checked = radio.value === 'unique');
-    
     setCorrect(0);
     updateModalType();
   }
   function updateModalType() {
-    const type = document.getElementById('modal-type').value;
-    document.getElementById('modal-qcm-section').style.display = type === 'qcm' ? 'block' : 'none';
-    document.getElementById('modal-open-section').style.display = type === 'open' ? 'block' : 'none';
-  }
-
-  function updateAnswerType() {
-    const answerType = document.querySelector('input[name="answer-type"]:checked')?.value || 'unique';
-    isMultipleChoice = answerType === 'multiple';
+    const mode = document.getElementById('modal-type').value;
+    const isOpen = mode === 'open';
+    isMultipleChoice = mode === 'multiple';
+    document.getElementById('modal-qcm-section').style.display = isOpen ? 'none' : 'block';
+    document.getElementById('modal-open-section').style.display = isOpen ? 'block' : 'none';
     
     // Si on passe en choix uniques et il y a plusieurs réponses, garder seulement la première
     if (!isMultipleChoice && correctIndices.length > 1) {

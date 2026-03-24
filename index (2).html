@@ -370,9 +370,10 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label>Type</label>
+        <label>Type de réponse</label>
         <select id="modal-type" onchange="Admin.updateModalType()">
-          <option value="qcm">QCM</option>
+          <option value="single">Question à choix unique</option>
+          <option value="multiple">Question à choix multiples</option>
           <option value="open">Question ouverte</option>
         </select>
       </div>
@@ -381,19 +382,6 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
         <textarea id="modal-question-text" rows="3" placeholder="Saisissez votre question..."></textarea>
       </div>
       <div id="modal-qcm-section">
-        <div class="form-group">
-          <label>Type de réponse</label>
-          <div class="radio-group">
-            <label class="radio-label">
-              <input type="radio" name="answer-type" value="unique" checked onchange="Admin.updateAnswerType()">
-              Choix unique (45 sec)
-            </label>
-            <label class="radio-label">
-              <input type="radio" name="answer-type" value="multiple" onchange="Admin.updateAnswerType()">
-              Choix multiples (60 sec)
-            </label>
-          </div>
-        </div>
         <p class="form-hint">Marquez la(les) bonne(s) réponse(s) avec ✓</p>
         <div id="modal-choices">
           <div class="choice-row">
@@ -416,8 +404,8 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
       </div>
       <div id="modal-open-section" style="display:none">
         <div class="form-group">
-          <label>Réponse attendue (mots-clés séparés par des virgules)</label>
-          <input type="text" id="modal-open-answer" placeholder="Ex: photosynthèse, chlorophylle">
+          <label>Réponse attendue (mots-clés séparés par virgule ou "ou")</label>
+          <input type="text" id="modal-open-answer" placeholder="Ex: chlorophylle ou photosynthèse">
         </div>
       </div>
       <div class="form-group">

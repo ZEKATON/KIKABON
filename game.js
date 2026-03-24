@@ -231,7 +231,7 @@ const Game = (() => {
         } else {
           const playerAnswer = normalizeAnswerText(player.lastAnswer);
           const keywords = String(q.answer || '')
-            .split(',')
+            .split(/\s*,\s*|\s+ou\s+/i)
             .map(k => normalizeAnswerText(k))
             .filter(Boolean);
           isCorrect = keywords.some(kw => playerAnswer.includes(kw));
