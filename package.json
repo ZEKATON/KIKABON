@@ -4,7 +4,8 @@
   "description": "QuizRace - jeu quiz live pour la formation",
   "private": true,
   "scripts": {
-    "start": "npx live-server . --open=\"index (2).html\"",
+    "start": "node server.js",
+    "build": "echo 'Build completed - no build process needed for static site'",
     "test": "echo \"No tests configured\" && exit 0"
   },
   "keywords": ["quiz","game","education","formation"],
