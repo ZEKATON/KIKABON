@@ -8,7 +8,6 @@ const path = require('path');
 
 const port       = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const FIXED_GAME_CODE = process.env.GAME_CODE || '4242';
 
 // ---- Util: lire le body JSON ----
 function readBody(req) {
@@ -41,6 +40,11 @@ function uniqueCode() {
   do { code = String(Math.floor(Math.random() * 10000)).padStart(4, '0'); }
   while (games.has(code));
   return code;
+}
+
+function normalizeRequestedCode(value) {
+  const code = String(value || '').trim();
+  return /^\d{4}$/.test(code) ? code : null;
 }
 
 // Diffuser un événement SSE à tous les clients d'une partie
@@ -115,7 +119,8 @@ const server = http.createServer(async (req, res) => {
     if (!Array.isArray(body.questions) || body.questions.length === 0) {
       return json(400, { error: 'questions required' });
     }
-    const code       = FIXED_GAME_CODE;
+    const requestedCode = normalizeRequestedCode(body.code);
+    const code = requestedCode || uniqueCode();
     const adminToken = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     const previousGame = games.get(code);
     if (previousGame) {

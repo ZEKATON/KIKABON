@@ -175,6 +175,28 @@ const App = (() => {
   function loadSavedQuizzes() {
     const saved = localStorage.getItem('quizrace_saved');
     if (saved) state.savedQuizzes = JSON.parse(saved);
+
+    // Garantir un code de jeu unique par quiz sauvegarde
+    let changed = false;
+    const used = new Set();
+    state.savedQuizzes = (state.savedQuizzes || []).map(quiz => {
+      const clone = { ...quiz };
+      let code = String(clone.gameCode || '').trim();
+      const valid = /^\d{4}$/.test(code) && !used.has(code);
+      if (!valid) {
+        do {
+          code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+        } while (used.has(code));
+        clone.gameCode = code;
+        changed = true;
+      }
+      used.add(code);
+      return clone;
+    });
+
+    if (changed) {
+      localStorage.setItem('quizrace_saved', JSON.stringify(state.savedQuizzes));
+    }
   }
 
   function persistSavedQuizzes() {
@@ -397,6 +419,7 @@ const App = (() => {
       card.innerHTML = `
         <div class="quiz-card-title">💾 ${quiz.name}</div>
         <div class="quiz-card-stats">
+          <div class="quiz-card-stat">🔢 Code: ${quiz.gameCode || '----'}</div>
           <div class="quiz-card-stat">❓ ${quiz.count} question${quiz.count > 1 ? 's' : ''}</div>
           <div class="quiz-card-stat">📅 ${quiz.date}</div>
         </div>

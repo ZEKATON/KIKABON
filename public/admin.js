@@ -9,6 +9,19 @@ const Admin = (() => {
   let isMultipleChoice = false; // Mode choix unique ou multiples
   let adminSSE = null;
 
+  function generateUniqueSavedQuizCode(excludeQuizId = null) {
+    const used = new Set(
+      (App.state.savedQuizzes || [])
+        .filter(q => q && q.id !== excludeQuizId && /^\d{4}$/.test(String(q.gameCode || '')))
+        .map(q => String(q.gameCode))
+    );
+    let code;
+    do {
+      code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    } while (used.has(code));
+    return code;
+  }
+
   function startNewQuiz() {
     const hasQuestions = App.state.questions.length > 0;
     if (hasQuestions && !confirm('Créer un nouveau quiz et effacer le quiz en cours ?')) {
@@ -345,12 +358,14 @@ const Admin = (() => {
     const name = prompt('Nom du quiz :', `Quiz ${new Date().toLocaleDateString('fr-FR')}`);
     if (!name) return;
     const existingQuiz = App.state.currentQuiz && App.state.savedQuizzes.find(q => q.id === App.state.currentQuiz.id);
+    const gameCode = existingQuiz?.gameCode || generateUniqueSavedQuizCode(existingQuiz?.id || null);
     const quiz = {
       id: existingQuiz ? existingQuiz.id : Date.now(),
       name,
       questions: [...qs],
       date: new Date().toLocaleDateString('fr-FR'),
       count: qs.length,
+      gameCode,
     };
     if (existingQuiz) {
       const index = App.state.savedQuizzes.findIndex(q => q.id === existingQuiz.id);
@@ -384,6 +399,7 @@ const Admin = (() => {
       item.innerHTML = `
         <div class="saved-info">
            <button class="saved-launch-btn" onclick="Admin.loadAndLaunchQuiz(${quiz.id})">▶️ ${quiz.name}</button>
+          <p>🔢 Code jeu : <strong>${quiz.gameCode || '----'}</strong></p>
           <p>${quiz.count} question(s) — ${quiz.date}</p>
         </div>
         <div class="saved-actions">
@@ -401,16 +417,22 @@ const Admin = (() => {
     if (!quiz) return;
     if (!confirm(`Charger "${quiz.name}" ? (remplace les questions actuelles)`)) return;
     App.state.questions = [...quiz.questions];
+    if (!quiz.gameCode) quiz.gameCode = generateUniqueSavedQuizCode(quiz.id);
     App.state.currentQuiz = quiz;
     renderQuestions();
       showTab('tab-saved');
     App.showScreen('screen-admin');
+    App.persistSavedQuizzes();
     App.showToast(`Quiz "${quiz.name}" chargé ✓`, 'success');
   }
 
   function loadAndLaunchQuiz(id) {
     const quiz = App.state.savedQuizzes.find(q => q.id === id);
     if (!quiz) return;
+    if (!quiz.gameCode) {
+      quiz.gameCode = generateUniqueSavedQuizCode(quiz.id);
+      App.persistSavedQuizzes();
+    }
     App.state.questions = [...quiz.questions];
     App.state.currentQuiz = quiz;
     renderQuestions();
@@ -469,7 +491,10 @@ const Admin = (() => {
       const res = await fetch('/api/host', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions: App.state.questions }),
+        body: JSON.stringify({
+          questions: App.state.questions,
+          code: App.state.currentQuiz?.gameCode || null,
+        }),
       });
       if (!res.ok) throw new Error('server error');
       const { code, adminToken } = await res.json();

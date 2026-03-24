@@ -17,8 +17,6 @@ const PLAYER_COLORS = [
   '#fd79a8','#6c5ce7','#00b894','#e17055'
 ];
 
-const DEFAULT_GAME_CODE = '4242';
-
 // ---- Etat joueur ----
 const playerState = {
   currentPlayer: null,
@@ -153,17 +151,16 @@ async function goToJoinStep(step) {
       showToast('Code invalide', 'error');
       return;
     }
-    if (code !== DEFAULT_GAME_CODE) {
-      showToast('Utilisez le code 4242', 'error');
-      return;
-    }
     try {
       const res = await fetch('/api/game/' + code);
       if (!res.ok) {
-        showToast('Code valide, en attente du professeur', 'success');
+        showToast('Partie introuvable pour ce code', 'error');
+        return;
       }
     } catch (e) {
       console.error('API error:', e);
+      showToast('Serveur indisponible', 'error');
+      return;
     }
     playerState.gameCode = code;
     codeStep.style.display = 'none';
@@ -186,10 +183,6 @@ async function joinGameWithCode() {
   }
   if (!code) {
     showToast('Code manquant', 'error');
-    return;
-  }
-  if (code !== DEFAULT_GAME_CODE) {
-    showToast('Utilisez le code 4242', 'error');
     return;
   }
 
@@ -224,6 +217,8 @@ async function joinGameWithCode() {
     const codeDisplay = document.getElementById('lobby-code');
     if (codeDisplay) codeDisplay.textContent = code;
     showScreen('screen-lobby');
+    const footerMsg = document.querySelector('#screen-lobby .lobby-footer p');
+    if (footerMsg) footerMsg.textContent = 'En attente du professeur pour démarrer le quiz...';
     updatePlayerHeader();
     updatePlayerStats();
     saveSession();
@@ -617,7 +612,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const codeFromUrl = params.get('code');
   const input = document.getElementById('join-code');
   if (input) {
-    input.value = codeFromUrl || DEFAULT_GAME_CODE;
+    input.value = codeFromUrl || '';
   }
   if (codeFromUrl) {
     playerState.gameCode = codeFromUrl;
