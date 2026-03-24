@@ -141,6 +141,7 @@ const App = (() => {
   }
 
   // ---- Toast ----
+  function showToast(msg, type = '') {
     const toast = document.getElementById('toast');
     toast.textContent = msg;
     toast.className = `toast ${type} show`;
