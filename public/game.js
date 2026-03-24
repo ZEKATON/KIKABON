@@ -47,6 +47,11 @@ const Game = (() => {
     document.getElementById('btn-resume-game').style.display = 'none';
     document.getElementById('question-card').style.display = 'none';
     document.getElementById('question-result').style.display = 'none';
+
+    // Informer les onglets joueurs
+    if (typeof syncChannel !== 'undefined') {
+      syncChannel.postMessage({ type: 'gameStart', payload: {} });
+    }
   }
 
   // ---- Lancer une question par l'admin ----
@@ -108,6 +113,11 @@ const Game = (() => {
 
     // Timer
     startTimer();
+
+    // Diffuser la question aux onglets joueurs
+    if (typeof syncChannel !== 'undefined') {
+      syncChannel.postMessage({ type: 'question', payload: { question: q, idx: currentQuestionIdx, total, timeLeft: getQuestionTime() } });
+    }
   }
 
   // ---- Afficher une question ----
@@ -149,6 +159,11 @@ const Game = (() => {
     });
     
     showCorrectAnswer(false, correctAnswerText);
+
+    // Informer les onglets joueurs de la fin de question
+    if (typeof syncChannel !== 'undefined') {
+      syncChannel.postMessage({ type: 'questionEnd', payload: { correctIndices, correctAnswer: correctAnswerText } });
+    }
 
     // Traiter les résultats et avancer les joueurs qui ont bien répondu
     processResults();
@@ -304,6 +319,10 @@ const Game = (() => {
       if (timeLeft <= 0) {
         clearInterval(timer);
         timeExpired();
+      }
+      // Diffuser le chrono aux joueurs (toutes les 5 secondes pour économiser)
+      if (typeof syncChannel !== 'undefined' && timeLeft % 5 === 0) {
+        syncChannel.postMessage({ type: 'timerTick', payload: { timeLeft } });
       }
     }, 1000);
   }
@@ -486,6 +505,10 @@ const Game = (() => {
     stopTimer();
     App.showScreen('screen-podium');
     showPodium();
+    // Informer les onglets joueurs
+    if (typeof syncChannel !== 'undefined') {
+      syncChannel.postMessage({ type: 'gameEnd', payload: { players: App.state.players } });
+    }
   }
 
   // ---- Podium ----

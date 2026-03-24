@@ -423,10 +423,8 @@ const Admin = (() => {
     const code = App.generateGameCode();
     App.updateTrackLength();
     
-    // Afficher le code aux joueurs
-    App.showScreen('screen-lobby');
-    
     // Afficher le code dans le lobby
+    App.showScreen('screen-lobby');
     const codeDisplay = document.getElementById('lobby-code');
     if (codeDisplay) codeDisplay.textContent = code;
   }

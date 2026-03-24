@@ -88,16 +88,30 @@
 <div id="screen-game" class="screen">
   <div class="game-container">
     <div class="game-header">
-      <div class="question-counter" id="question-counter">Question 1/10</div>
-      <div class="timer" id="timer">30</div>
-    </div>
-
-    <div class="question-display" id="question-display">
-      <h2 id="question-text">Question en cours de chargement...</h2>
-      <div class="answers-grid" id="answers-grid">
-        <!-- Les réponses seront générées ici -->
+      <div class="question-counter" id="track-question-num">Q1/5</div>
+      <div class="timer-bar-wrap">
+        <div class="timer-bar" id="timer-bar"></div>
+        <span class="timer-text" id="timer-text">30</span>
       </div>
     </div>
+
+    <div id="question-card" style="display:none">
+      <div class="question-category" id="question-category">Question</div>
+      <h2 id="question-text" class="question-text-player"></h2>
+      <div class="choices-grid" id="choices-grid"></div>
+      <div class="open-answer" id="open-answer" style="display:none">
+        <input type="text" id="open-input" placeholder="Votre réponse...">
+        <button class="btn btn-primary" onclick="PlayerGame.submitAnswer(null, document.getElementById('open-input').value.trim(), null, null)">✓ Valider</button>
+      </div>
+    </div>
+
+    <div class="question-result" id="question-result" style="display:none">
+      <div class="result-icon" id="result-icon"></div>
+      <div class="result-text" id="result-text"></div>
+      <div class="result-answer" id="result-answer"></div>
+    </div>
+
+    <div class="game-status" id="game-status">⏳ En attente du professeur...</div>
 
     <div class="game-footer">
       <div class="player-info">
@@ -126,14 +140,21 @@
 <!-- Scripts -->
 <script src="app.js"></script>
 <script src="game.js"></script>
-<script src="lobby.js"></script>
 
 <script>
 // Initialisation pour la page joueur
 document.addEventListener('DOMContentLoaded', function() {
-  App.init();
   App.showScreen('screen-join');
   
+  // Afficher les infos du joueur sur l'écran de jeu
+  const currentPlayer = App.state.currentPlayer;
+  if (currentPlayer) {
+    const avatarEl = document.getElementById('player-avatar');
+    const nameEl = document.getElementById('player-name');
+    if (avatarEl) avatarEl.textContent = currentPlayer.avatar;
+    if (nameEl) nameEl.textContent = currentPlayer.name;
+  }
+
   // Vérifier si un code est passé dans l'URL
   const urlParams = new URLSearchParams(window.location.search);
   const codeFromUrl = urlParams.get('code');
@@ -141,10 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const codeInput = document.getElementById('join-code');
     if (codeInput) {
       codeInput.value = codeFromUrl;
-      // Passer automatiquement à l'étape suivante
-      setTimeout(() => {
-        App.goToJoinStep('info');
-      }, 500);
+      setTimeout(() => App.goToJoinStep('info'), 500);
     }
   }
 });

@@ -110,8 +110,9 @@ const App = (() => {
     const avatar = document.querySelector('.avatar-btn.selected')?.textContent || '🐼';
     if (!name) { showToast('Entrez votre prénom !', 'error'); return; }
 
-    // Vérifier le code
-    if (code !== state.gameCode) {
+    // Vérifier le code : mémoire (admin) ou localStorage (joueur séparé)
+    const activeCode = state.gameCode || localStorage.getItem('kikabon_gameCode');
+    if (!activeCode || code !== activeCode) {
       showToast('Code incorrect ! 🚫', 'error');
       return;
     }
@@ -131,12 +132,15 @@ const App = (() => {
     state.players.push(player);
     state.currentPlayer = player;
     showScreen('screen-lobby');
-    Lobby.addPlayer(player);
+    if (document.getElementById('lobby-players') || document.getElementById('players-list')) {
+      Lobby.addPlayer(player);
+    }
+    // Notifier l'admin via BroadcastChannel
+    if (syncChannel) syncChannel.postMessage({ type: 'playerJoin', player });
     showToast(`Bienvenue ${name} ! 🎉`, 'success');
   }
 
   // ---- Toast ----
-  function showToast(msg, type = '') {
     const toast = document.getElementById('toast');
     toast.textContent = msg;
     toast.className = `toast ${type} show`;
@@ -150,13 +154,16 @@ const App = (() => {
   function loadSettings() {
     const saved = localStorage.getItem('quizrace_settings');
     if (saved) Object.assign(state.settings, JSON.parse(saved));
-    document.getElementById('setting-time').value = state.settings.timePerQuestion;
-    document.getElementById('setting-advance').value = state.settings.advancePerCorrect;
-    document.getElementById('setting-track').value = state.settings.trackLength;
-    document.getElementById('setting-sound').checked = state.settings.soundEnabled;
+    if (document.getElementById('setting-time')) {
+      document.getElementById('setting-time').value = state.settings.timePerQuestion;
+      document.getElementById('setting-advance').value = state.settings.advancePerCorrect;
+      document.getElementById('setting-track').value = state.settings.trackLength;
+      document.getElementById('setting-sound').checked = state.settings.soundEnabled;
+    }
   }
 
   function saveSettings() {
+    if (!document.getElementById('setting-time')) return;
     state.settings.timePerQuestion = parseInt(document.getElementById('setting-time').value) || 30;
     state.settings.advancePerCorrect = parseInt(document.getElementById('setting-advance').value) || 1;
     state.settings.trackLength = parseInt(document.getElementById('setting-track').value) || 10;
@@ -229,12 +236,13 @@ const App = (() => {
     loadSettings();
     loadSavedQuizzes();
 
-    // Sauvegarde auto des paramètres
+    // Sauvegarde auto des paramètres (admin seulement)
     ['setting-time','setting-advance','setting-track','setting-sound'].forEach(id => {
-      document.getElementById(id).addEventListener('change', saveSettings);
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', saveSettings);
     });
 
-    // Drag & drop fichier import
+    // Drag & drop fichier import (admin seulement)
     const drop = document.getElementById('file-drop');
     if (drop) {
       drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = 'var(--accent)'; });
@@ -252,12 +260,20 @@ const App = (() => {
     } else {
       state.questions = JSON.parse(localStorage.getItem('quizrace_questions'));
     }
-    Admin.renderQuestions();
-    Admin.renderSaved();
-    renderQuizList(); // Afficher la liste des quiz
 
-    // Afficher l'écran d'accueil
-    showScreen('screen-home');
+    // Rendu admin uniquement si le module Admin est disponible
+    if (typeof Admin !== 'undefined') {
+      Admin.renderQuestions();
+      Admin.renderSaved();
+    }
+    if (document.getElementById('quiz-grid')) {
+      renderQuizList();
+    }
+
+    // Afficher l'écran d'accueil (admin) ou rejoindre (joueur)
+    if (document.getElementById('screen-home')) {
+      showScreen('screen-home');
+    }
   }
 
   function getDemoQuestions() {
@@ -308,7 +324,9 @@ const App = (() => {
         showToast('Entrez un code valide (4 chiffres)', 'error');
         return;
       }
-      if (code !== state.gameCode) {
+      // Vérifier le code : d'abord en mémoire (admin), puis localStorage (page joueur)
+      const activeCode = state.gameCode || localStorage.getItem('kikabon_gameCode');
+      if (!activeCode || code !== activeCode) {
         showToast('Code incorrect ! 🚫', 'error');
         return;
       }
@@ -322,43 +340,13 @@ const App = (() => {
   // ---- Générer code de jeu (4 chiffres) ----
   function generateGameCode() {
     state.gameCode = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    localStorage.setItem('kikabon_gameCode', state.gameCode);
     return state.gameCode;
   }
 
   // ---- Mettre à jour la longueur de la piste selon le nombre de questions ----
   function updateTrackLength() {
     state.settings.trackLength = Math.max(state.questions.length, 5);
-  }
-
-  // ---- Rejoindre la partie avec code ----
-  function joinGameWithCode(code) {
-    const name = document.getElementById('join-name').value.trim();
-    const avatar = document.querySelector('.avatar-btn.selected')?.textContent || '🐼';
-    if (!name) { showToast('Entrez votre prénom !', 'error'); return; }
-
-    // Vérifier le code
-    if (code !== state.gameCode) {
-      showToast('Code incorrect ! 🚫', 'error');
-      return;
-    }
-
-    const colorIdx = state.players.length % PLAYER_COLORS.length;
-    const player = {
-      id: Date.now(),
-      name,
-      avatar,
-      color: PLAYER_COLORS[colorIdx],
-      score: 0,
-      position: 0,
-      finished: false,
-      finishRank: null,
-      answeredCurrentQuestion: false,
-    };
-    state.players.push(player);
-    state.currentPlayer = player;
-    showScreen('screen-lobby');
-    Lobby.addPlayer(player);
-    showToast(`Bienvenue ${name} ! 🎉`, 'success');
   }
 
   // ---- Afficher la page de sélection de quiz ----
@@ -433,49 +421,238 @@ const App = (() => {
 })();
 
 // ============================================================
+//  CANAL DE SYNCHRONISATION (BroadcastChannel même appareil/onglets)
+// ============================================================
+const syncChannel = new BroadcastChannel('kikabon_sync');
+
+// ============================================================
 //  LOBBY
 // ============================================================
 const Lobby = (() => {
+  function getContainer() {
+    return document.getElementById('lobby-players') || document.getElementById('players-list');
+  }
+
   function addPlayer(player) {
-    const container = document.getElementById('lobby-players');
+    const container = getContainer();
+    if (!container) return;
+    const isAdmin = !!document.getElementById('lobby-players');
     const card = document.createElement('div');
     card.className = 'lobby-player-card';
     card.id = `lobby-player-${player.id}`;
     card.innerHTML = `
       <div class="lobby-player-avatar">${player.avatar}</div>
       <div class="lobby-player-name" style="color:${player.color}">${player.name}</div>
-      <button class="lobby-player-delete" onclick="Lobby.removePlayer(${player.id})" title="Supprimer le joueur">🗑️</button>
+      ${isAdmin ? `<button class="lobby-player-delete" onclick="Lobby.removePlayer(${player.id})" title="Supprimer le joueur">🗑️</button>` : ''}
     `;
     container.appendChild(card);
   }
 
   function removePlayer(playerId) {
-    // Remove from state
     const playerIndex = App.state.players.findIndex(p => p.id === playerId);
-    if (playerIndex !== -1) {
-      App.state.players.splice(playerIndex, 1);
-    }
-    
-    // Remove from UI
+    if (playerIndex !== -1) App.state.players.splice(playerIndex, 1);
     const card = document.getElementById(`lobby-player-${playerId}`);
-    if (card) {
-      card.remove();
-    }
-    
+    if (card) card.remove();
     App.showToast('Joueur supprimé', 'success');
   }
 
   function refreshPlayers() {
-    const container = document.getElementById('lobby-players');
+    const container = getContainer();
+    if (!container) return;
     container.innerHTML = '';
     App.state.players.forEach(player => addPlayer(player));
   }
 
   function clearPlayers() {
-    document.getElementById('lobby-players').innerHTML = '';
+    const container = getContainer();
+    if (container) container.innerHTML = '';
   }
 
   return { addPlayer, removePlayer, refreshPlayers, clearPlayers };
 })();
 
+// ============================================================
+//  GESTION DES MESSAGES REÇUS (page joueur)
+// ============================================================
+syncChannel.onmessage = (e) => {
+  const { type, payload } = e.data || {};
+
+  // Joueur reçoit un autre joueur qui a rejoint → afficher dans le lobby
+  if (type === 'playerJoin') {
+    const p = payload;
+    if (!document.getElementById(`lobby-player-${p.id}`)) {
+      App.state.players.push(p);
+      Lobby.addPlayer(p);
+    }
+    return;
+  }
+
+  // Admin reçoit la soumission d'un joueur
+  if (type === 'playerAnswer') {
+    const { playerId, answerIndex, answer } = payload;
+    const player = App.state.players.find(p => p.id === playerId);
+    if (player && !player.answeredCurrentQuestion) {
+      player.answeredCurrentQuestion = true;
+      player.lastAnswerIndex = answerIndex;
+      player.lastAnswer = answer;
+    }
+    return;
+  }
+
+  // Page joueur uniquement — ne pas traiter si c'est la page admin
+  if (document.getElementById('screen-home')) return;
+
+  if (type === 'gameStart') {
+    App.showScreen('screen-game');
+    return;
+  }
+
+  if (type === 'question') {
+    const { question, idx, total, timeLeft } = payload;
+    App.showScreen('screen-game');
+    PlayerGame.showQuestion(question, idx, total, timeLeft);
+    return;
+  }
+
+  if (type === 'timerTick') {
+    PlayerGame.updateTimer(payload.timeLeft);
+    return;
+  }
+
+  if (type === 'questionEnd') {
+    PlayerGame.showAnswer(payload.correctIndices, payload.correctAnswer);
+    return;
+  }
+
+  if (type === 'gameEnd') {
+    PlayerGame.showPodium(payload.players);
+    return;
+  }
+};
+
+// ============================================================
+//  MOTEUR CÔTÉ JOUEUR (page /play uniquement)
+// ============================================================
+const PlayerGame = (() => {
+  let answered = false;
+
+  function showQuestion(q, idx, total, timeLeft) {
+    answered = false;
+    const qText = document.getElementById('question-text');
+    const qCounter = document.getElementById('track-question-num') || document.getElementById('question-counter');
+    const qCard = document.getElementById('question-card');
+    const qResult = document.getElementById('question-result');
+    const choicesGrid = document.getElementById('choices-grid') || document.getElementById('answers-grid');
+    const openAnswer = document.getElementById('open-answer');
+    const gameStatus = document.getElementById('game-status');
+
+    if (!qText) return;
+    if (qCounter) qCounter.textContent = `Q${idx + 1}/${total}`;
+    if (qCard) qCard.style.display = 'flex';
+    if (qResult) qResult.style.display = 'none';
+    if (gameStatus) gameStatus.textContent = '';
+    qText.textContent = q.text;
+
+    if (q.type === 'qcm' && choicesGrid) {
+      choicesGrid.style.display = 'grid';
+      if (openAnswer) openAnswer.style.display = 'none';
+      choicesGrid.innerHTML = '';
+      const letters = ['A', 'B', 'C', 'D'];
+      q.choices.forEach((choice, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.innerHTML = `<span class="choice-letter">${letters[i]}</span>${choice}`;
+        btn.onclick = () => submitAnswer(i, null, btn, choicesGrid);
+        choicesGrid.appendChild(btn);
+      });
+    } else if (q.type === 'open') {
+      if (choicesGrid) choicesGrid.style.display = 'none';
+      if (openAnswer) {
+        openAnswer.style.display = 'flex';
+        const input = document.getElementById('open-input');
+        if (input) {
+          input.value = '';
+          input.disabled = false;
+          input.onkeydown = e => { if (e.key === 'Enter') submitAnswer(null, input.value.trim(), null, null); };
+        }
+      }
+    }
+    updateTimer(timeLeft);
+  }
+
+  function submitAnswer(answerIndex, answerText, clickedBtn, grid) {
+    if (answered) return;
+    answered = true;
+    const player = App.state.currentPlayer;
+    if (!player) return;
+    player.answeredCurrentQuestion = true;
+    player.lastAnswerIndex = answerIndex;
+    player.lastAnswer = answerText;
+
+    // Désactiver les boutons
+    if (grid) grid.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+    if (clickedBtn) clickedBtn.classList.add('selected');
+    if (answerText === null && document.getElementById('open-input')) {
+      document.getElementById('open-input').disabled = true;
+    }
+
+    // Informer l'admin
+    syncChannel.postMessage({ type: 'playerAnswer', payload: { playerId: player.id, answerIndex, answer: answerText } });
+    App.showToast('Réponse envoyée ! ✅', 'success');
+  }
+
+  function updateTimer(timeLeft) {
+    const bar = document.getElementById('timer-bar');
+    const text = document.getElementById('timer-text');
+    const simpleTimer = document.getElementById('timer');
+    if (bar) {
+      bar.style.setProperty('--progress', (timeLeft / 60 * 100) + '%');
+      bar.className = 'timer-bar' + (timeLeft <= 10 ? ' warning' : '');
+    }
+    if (text) text.textContent = timeLeft;
+    if (simpleTimer) simpleTimer.textContent = timeLeft;
+  }
+
+  function showAnswer(correctIndices, correctAnswer) {
+    const grid = document.getElementById('choices-grid') || document.getElementById('answers-grid');
+    if (grid) {
+      grid.querySelectorAll('.choice-btn').forEach((btn, i) => {
+        btn.disabled = true;
+        if (correctIndices && correctIndices.includes(i)) btn.classList.add('correct');
+        else if (btn.classList.contains('selected')) btn.classList.add('wrong');
+      });
+    }
+    const resultEl = document.getElementById('question-result');
+    const iconEl = document.getElementById('result-icon');
+    const textEl = document.getElementById('result-text');
+    const ansEl = document.getElementById('result-answer');
+    if (resultEl) {
+      if (iconEl) iconEl.textContent = '💡';
+      if (textEl) textEl.textContent = 'Résultat !';
+      if (ansEl) ansEl.textContent = correctAnswer ? `Réponse : ${correctAnswer}` : '';
+      resultEl.style.display = 'flex';
+    }
+    const qCard = document.getElementById('question-card');
+    if (qCard) qCard.style.display = 'none';
+  }
+
+  function showPodium(players) {
+    const standings = document.getElementById('podium-standings');
+    if (!standings) return;
+    const sorted = [...players].sort((a, b) => b.score - a.score);
+    standings.innerHTML = sorted.map((p, i) => `
+      <div class="podium-entry rank-${i + 1}">
+        <span class="podium-rank">${['🥇','🥈','🥉'][i] || (i + 1)}</span>
+        <span class="podium-avatar">${p.avatar}</span>
+        <span class="podium-name" style="color:${p.color}">${p.name}</span>
+        <span class="podium-score">${p.score} pts</span>
+      </div>
+    `).join('');
+    App.showScreen('screen-podium');
+  }
+
+  return { showQuestion, updateTimer, showAnswer, showPodium, submitAnswer };
+})();
+
 document.addEventListener('DOMContentLoaded', App.init);
+
