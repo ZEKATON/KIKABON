@@ -6,6 +6,7 @@
   <title>KIKABON — Animez vos cours</title>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body class="admin-shell">
 
@@ -232,7 +233,13 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
       <span class="code-label">Code d'accès:</span>
       <span class="code-value" id="lobby-code">-</span>
     </div>
-    
+
+    <!-- QR code pour rejoindre -->
+    <div class="lobby-qr-wrap">
+      <div id="lobby-qrcode"></div>
+      <p class="lobby-qr-hint">📱 Scanne pour rejoindre, puis saisis le code</p>
+    </div>
+
     <p class="lobby-subtitle">Les joueurs rejoignent la partie...</p>
     <div id="lobby-players" class="lobby-players"></div>
     <div class="lobby-actions">

@@ -52,6 +52,19 @@ const App = (() => {
         // Screen-specific initialization
         if (id === 'screen-lobby') {
           Lobby.refreshPlayers();
+          // Generate QR code pointing to player join page
+          const qrContainer = document.getElementById('lobby-qrcode');
+          if (qrContainer) {
+            qrContainer.innerHTML = '';
+            new QRCode(qrContainer, {
+              text: 'https://kikabon.onrender.com/play',
+              width: 160,
+              height: 160,
+              colorDark: '#1a1a2e',
+              colorLight: '#ffffff',
+              correctLevel: QRCode.CorrectLevel.M
+            });
+          }
         }
       });
     }

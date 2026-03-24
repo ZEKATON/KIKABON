@@ -569,6 +569,9 @@ html, body {
   font-weight: 800;
 }
 .lobby-subtitle { font-size: 16px; color: var(--text2); }
+.lobby-qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 12px 0; }
+.lobby-qr-wrap #lobby-qrcode { background: #fff; padding: 8px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+.lobby-qr-hint { font-size: 13px; color: var(--text2); margin: 0; }
 
 /* QR Code Section */
 .lobby-qr-section {
