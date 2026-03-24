@@ -37,10 +37,6 @@ const App = (() => {
 
   // ---- Écrans ----
   function showScreen(id) {
-    if (id !== 'screen-login' && !state.accessGranted) {
-      id = 'screen-login';
-    }
-
     document.querySelectorAll('.screen').forEach(s => {
       s.classList.remove('active');
       s.style.display = '';
@@ -260,8 +256,8 @@ const App = (() => {
     Admin.renderSaved();
     renderQuizList(); // Afficher la liste des quiz
 
-    // Forcer l'écran login si pas encore authentifié
-    showScreen('screen-login');
+    // Afficher l'écran d'accueil
+    showScreen('screen-home');
   }
 
   function getDemoQuestions() {
