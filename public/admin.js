@@ -18,7 +18,7 @@ const Admin = (() => {
     App.state.questions = [];
     renderQuestions();
     App.showScreen('screen-admin');
-    showTab('tab-questions');
+      showTab('tab-saved');
   }
 
   // ---- Navigation tabs ----
@@ -256,7 +256,7 @@ const Admin = (() => {
     renderQuestions();
     document.getElementById('import-text').value = '';
     App.showToast(`${questions.length} question(s) importée(s) ✓`, 'success');
-    showTab('tab-questions');
+      showTab('tab-saved');
   }
 
   function parseTextImport(text) {
@@ -327,7 +327,7 @@ const Admin = (() => {
           App.state.questions.push(...data.questions.map(q => ({ ...q, id: Date.now() + Math.random() })));
           renderQuestions();
           App.showToast(`${data.questions.length} question(s) importée(s) ✓`, 'success');
-          showTab('tab-questions');
+           showTab('tab-saved');
         } else {
           App.showToast('Format JSON invalide', 'error');
         }
@@ -383,7 +383,7 @@ const Admin = (() => {
       item.className = 'saved-item';
       item.innerHTML = `
         <div class="saved-info">
-          <h4>${quiz.name}</h4>
+           <button class="saved-launch-btn" onclick="Admin.loadAndLaunchQuiz(${quiz.id})">▶️ ${quiz.name}</button>
           <p>${quiz.count} question(s) — ${quiz.date}</p>
         </div>
         <div class="saved-actions">
@@ -403,7 +403,7 @@ const Admin = (() => {
     App.state.questions = [...quiz.questions];
     App.state.currentQuiz = quiz;
     renderQuestions();
-    showTab('tab-questions');
+      showTab('tab-saved');
     App.showScreen('screen-admin');
     App.showToast(`Quiz "${quiz.name}" chargé ✓`, 'success');
   }

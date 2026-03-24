@@ -113,8 +113,8 @@
         <button class="nav-item active" onclick="Admin.showTab('tab-import')" id="nav-import">
           📥 Importer
         </button>
-        <button class="nav-item" onclick="Admin.showTab('tab-saved')" id="nav-saved">
-          💾 Sauvegardés
+        <button class="nav-item active" onclick="Admin.showTab('tab-saved')" id="nav-saved">
+          💾 Mes Quiz
         </button>
         <button class="nav-item" onclick="Admin.showTab('tab-settings')" id="nav-settings">
           ⚙️ Paramètres
@@ -126,14 +126,11 @@
       <button class="btn btn-primary sidebar-launch" onclick="Admin.launchGame()">
         ▶ Lancer le jeu
       </button>
-      <button class="btn btn-ghost" onclick="App.showScreen('screen-home')" style="margin-top:8px">
-        ← Accueil
-      </button>
     </aside>
 
     <main class="admin-main">
       <!-- TAB: Questions -->
-      <div class="admin-tab active" id="tab-questions">
+      <div class="admin-tab" id="tab-questions">
         <div class="admin-header">
           <h2>❓ Mes Questions</h2>
           <div class="header-actions">
@@ -182,7 +179,7 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
       </div>
 
       <!-- TAB: Sauvegardés -->
-      <div class="admin-tab" id="tab-saved">
+      <div class="admin-tab active" id="tab-saved">
         <div class="admin-header">
           <h2>💾 Quiz sauvegardés</h2>
           <button class="btn btn-secondary sm" onclick="Admin.saveQuiz()">💾 Sauvegarder le quiz actuel</button>

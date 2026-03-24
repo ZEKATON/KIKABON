@@ -835,6 +835,14 @@ html, body {
   font-family: var(--font-display); color: var(--accent);
 }
 
+  .saved-launch-btn {
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-size: 15px; font-weight: 700; color: var(--accent);
+    font-family: var(--font-display); text-align: left;
+    transition: opacity 0.15s;
+  }
+  .saved-launch-btn:hover { opacity: 0.75; text-decoration: underline; }
+
 .admin-shell .game-layout {
   flex-direction: column;
 }
