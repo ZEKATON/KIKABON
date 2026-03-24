@@ -1,0 +1,16 @@
+{
+  "name": "quizrace",
+  "version": "1.0.0",
+  "description": "QuizRace - jeu quiz live pour la formation",
+  "private": true,
+  "scripts": {
+    "start": "npx live-server . --open=\"index (2).html\"",
+    "test": "echo \"No tests configured\" && exit 0"
+  },
+  "keywords": ["quiz","game","education","formation"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
