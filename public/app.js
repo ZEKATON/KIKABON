@@ -270,9 +270,14 @@ const App = (() => {
       renderQuizList();
     }
 
-    // Afficher l'écran d'accueil (admin) ou rejoindre (joueur)
+    // Routage initial: /admin ouvre directement les quiz sauvegardés
     if (document.getElementById('screen-home')) {
-      showScreen('screen-home');
+      const path = window.location.pathname;
+      if (path === '/admin') {
+        showScreen('screen-quiz-list');
+      } else {
+        showScreen('screen-home');
+      }
     }
   }
 
