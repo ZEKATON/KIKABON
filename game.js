@@ -9,6 +9,7 @@ const Game = (() => {
   let questionActive = false;
   let finishRankCounter = 0;
   let questionLaunchedByAdmin = false;
+  let gamePaused = false;
 
   // ---- Démarrer la partie ----
   function start() {
@@ -27,6 +28,7 @@ const Game = (() => {
     currentQuestionIdx = 0;
     finishRankCounter = 0;
     questionLaunchedByAdmin = false;
+    gamePaused = false;
     players.forEach(p => {
       p.score = 0;
       p.position = 0;
@@ -41,6 +43,8 @@ const Game = (() => {
     // Afficher le bouton "Afficher la question" au lieu de la montrer automatiquement
     document.getElementById('btn-launch-question').style.display = 'block';
     document.getElementById('btn-stop-timer').style.display = 'none';
+    document.getElementById('btn-pause-game').style.display = 'none';
+    document.getElementById('btn-resume-game').style.display = 'none';
     document.getElementById('question-card').style.display = 'none';
     document.getElementById('question-result').style.display = 'none';
   }
@@ -73,6 +77,8 @@ const Game = (() => {
     // Masquer le bouton "Afficher la question"
     document.getElementById('btn-launch-question').style.display = 'none';
     document.getElementById('btn-stop-timer').style.display = 'block';
+    document.getElementById('btn-pause-game').style.display = 'block';
+    document.getElementById('btn-resume-game').style.display = 'none';
 
     // Choix QCM
     const choicesGrid = document.getElementById('choices-grid');
@@ -149,6 +155,8 @@ const Game = (() => {
 
     // Masquer le bouton "Arrêter le chrono"
     document.getElementById('btn-stop-timer').style.display = 'none';
+    document.getElementById('btn-pause-game').style.display = 'none';
+    document.getElementById('btn-resume-game').style.display = 'none';
 
     document.getElementById('game-status').textContent = '✋ Chrono arrêté par le prof';
     setTimeout(() => nextQuestion(), 3000);
@@ -274,12 +282,17 @@ const Game = (() => {
   }
 
   // ---- Timer ----
-  function startTimer() {
+  function startTimer(resume = false) {
     clearInterval(timer);
-    timeLeft = getQuestionTime();
+    if (!resume) {
+      timeLeft = getQuestionTime();
+    }
     const bar = document.getElementById('timer-bar');
     const text = document.getElementById('timer-text');
-    bar.style.setProperty('--progress', '100%');
+    const totalTime = getQuestionTime();
+    const pct = (timeLeft / totalTime) * 100;
+    bar.style.setProperty('--progress', pct + '%');
+    bar.className = 'timer-bar';
     bar.className = 'timer-bar';
 
     timer = setInterval(() => {
@@ -297,6 +310,52 @@ const Game = (() => {
 
   function stopTimer() {
     clearInterval(timer);
+  }
+
+  // ---- Pause/Reprise ----
+  function pauseGame() {
+    if (!questionActive || gamePaused) return;
+    gamePaused = true;
+    clearInterval(timer);
+    showPauseOverlay();
+    document.getElementById('btn-pause-game').style.display = 'none';
+    document.getElementById('btn-resume-game').style.display = 'block';
+    App.showToast('Jeu en pause', 'info');
+  }
+
+  function resumeGame() {
+    if (!questionActive || !gamePaused) return;
+    gamePaused = false;
+    hidePauseOverlay();
+    startTimer(true); // Resume with current timeLeft
+    document.getElementById('btn-pause-game').style.display = 'block';
+    document.getElementById('btn-resume-game').style.display = 'none';
+    App.showToast('Jeu repris', 'success');
+  }
+
+  function showPauseOverlay() {
+    let overlay = document.getElementById('pause-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'pause-overlay';
+      overlay.className = 'pause-overlay';
+      overlay.innerHTML = `
+        <div class="pause-content">
+          <div class="pause-icon">⏸️</div>
+          <div class="pause-text">JEU EN PAUSE</div>
+          <div class="pause-subtitle">Le professeur contrôle la partie</div>
+        </div>
+      `;
+      document.getElementById('screen-game').appendChild(overlay);
+    }
+    overlay.style.display = 'flex';
+  }
+
+  function hidePauseOverlay() {
+    const overlay = document.getElementById('pause-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
   }
 
   function timeExpired() {
@@ -534,5 +593,5 @@ const Game = (() => {
     App.showToast('Modifiez les questions et relancez !', '');
   }
 
-  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually };
+  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, pauseGame, resumeGame };
 })();

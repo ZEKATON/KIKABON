@@ -188,6 +188,7 @@ const App = (() => {
 
   function persistSavedQuizzes() {
     localStorage.setItem('quizrace_saved', JSON.stringify(state.savedQuizzes));
+    renderQuizList(); // Re-render la liste des quiz quand les sauvegardés changent
   }
 
   // ---- Sons ----
@@ -269,6 +270,7 @@ const App = (() => {
     }
     Admin.renderQuestions();
     Admin.renderSaved();
+    renderQuizList(); // Afficher la liste des quiz
 
     // Forcer l'écran login si pas encore authentifié
     showScreen('screen-login');
@@ -380,39 +382,62 @@ const App = (() => {
     const grid = document.getElementById('quiz-grid');
     const empty = document.getElementById('quiz-empty');
     
-    // Pour maintenant, montrer un seul quiz "Actuel"
     grid.innerHTML = '';
-    if (state.questions.length === 0) {
-      grid.style.display = 'none';
-      empty.style.display = 'flex';
-      return;
+    
+    // Afficher le quiz actuel s'il y a des questions
+    if (state.questions.length > 0) {
+      const currentCard = document.createElement('div');
+      currentCard.className = 'quiz-card';
+      currentCard.onclick = () => showScreen('screen-admin');
+      
+      const stats = `${state.questions.length} question${state.questions.length > 1 ? 's' : ''}`;
+      
+      currentCard.innerHTML = `
+        <div class="quiz-card-title">📋 Quiz Actuel</div>
+        <div class="quiz-card-stats">
+          <div class="quiz-card-stat">❓ ${stats}</div>
+        </div>
+        <div class="quiz-card-actions">
+          <button class="quiz-card-btn" onclick="App.showScreen('screen-admin'); event.stopPropagation();">
+            ✏️ Modifier
+          </button>
+          <button class="quiz-card-btn" onclick="Admin.launchGame(); event.stopPropagation();">
+            ▶️ Lancer
+          </button>
+        </div>
+      `;
+      
+      grid.appendChild(currentCard);
     }
     
-    grid.style.display = 'grid';
-    empty.style.display = 'none';
+    // Afficher les quiz sauvegardés
+    state.savedQuizzes.forEach(quiz => {
+      const card = document.createElement('div');
+      card.className = 'quiz-card saved-quiz';
+      
+      card.innerHTML = `
+        <div class="quiz-card-title">💾 ${quiz.name}</div>
+        <div class="quiz-card-stats">
+          <div class="quiz-card-stat">❓ ${quiz.count} question${quiz.count > 1 ? 's' : ''}</div>
+          <div class="quiz-card-stat">📅 ${quiz.date}</div>
+        </div>
+        <div class="quiz-card-actions">
+          <button class="quiz-card-btn" onclick="Admin.loadAndLaunchQuiz(${quiz.id}); event.stopPropagation();">
+            ▶️ Lancer
+          </button>
+          <button class="quiz-card-btn secondary" onclick="Admin.loadSavedQuiz(${quiz.id}); App.showScreen('screen-admin'); event.stopPropagation();">
+            ✏️ Modifier
+          </button>
+        </div>
+      `;
+      
+      grid.appendChild(card);
+    });
     
-    const card = document.createElement('div');
-    card.className = 'quiz-card';
-    card.onclick = () => showScreen('screen-admin');
-    
-    const stats = `${state.questions.length} question${state.questions.length > 1 ? 's' : ''}`;
-    
-    card.innerHTML = `
-      <div class="quiz-card-title">📋 Quiz Actuel</div>
-      <div class="quiz-card-stats">
-        <div class="quiz-card-stat">❓ ${stats}</div>
-      </div>
-      <div class="quiz-card-actions">
-        <button class="quiz-card-btn" onclick="App.showScreen('screen-admin'); event.stopPropagation();">
-          ✏️ Modifier
-        </button>
-        <button class="quiz-card-btn" onclick="Admin.launchGame(); event.stopPropagation();">
-          ▶️ Lancer
-        </button>
-      </div>
-    `;
-    
-    grid.appendChild(card);
+    // Gérer l'état vide
+    const hasContent = state.questions.length > 0 || state.savedQuizzes.length > 0;
+    grid.style.display = hasContent ? 'grid' : 'none';
+    empty.style.display = hasContent ? 'none' : 'flex';
   }
 
   // ---- Initialiser quiz list au chargement ----

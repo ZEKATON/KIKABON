@@ -329,7 +329,13 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
         <button class="btn btn-warning" id="btn-stop-timer" onclick="Game.stopTimerManually()" style="display:none">
           ⏹️ Arrêter le chrono
         </button>
-        <button class="btn btn-secondary" onclick="App.showScreen('screen-admin')">
+        <button class="btn btn-secondary" id="btn-pause-game" onclick="Game.pauseGame()" style="display:none">
+          ⏸️ Mettre en pause
+        </button>
+        <button class="btn btn-success" id="btn-resume-game" onclick="Game.resumeGame()" style="display:none">
+          ▶️ Reprendre
+        </button>
+        <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
           ← Arrêter la course
         </button>
       </div>

@@ -383,6 +383,15 @@ const Admin = (() => {
     App.showToast(`Quiz "${quiz.name}" chargé ✓`, 'success');
   }
 
+  function loadAndLaunchQuiz(id) {
+    const quiz = App.state.savedQuizzes.find(q => q.id === id);
+    if (!quiz) return;
+    App.state.questions = [...quiz.questions];
+    renderQuestions();
+    launchGame();
+    App.showToast(`Quiz "${quiz.name}" lancé ✓`, 'success');
+  }
+
   function downloadSavedQuiz(id) {
     const quiz = App.state.savedQuizzes.find(q => q.id === id);
     if (!quiz) return;
@@ -427,7 +436,7 @@ const Admin = (() => {
     addQuestion, editQuestion, deleteQuestion, moveQuestion,
     saveQuestion, closeModal, updateModalType, setCorrect,
     importFromText, importFromFile, importFromFileObj,
-    saveQuiz, loadSavedQuiz, downloadSavedQuiz, deleteSavedQuiz,
+    saveQuiz, loadSavedQuiz, loadAndLaunchQuiz, downloadSavedQuiz, deleteSavedQuiz,
     launchGame,
   };
 })();

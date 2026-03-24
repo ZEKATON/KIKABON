@@ -53,6 +53,8 @@ html, body {
 .btn-secondary:hover { background: #3d3668; }
 .btn-warning { background: #ff6b6b; color: white; }
 .btn-warning:hover { background: #ff5252; box-shadow: 0 4px 20px rgba(255,107,107,0.4); }
+.btn-success { background: var(--green); color: white; }
+.btn-success:hover { background: #3dd28d; box-shadow: 0 4px 20px rgba(78,203,113,0.4); }
 .btn-ghost { background: transparent; color: var(--text2); }
 .btn-ghost:hover { color: var(--text); background: rgba(255,255,255,0.05); }
 .btn.lg { padding: 16px 36px; font-size: 17px; border-radius: 14px; }
@@ -871,3 +873,30 @@ html, body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* ===== PAUSE OVERLAY ===== */
+.pause-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15, 12, 26, 0.9);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.pause-content {
+  text-align: center; color: var(--text);
+  animation: fade-in 0.3s ease;
+}
+.pause-icon {
+  font-size: 64px; margin-bottom: 16px;
+  animation: bounce 1s ease-in-out infinite;
+}
+.pause-text {
+  font-family: var(--font-display); font-size: 32px; font-weight: 800;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(247,201,72,0.5);
+  margin-bottom: 8px;
+}
+.pause-subtitle {
+  font-size: 16px; color: var(--text2);
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

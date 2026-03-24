@@ -8,10 +8,15 @@
     "build": "echo 'Build completed - no build process needed for static site'",
     "test": "echo \"No tests configured\" && exit 0"
   },
-  "keywords": ["quiz","game","education","formation"],
+  "keywords": [
+    "quiz",
+    "game",
+    "education",
+    "formation"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "live-server": "^1.2.2"
+    "live-server": "^1.2.0"
   }
 }
