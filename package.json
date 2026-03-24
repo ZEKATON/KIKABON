@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "build": "echo 'Build completed - no build process needed for static site'",
+    "build": "mkdir public 2>nul || echo. && copy \"index (2).html\" \"public\\index.html\" && copy \"style.css\" \"public\\style.css\" && copy \"app.js\" \"public\\app.js\" && copy \"admin.js\" \"public\\admin.js\" && copy \"game.js\" \"public\\game.js\" && echo Build completed - files copied to ./public",
     "test": "echo \"No tests configured\" && exit 0"
   },
   "keywords": [

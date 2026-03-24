@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KIKABON — Animez vos cours</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ====== ÉCRAN LOGIN ADMIN ====== -->
+<div id="screen-login" class="screen active">
+  <div class="login-bg">
+    <div class="login-decor"></div>
+    <div class="login-decor"></div>
+    <div class="login-decor"></div>
+  </div>
+  <div class="login-content">
+    <h1 class="neon-title">KIKABON Formation</h1>
+    <p class="neon-subtitle">Espace Pro • Entreprise &amp; pédagogie</p>
+    <div class="login-card">
+      <div class="form-group">
+        <label>Mot de passe administrateur</label>
+        <input type="password" id="login-password" placeholder="Saisissez le mot de passe" maxlength="20">
+      </div>
+      <button class="btn btn-primary full" onclick="App.unlockAccess()">🔐 Valider</button>
+      <p class="login-hint">Pour accéder à l&rsquo;interface, utilisez <strong>FORMA974</strong></p>
+      <div class="login-icons">🏢 👩‍💼 👨‍🏫 🎓 📈</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN D'ACCUEIL ====== -->
+<div id="screen-home" class="screen">
+  <div class="home-bg">
+    <div class="star" style="--x:10%;--y:20%;--s:3px;--d:1.2s"></div>
+    <div class="star" style="--x:30%;--y:60%;--s:2px;--d:2.1s"></div>
+    <div class="star" style="--x:70%;--y:15%;--s:4px;--d:0.8s"></div>
+    <div class="star" style="--x:85%;--y:70%;--s:2px;--d:1.6s"></div>
+    <div class="star" style="--x:50%;--y:85%;--s:3px;--d:0.5s"></div>
+    <div class="star" style="--x:20%;--y:90%;--s:2px;--d:1.9s"></div>
+    <div class="star" style="--x:90%;--y:40%;--s:3px;--d:2.4s"></div>
+  </div>
+  <div class="home-content">
+    <div class="logo-wrap">
+      <span class="logo-icon">🏎️</span> KIKABON
+    </div>
+    <p class="home-sub">Animez vos cours avec des quiz interactifs en temps réel</p>
+    <div class="home-buttons">
+      <button class="btn btn-primary" onclick="App.showScreen('screen-join')">
+        <span class="btn-icon">🎮</span> Rejoindre une partie
+      </button>
+      <button class="btn btn-secondary" onclick="App.showScreen('screen-quiz-list')">
+        <span class="btn-icon">🎓</span> Mode Professeur
+      </button>
+    </div>
+    <p class="home-tip">Les étudiants cliquent sur <strong>Rejoindre</strong> • Le prof projette le jeu sur l'écran</p>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN REJOINDRE (avec code) ====== -->
+<div id="screen-join" class="screen">
+  <div class="join-container">
+    <button class="back-btn" onclick="App.showScreen('screen-home')">← Retour</button>
+    <div class="join-card">
+      <h2>🎮 Rejoindre une partie</h2>
+      
+      <!-- Étape 1: Code -->
+      <div class="join-step" id="join-step-code">
+        <div class="form-group">
+          <label>Code d'accès (4 chiffres)</label>
+          <input type="text" id="join-code" placeholder="Ex: 1234" maxlength="4" inputmode="numeric">
+        </div>
+        <button class="btn btn-primary full" onclick="App.goToJoinStep('info')">
+          ▶ Suivant
+        </button>
+      </div>
+
+      <!-- Étape 2: Pseudo et avatar -->
+      <div class="join-step" id="join-step-info" style="display:none">
+        <div class="form-group">
+          <label>Ton prénom</label>
+          <input type="text" id="join-name" placeholder="Ex: Marie" maxlength="20">
+        </div>
+        <div class="form-group">
+          <label>Choisis ton avatar</label>
+          <div class="avatar-grid" id="avatar-grid"></div>
+        </div>
+        <div class="join-avatar-preview" id="join-avatar-preview">🐼</div>
+        <div style="display:flex; gap:10px">
+          <button class="btn btn-ghost full" onclick="App.goToJoinStep('code')">
+            ← Retour
+          </button>
+          <button class="btn btn-primary full" onclick="App.joinGameWithCode(document.getElementById('join-code').value)">
+            🚀 C'est parti !
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN ADMIN / LISTE DE QUIZ ====== -->
+<div id="screen-quiz-list" class="screen">
+  <div class="quiz-list-container">
+    <button class="back-btn" onclick="App.showScreen('screen-home')">← Retour</button>
+    
+    <div class="quiz-list-header">
+      <h1 class="quiz-list-title">📚 Mes Quiz</h1>
+      <button class="btn btn-primary" onclick="App.showScreen('screen-admin')">
+        <span class="btn-icon">➕</span> Créer nouveau quiz
+      </button>
+    </div>
+
+    <div class="quiz-grid" id="quiz-grid">
+      <!-- Les quiz seront générés ici par JavaScript -->
+    </div>
+
+    <div class="empty-state" id="quiz-empty" style="display:none">
+      <p>📭 Aucun quiz créé</p>
+      <p>Cliquez sur "Créer nouveau quiz" pour commencer</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN ADMIN / CRÉATION QUIZ ====== -->
+<div id="screen-admin" class="screen">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="sidebar-logo">
+        <span>🏎️</span> KIKABON
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" onclick="Admin.showTab('tab-questions')" id="nav-questions">
+          ❓ Questions
+        </button>
+        <button class="nav-item" onclick="Admin.showTab('tab-import')" id="nav-import">
+          📥 Importer
+        </button>
+        <button class="nav-item" onclick="Admin.showTab('tab-saved')" id="nav-saved">
+          💾 Sauvegardés
+        </button>
+        <button class="nav-item" onclick="Admin.showTab('tab-settings')" id="nav-settings">
+          ⚙️ Paramètres
+        </button>
+      </nav>
+      <button class="btn btn-primary sidebar-launch" onclick="Admin.launchGame()">
+        ▶ Lancer le jeu
+      </button>
+      <button class="btn btn-ghost" onclick="App.showScreen('screen-home')" style="margin-top:8px">
+        ← Accueil
+      </button>
+    </aside>
+
+    <main class="admin-main">
+      <!-- TAB: Questions -->
+      <div class="admin-tab active" id="tab-questions">
+        <div class="admin-header">
+          <h2>❓ Mes Questions</h2>
+          <div class="header-actions">
+            <button class="btn btn-secondary sm" onclick="Admin.addQuestion('qcm')">+ QCM</button>
+            <button class="btn btn-secondary sm" onclick="Admin.addQuestion('open')">+ Question ouverte</button>
+          </div>
+        </div>
+        <div id="questions-list" class="questions-list"></div>
+        <div class="empty-state" id="questions-empty">
+          <p>📋 Aucune question pour l'instant</p>
+          <p>Ajoutez des questions ou importez-les via l'onglet Importer</p>
+        </div>
+      </div>
+
+      <!-- TAB: Importer -->
+      <div class="admin-tab" id="tab-import">
+        <div class="admin-header">
+          <h2>📥 Importer des questions</h2>
+        </div>
+        <div class="import-zone">
+          <div class="import-card">
+            <h3>📄 Format texte</h3>
+            <p>Collez vos questions au format suivant :</p>
+            <pre class="code-example">QCM: Quelle est la capitale de la France ?
+A: Paris*
+B: Lyon
+C: Marseille
+D: Bordeaux
+
+OUVERTE: Donnez la définition de la photosynthèse
+RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
+            <textarea id="import-text" placeholder="Collez vos questions ici..." rows="12"></textarea>
+            <button class="btn btn-primary" onclick="Admin.importFromText()">Importer</button>
+          </div>
+
+          <div class="import-card">
+            <h3>📁 Depuis un fichier JSON</h3>
+            <p>Importez un quiz sauvegardé précédemment</p>
+            <div class="file-drop" id="file-drop" onclick="document.getElementById('file-input').click()">
+              <span>🗂️</span>
+              <p>Cliquez ou glissez un fichier .json</p>
+            </div>
+            <input type="file" id="file-input" accept=".json" style="display:none" onchange="Admin.importFromFile(event)">
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Sauvegardés -->
+      <div class="admin-tab" id="tab-saved">
+        <div class="admin-header">
+          <h2>💾 Quiz sauvegardés</h2>
+          <button class="btn btn-secondary sm" onclick="Admin.saveQuiz()">💾 Sauvegarder le quiz actuel</button>
+        </div>
+        <div id="saved-quizzes-list" class="saved-list"></div>
+        <div class="empty-state" id="saved-empty">
+          <p>💾 Aucun quiz sauvegardé</p>
+        </div>
+      </div>
+
+      <!-- TAB: Paramètres -->
+      <div class="admin-tab" id="tab-settings">
+        <div class="admin-header">
+          <h2>⚙️ Paramètres du jeu</h2>
+        </div>
+        <div class="settings-grid">
+          <div class="setting-card">
+            <label>⏱️ Temps par question (secondes)</label>
+            <input type="number" id="setting-time" value="30" min="5" max="120">
+          </div>
+          <div class="setting-card">
+            <label>🏆 Avance par bonne réponse (cases)</label>
+            <input type="number" id="setting-advance" value="1" min="1" max="5">
+          </div>
+          <div class="setting-card">
+            <label>🏁 Nombre de cases jusqu'à la victoire</label>
+            <input type="number" id="setting-track" value="10" min="5" max="20">
+          </div>
+          <div class="setting-card">
+            <label>🎵 Sons activés</label>
+            <label class="toggle">
+              <input type="checkbox" id="setting-sound" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN LOBBY ====== -->
+<div id="screen-lobby" class="screen">
+  <div class="lobby-bg"></div>
+  <div class="lobby-content">
+    <h2 class="lobby-title">🏁 Salle d'attente</h2>
+    
+    <!-- Code d'accès visible pour le prof -->
+    <div class="lobby-code-display">
+      <span class="code-label">Code d'accès:</span>
+      <span class="code-value" id="lobby-code">-</span>
+    </div>
+    
+    <p class="lobby-subtitle">Les joueurs rejoignent la partie...</p>
+    <div id="lobby-players" class="lobby-players"></div>
+    <div class="lobby-actions">
+      <button class="btn btn-primary lg" onclick="Game.start()">
+        🚦 Démarrer la course !
+      </button>
+      <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
+        ← Retour
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN DE JEU ====== -->
+<div id="screen-game" class="screen">
+  <div class="game-layout">
+
+    <!-- Piste de course (gauche) -->
+    <div class="race-track-container">
+      <div class="track-header">
+        <span class="track-label">🏎️ Course</span>
+        <span class="track-question-num" id="track-question-num">Q1/10</span>
+      </div>
+      <div class="race-track" id="race-track">
+        <div class="track-finish">
+          <span class="finish-flag">🏁</span>
+          <span class="finish-trophy">🏆</span>
+        </div>
+        <div class="track-lanes" id="track-lanes"></div>
+      </div>
+    </div>
+
+    <!-- Zone de question (droite) -->
+    <div class="question-zone">
+      <div class="timer-bar-wrap">
+        <div class="timer-bar" id="timer-bar"></div>
+        <span class="timer-text" id="timer-text">30</span>
+      </div>
+
+      <div class="question-card" id="question-card">
+        <div class="question-category" id="question-category">Question</div>
+        <div class="question-text" id="question-text"></div>
+
+        <!-- QCM -->
+        <div class="choices-grid" id="choices-grid"></div>
+
+        <!-- Réponse ouverte -->
+        <div class="open-answer" id="open-answer" style="display:none">
+          <input type="text" id="open-input" placeholder="Votre réponse...">
+          <button class="btn btn-primary" onclick="Game.submitOpenAnswer()">✓ Valider</button>
+        </div>
+      </div>
+
+      <!-- Résultat de la question -->
+      <div class="question-result" id="question-result" style="display:none">
+        <div class="result-icon" id="result-icon"></div>
+        <div class="result-text" id="result-text"></div>
+        <div class="result-answer" id="result-answer"></div>
+      </div>
+
+      <div class="game-status" id="game-status"></div>
+
+      <!-- Panneau de contrôle admin -->
+      <div class="admin-control-panel" id="admin-control-panel">
+        <div class="admin-controls-title">🎓 Contrôles Prof</div>
+        <button class="btn btn-primary" id="btn-launch-question" onclick="Game.launchQuestion()" style="display:block">
+          ▶️ Afficher la question
+        </button>
+        <button class="btn btn-warning" id="btn-stop-timer" onclick="Game.stopTimerManually()" style="display:none">
+          ⏹️ Arrêter le chrono
+        </button>
+        <button class="btn btn-secondary" id="btn-pause-game" onclick="Game.pauseGame()" style="display:none">
+          ⏸️ Mettre en pause
+        </button>
+        <button class="btn btn-success" id="btn-resume-game" onclick="Game.resumeGame()" style="display:none">
+          ▶️ Reprendre
+        </button>
+        <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
+          ← Arrêter la course
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vue projetée (plein écran pour le prof) -->
+  <div class="projected-overlay" id="projected-overlay" style="display:none">
+    <div class="proj-question" id="proj-question"></div>
+    <div class="proj-choices" id="proj-choices"></div>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN PODIUM / FIN ====== -->
+<div id="screen-podium" class="screen">
+  <div class="podium-bg">
+    <div class="confetti-container" id="confetti-container"></div>
+  </div>
+  <div class="podium-content">
+    <h1 class="podium-title">🏆 Résultats</h1>
+
+    <div class="podium-stage" id="podium-stage"></div>
+
+    <div class="all-scores" id="all-scores"></div>
+
+    <div class="player-message" id="player-message" style="display:none"></div>
+
+    <div class="podium-actions">
+      <button class="btn btn-primary" onclick="Game.playAgain()">🔄 Rejouer avec nouvelles questions</button>
+      <button class="btn btn-secondary" onclick="App.showScreen('screen-admin')">📋 Retour admin</button>
+      <button class="btn btn-ghost" onclick="App.showScreen('screen-home')">🏠 Accueil</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL ÉDITION QUESTION ====== -->
+<div id="modal-question" class="modal-overlay" style="display:none">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="modal-title">Modifier la question</h3>
+      <button class="modal-close" onclick="Admin.closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Type</label>
+        <select id="modal-type" onchange="Admin.updateModalType()">
+          <option value="qcm">QCM</option>
+          <option value="open">Question ouverte</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Question</label>
+        <textarea id="modal-question-text" rows="3" placeholder="Saisissez votre question..."></textarea>
+      </div>
+      <div id="modal-qcm-section">
+        <div class="form-group">
+          <label>Type de réponse</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="answer-type" value="unique" checked onchange="Admin.updateAnswerType()">
+              Choix unique (45 sec)
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="answer-type" value="multiple" onchange="Admin.updateAnswerType()">
+              Choix multiples (60 sec)
+            </label>
+          </div>
+        </div>
+        <p class="form-hint">Marquez la(les) bonne(s) réponse(s) avec ✓</p>
+        <div id="modal-choices">
+          <div class="choice-row">
+            <input type="text" placeholder="Choix A" class="choice-input" data-idx="0">
+            <button class="choice-correct active" data-idx="0" onclick="Admin.toggleCorrect(0)">✓</button>
+          </div>
+          <div class="choice-row">
+            <input type="text" placeholder="Choix B" class="choice-input" data-idx="1">
+            <button class="choice-correct" data-idx="1" onclick="Admin.toggleCorrect(1)">✓</button>
+          </div>
+          <div class="choice-row">
+            <input type="text" placeholder="Choix C" class="choice-input" data-idx="2">
+            <button class="choice-correct" data-idx="2" onclick="Admin.toggleCorrect(2)">✓</button>
+          </div>
+          <div class="choice-row">
+            <input type="text" placeholder="Choix D" class="choice-input" data-idx="3">
+            <button class="choice-correct" data-idx="3" onclick="Admin.toggleCorrect(3)">✓</button>
+          </div>
+        </div>
+      </div>
+      <div id="modal-open-section" style="display:none">
+        <div class="form-group">
+          <label>Réponse attendue (mots-clés séparés par des virgules)</label>
+          <input type="text" id="modal-open-answer" placeholder="Ex: photosynthèse, chlorophylle">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Catégorie (optionnel)</label>
+        <input type="text" id="modal-category" placeholder="Ex: Biologie, Histoire...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Admin.closeModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="Admin.saveQuestion()">Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== NOTIFICATION TOAST ====== -->
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+<script src="admin.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
