@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KIKABON — Rejoindre une partie</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ====== ÉCRAN REJOINDRE (avec code) ====== -->
+<div id="screen-join" class="screen active">
+  <div class="join-bg">
+    <div class="join-decor">🎯</div>
+    <div class="join-decor">🏆</div>
+    <div class="join-decor">⭐</div>
+  </div>
+  <div class="join-container">
+    <div class="join-card">
+      <div class="join-header">
+        <h1 class="join-title">🎮 KIKABON</h1>
+        <p class="join-subtitle">Rejoins la partie !</p>
+      </div>
+
+      <!-- Étape 1: Code -->
+      <div class="join-step" id="join-step-code">
+        <div class="form-group">
+          <label>Code d'accès (4 chiffres)</label>
+          <input type="text" id="join-code" placeholder="Ex: 1234" maxlength="4" inputmode="numeric">
+        </div>
+        <button class="btn btn-primary full" onclick="App.goToJoinStep('info')">
+          ▶ Suivant
+        </button>
+      </div>
+
+      <!-- Étape 2: Pseudo et avatar -->
+      <div class="join-step" id="join-step-info" style="display:none">
+        <div class="form-group">
+          <label>Ton prénom</label>
+          <input type="text" id="join-name" placeholder="Ex: Marie" maxlength="20">
+        </div>
+        <div class="form-group">
+          <label>Choisis ton avatar</label>
+          <div class="avatar-grid" id="avatar-grid"></div>
+        </div>
+        <div class="join-avatar-preview" id="join-avatar-preview">🐼</div>
+        <div style="display:flex; gap:10px">
+          <button class="btn btn-ghost full" onclick="App.goToJoinStep('code')">
+            ← Retour
+          </button>
+          <button class="btn btn-primary full" onclick="App.joinGameWithCode(document.getElementById('join-code').value)">
+            🚀 C'est parti !
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN LOBBY ====== -->
+<div id="screen-lobby" class="screen">
+  <div class="lobby-container">
+    <div class="lobby-header">
+      <h1>🏁 Salle d'attente</h1>
+      <div class="game-code-display">
+        <span class="code-label">Code :</span>
+        <span class="code-value" id="lobby-code">----</span>
+      </div>
+    </div>
+
+    <div class="players-list" id="players-list">
+      <!-- Les joueurs seront ajoutés ici -->
+    </div>
+
+    <div class="lobby-footer">
+      <p>En attente du professeur pour démarrer le quiz...</p>
+      <div class="waiting-animation">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN JEU ====== -->
+<div id="screen-game" class="screen">
+  <div class="game-container">
+    <div class="game-header">
+      <div class="question-counter" id="question-counter">Question 1/10</div>
+      <div class="timer" id="timer">30</div>
+    </div>
+
+    <div class="question-display" id="question-display">
+      <h2 id="question-text">Question en cours de chargement...</h2>
+      <div class="answers-grid" id="answers-grid">
+        <!-- Les réponses seront générées ici -->
+      </div>
+    </div>
+
+    <div class="game-footer">
+      <div class="player-info">
+        <span class="player-avatar" id="player-avatar">🐼</span>
+        <span class="player-name" id="player-name">Joueur</span>
+      </div>
+      <div class="score-display" id="score-display">Score: 0</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN PODIUM ====== -->
+<div id="screen-podium" class="screen">
+  <div class="podium-container">
+    <h1>🏆 Classement Final</h1>
+    <div class="podium-standings" id="podium-standings">
+      <!-- Le classement sera généré ici -->
+    </div>
+    <button class="btn btn-primary" onclick="location.reload()">🎮 Nouvelle partie</button>
+  </div>
+</div>
+
+<!-- Toast pour les notifications -->
+<div id="toast" class="toast"></div>
+
+<!-- Scripts -->
+<script src="app.js"></script>
+<script src="game.js"></script>
+<script src="lobby.js"></script>
+
+<script>
+// Initialisation pour la page joueur
+document.addEventListener('DOMContentLoaded', function() {
+  App.init();
+  App.showScreen('screen-join');
+});
+</script>
+
+</body>
+</html>

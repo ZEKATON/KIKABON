@@ -18,7 +18,15 @@ const mimeTypes = {
 
 const server = http.createServer((req, res) => {
   let filePath = '.' + req.url;
-  if (filePath === './') filePath = './index (2).html';
+
+  // Routing pour séparer admin et joueurs
+  if (req.url === '/' || req.url === '/admin') {
+    filePath = './index (2).html'; // Page admin/professeur
+  } else if (req.url === '/play' || req.url === '/jouer') {
+    filePath = './player.html'; // Page joueurs uniquement
+  } else if (filePath === './') {
+    filePath = './index (2).html';
+  }
 
   const ext = path.extname(filePath);
   const contentType = mimeTypes[ext] || 'application/octet-stream';
