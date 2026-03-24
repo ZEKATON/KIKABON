@@ -8,6 +8,7 @@ const path = require('path');
 
 const port       = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const FIXED_GAME_CODE = process.env.GAME_CODE || '4242';
 
 // ---- Util: lire le body JSON ----
 function readBody(req) {
@@ -114,8 +115,13 @@ const server = http.createServer(async (req, res) => {
     if (!Array.isArray(body.questions) || body.questions.length === 0) {
       return json(400, { error: 'questions required' });
     }
-    const code       = uniqueCode();
+    const code       = FIXED_GAME_CODE;
     const adminToken = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    const previousGame = games.get(code);
+    if (previousGame) {
+      previousGame.sseClients.forEach(r => { try { r.end(); } catch {} });
+      games.delete(code);
+    }
     games.set(code, {
       code, adminToken,
       questions:  body.questions,

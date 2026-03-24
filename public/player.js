@@ -22,8 +22,18 @@ const playerState = {
   currentPlayer: null,
   gameCode: null,
   selectedAvatar: AVATARS[0],
-  sse: null
+  sse: null,
+  score: 0
 };
+
+function updatePlayerHeader() {
+  const avatar = document.getElementById('player-avatar');
+  const name = document.getElementById('player-name');
+  const score = document.getElementById('score-display');
+  if (avatar && playerState.currentPlayer) avatar.textContent = playerState.currentPlayer.avatar;
+  if (name && playerState.currentPlayer) name.textContent = playerState.currentPlayer.name;
+  if (score) score.textContent = 'Score: ' + playerState.score;
+}
 
 // ---- Navigation entre ecrans ----
 function showScreen(id) {
@@ -144,11 +154,13 @@ async function joinGameWithCode() {
     const player = data.player;
     playerState.currentPlayer = player;
     playerState.gameCode = code;
+    playerState.score = 0;
 
     addPlayerToLobby(player);
     const codeDisplay = document.getElementById('lobby-code');
     if (codeDisplay) codeDisplay.textContent = code;
     showScreen('screen-lobby');
+    updatePlayerHeader();
 
     connectSSE(code);
     showToast('Bienvenue ' + name, 'success');
@@ -251,6 +263,7 @@ const PlayerGame = (function() {
     if (qCard) qCard.style.display = 'flex';
     if (qResult) qResult.style.display = 'none';
     if (qStatus) qStatus.textContent = '';
+    updatePlayerHeader();
 
     if (q.type === 'qcm' && grid) {
       grid.style.display = 'grid';
@@ -356,6 +369,11 @@ const PlayerGame = (function() {
     const standings = document.getElementById('podium-standings');
     if (!standings) return;
     const sorted = players.slice().sort((a, b) => b.score - a.score);
+    const me = playerState.currentPlayer && players.find(p => p.id === playerState.currentPlayer.id);
+    if (me) {
+      playerState.score = me.score || 0;
+      updatePlayerHeader();
+    }
     const medals = ['\ud83e\udd47', '\ud83e\udd48', '\ud83e\udd49'];
     let html = '';
     sorted.forEach((p, i) => {

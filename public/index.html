@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="admin-shell">
 
 <!-- ====== ÉCRAN D'ACCUEIL ====== -->
 <div id="screen-home" class="screen">
@@ -86,7 +86,7 @@
     
     <div class="quiz-list-header">
       <h1 class="quiz-list-title">📚 Mes Quiz</h1>
-      <button class="btn btn-primary" onclick="App.showScreen('screen-admin')">
+      <button class="btn btn-primary" onclick="Admin.startNewQuiz()">
         <span class="btn-icon">➕</span> Créer nouveau quiz
       </button>
     </div>
@@ -123,6 +123,9 @@
           ⚙️ Paramètres
         </button>
       </nav>
+      <button class="btn btn-secondary sidebar-launch" onclick="Admin.saveQuiz()">
+        💾 Enregistrer le quiz
+      </button>
       <button class="btn btn-primary sidebar-launch" onclick="Admin.launchGame()">
         ▶ Lancer le jeu
       </button>

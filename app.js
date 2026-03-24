@@ -18,7 +18,7 @@ const App = (() => {
     // Pour la gestion des jeux
     gameCode: null,     // Code à 4 chiffres pour la session actuelle
     adminToken: null,   // Token d'authentification admin (retourné par /api/host)
-    currentQuiz: null,  // Quiz en cours (referential)
+    currentQuiz: null,  // Quiz en cours
     accessGranted: true, // accès admin automatique
   };
 
@@ -136,8 +136,6 @@ const App = (() => {
     if (document.getElementById('lobby-players') || document.getElementById('players-list')) {
       Lobby.addPlayer(player);
     }
-    // Notifier l'admin via BroadcastChannel
-    if (syncChannel) syncChannel.postMessage({ type: 'playerJoin', player });
     showToast(`Bienvenue ${name} ! 🎉`, 'success');
   }
 
@@ -339,13 +337,6 @@ const App = (() => {
     }
   }
 
-  // ---- Générer code de jeu (4 chiffres) ----
-  function generateGameCode() {
-    state.gameCode = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-    localStorage.setItem('kikabon_gameCode', state.gameCode);
-    return state.gameCode;
-  }
-
   // ---- Mettre à jour la longueur de la piste selon le nombre de questions ----
   function updateTrackLength() {
     state.settings.trackLength = Math.max(state.questions.length, 5);
@@ -365,13 +356,17 @@ const App = (() => {
       currentCard.onclick = () => showScreen('screen-admin');
       
       const stats = `${state.questions.length} question${state.questions.length > 1 ? 's' : ''}`;
+      const currentTitle = state.currentQuiz ? `✏️ ${state.currentQuiz.name}` : '🆕 Nouveau quiz';
       
       currentCard.innerHTML = `
-        <div class="quiz-card-title">📋 Quiz Actuel</div>
+        <div class="quiz-card-title">${currentTitle}</div>
         <div class="quiz-card-stats">
           <div class="quiz-card-stat">❓ ${stats}</div>
         </div>
         <div class="quiz-card-actions">
+          <button class="quiz-card-btn" onclick="Admin.startNewQuiz(); event.stopPropagation();">
+            ➕ Nouveau
+          </button>
           <button class="quiz-card-btn" onclick="App.showScreen('screen-admin'); event.stopPropagation();">
             ✏️ Modifier
           </button>
@@ -419,7 +414,7 @@ const App = (() => {
     renderQuizList();
   }
 
-  return { state, AVATARS, PLAYER_COLORS, showScreen, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, loadSavedQuizzes, persistSavedQuizzes, generateGameCode, updateTrackLength, init };
+  return { state, AVATARS, PLAYER_COLORS, showScreen, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, init };
 })();
 
 // ============================================================

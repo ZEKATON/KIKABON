@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="player-shell">
 
 <!-- ====== ÉCRAN REJOINDRE (avec code) ====== -->
 <div id="screen-join" class="screen active">
@@ -45,7 +45,7 @@
           <div class="avatar-grid" id="avatar-grid"></div>
         </div>
         <div class="join-avatar-preview" id="join-avatar-preview">🐼</div>
-        <div style="display:flex; gap:10px">
+        <div class="join-actions-row">
           <button class="btn btn-ghost full" onclick="goToJoinStep('code')">
             ← Retour
           </button>

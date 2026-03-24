@@ -7,6 +7,19 @@ const Admin = (() => {
   let correctIdx = 0;
   let correctIndices = [0]; // Pour les choix multiples
   let isMultipleChoice = false; // Mode choix unique ou multiples
+  let adminSSE = null;
+
+  function startNewQuiz() {
+    const hasQuestions = App.state.questions.length > 0;
+    if (hasQuestions && !confirm('Créer un nouveau quiz et effacer le quiz en cours ?')) {
+      return;
+    }
+    App.state.currentQuiz = null;
+    App.state.questions = [];
+    renderQuestions();
+    App.showScreen('screen-admin');
+    showTab('tab-questions');
+  }
 
   // ---- Navigation tabs ----
   function showTab(tabId) {
@@ -43,6 +56,9 @@ const Admin = (() => {
       list.appendChild(item);
     });
     persistQuestions();
+    if (typeof App.renderQuizList === 'function') {
+      App.renderQuizList();
+    }
   }
 
   function persistQuestions() {
@@ -328,14 +344,21 @@ const Admin = (() => {
     if (qs.length === 0) { App.showToast('Aucune question à sauvegarder !', 'error'); return; }
     const name = prompt('Nom du quiz :', `Quiz ${new Date().toLocaleDateString('fr-FR')}`);
     if (!name) return;
+    const existingQuiz = App.state.currentQuiz && App.state.savedQuizzes.find(q => q.id === App.state.currentQuiz.id);
     const quiz = {
-      id: Date.now(),
+      id: existingQuiz ? existingQuiz.id : Date.now(),
       name,
       questions: [...qs],
       date: new Date().toLocaleDateString('fr-FR'),
       count: qs.length,
     };
-    App.state.savedQuizzes.push(quiz);
+    if (existingQuiz) {
+      const index = App.state.savedQuizzes.findIndex(q => q.id === existingQuiz.id);
+      App.state.savedQuizzes[index] = quiz;
+    } else {
+      App.state.savedQuizzes.push(quiz);
+    }
+    App.state.currentQuiz = quiz;
     App.persistSavedQuizzes();
     renderSaved();
     App.showToast(`Quiz "${name}" sauvegardé ✓`, 'success');
@@ -378,8 +401,10 @@ const Admin = (() => {
     if (!quiz) return;
     if (!confirm(`Charger "${quiz.name}" ? (remplace les questions actuelles)`)) return;
     App.state.questions = [...quiz.questions];
+    App.state.currentQuiz = quiz;
     renderQuestions();
     showTab('tab-questions');
+    App.showScreen('screen-admin');
     App.showToast(`Quiz "${quiz.name}" chargé ✓`, 'success');
   }
 
@@ -387,6 +412,7 @@ const Admin = (() => {
     const quiz = App.state.savedQuizzes.find(q => q.id === id);
     if (!quiz) return;
     App.state.questions = [...quiz.questions];
+    App.state.currentQuiz = quiz;
     renderQuestions();
     launchGame();
     App.showToast(`Quiz "${quiz.name}" lancé ✓`, 'success');
@@ -407,9 +433,6 @@ const Admin = (() => {
     App.persistSavedQuizzes();
     renderSaved();
   }
-
-  // ---- Lancer le jeu ----
-  let adminSSE = null;
 
   function connectAdminSSE(code) {
     if (adminSSE) { adminSSE.close(); adminSSE = null; }
@@ -472,6 +495,7 @@ const Admin = (() => {
     saveQuestion, closeModal, updateModalType, setCorrect,
     importFromText, importFromFile, importFromFileObj,
     saveQuiz, loadSavedQuiz, loadAndLaunchQuiz, downloadSavedQuiz, deleteSavedQuiz,
+    startNewQuiz,
     launchGame,
   };
 })();

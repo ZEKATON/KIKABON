@@ -794,6 +794,478 @@ html, body {
   padding: 14px 16px; font-size: 14px;
 }
 
+.admin-shell .game-layout {
+  flex-direction: column;
+}
+
+.admin-shell .question-zone {
+  order: 1;
+  padding-bottom: 12px;
+}
+
+.admin-shell .race-track-container {
+  order: 2;
+  width: 100%;
+  max-height: 42vh;
+  border-right: none;
+  border-top: 1px solid var(--border);
+}
+
+.admin-shell .track-lanes {
+  padding: 12px;
+  gap: 8px;
+}
+
+.admin-shell .track-lane {
+  padding: 10px 6px;
+}
+
+.admin-shell .lane-name {
+  width: 110px;
+  font-size: 13px;
+}
+
+.admin-shell #question-card .choices-grid,
+.admin-shell #question-card .open-answer {
+  display: none !important;
+}
+
+.admin-shell .question-card {
+  gap: 12px;
+}
+
+.admin-shell .admin-control-panel {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.admin-shell .admin-controls-title {
+  width: 100%;
+}
+
+.admin-shell .admin-control-panel .btn {
+  width: auto;
+  flex: 1 1 220px;
+}
+
+.player-shell {
+  overflow: auto;
+}
+
+.player-shell .screen {
+  overflow-y: auto;
+}
+
+.player-shell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top, rgba(247,201,72,0.14), transparent 30%),
+    linear-gradient(180deg, #140f23 0%, #0f0c1a 100%);
+}
+
+.player-shell #screen-join,
+.player-shell #screen-lobby,
+.player-shell #screen-podium {
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+
+.player-shell #screen-game {
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.player-shell .lobby-container,
+.player-shell .podium-container,
+.player-shell .game-container {
+  width: min(100%, 760px);
+}
+
+.player-shell .lobby-container,
+.player-shell .podium-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.player-shell .join-container {
+  width: 100%;
+  padding: 16px;
+}
+
+.player-shell .join-card {
+  width: min(100%, 520px);
+  padding: 24px;
+  gap: 18px;
+}
+
+.player-shell .join-title {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1;
+}
+
+.player-shell .join-subtitle {
+  color: var(--text2);
+  font-size: 15px;
+}
+
+.player-shell .join-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.player-shell .form-group input[type="text"] {
+  min-height: 52px;
+  font-size: 16px;
+}
+
+.player-shell .avatar-grid {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.player-shell .avatar-btn {
+  min-height: 52px;
+  font-size: 30px;
+}
+
+.player-shell .join-avatar-preview {
+  width: 92px;
+  height: 92px;
+  font-size: 56px;
+}
+
+.player-shell .lobby-header,
+.player-shell .lobby-footer,
+.player-shell .podium-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.player-shell .lobby-header h1,
+.player-shell .podium-container h1 {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1.05;
+}
+
+.player-shell .game-code-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(247,201,72,0.1);
+  border: 1px solid rgba(247,201,72,0.35);
+  border-radius: 999px;
+  padding: 10px 14px;
+  width: fit-content;
+}
+
+.player-shell .players-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.player-shell .game-container {
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: max(14px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.player-shell .game-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding-top: 4px;
+  background: linear-gradient(180deg, rgba(15,12,26,0.98) 0%, rgba(15,12,26,0.88) 75%, rgba(15,12,26,0) 100%);
+  backdrop-filter: blur(8px);
+}
+
+.player-shell .question-counter {
+  align-self: flex-start;
+  background: var(--card2);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.player-shell #question-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: linear-gradient(180deg, rgba(45,39,80,0.95), rgba(35,30,58,0.98));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.player-shell .question-text-player {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 6vw, 34px);
+  line-height: 1.15;
+}
+
+.player-shell .choices-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.player-shell .choice-btn {
+  min-height: 68px;
+  font-size: 17px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  align-items: flex-start;
+}
+
+.player-shell .choice-letter {
+  min-width: 34px;
+  text-align: center;
+  padding: 5px 9px;
+}
+
+.player-shell .open-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.player-shell .open-answer input {
+  min-height: 54px;
+  font-size: 16px;
+}
+
+.player-shell .open-answer .btn,
+.player-shell .join-card .btn,
+.player-shell .podium-container .btn {
+  min-height: 50px;
+}
+
+.player-shell .question-result {
+  border-radius: 20px;
+  padding: 22px 18px;
+}
+
+.player-shell .result-text {
+  font-size: 22px;
+}
+
+.player-shell .result-answer {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.player-shell .game-status {
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.player-shell .game-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  box-shadow: 0 -8px 24px rgba(0,0,0,0.22);
+}
+
+.player-shell .player-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.player-shell .player-avatar {
+  font-size: 28px;
+}
+
+.player-shell .score-display,
+.player-shell .game-code-display {
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.player-shell .score-display {
+  background: rgba(247,201,72,0.1);
+  border: 1px solid rgba(247,201,72,0.2);
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+
+.player-shell .waiting-animation {
+  display: flex;
+  gap: 8px;
+}
+
+.player-shell .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: twinkle 0.8s ease-in-out infinite alternate;
+}
+
+.player-shell .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.player-shell .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.player-shell .podium-standings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.player-shell .podium-entry {
+  display: grid;
+  grid-template-columns: 42px 42px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+@media (max-width: 768px) {
+  html, body {
+    overflow: auto;
+  }
+
+  .player-shell .join-card,
+  .player-shell .lobby-container,
+  .player-shell .podium-container {
+    width: 100%;
+    padding: 20px 18px;
+  }
+
+  .player-shell .join-title {
+    font-size: 32px;
+  }
+
+  .player-shell .avatar-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .player-shell .question-text-player {
+    font-size: 24px;
+  }
+
+  .player-shell .choice-btn {
+    min-height: 58px;
+    font-size: 16px;
+  }
+
+  .player-shell .game-footer {
+    padding: 12px 14px;
+  }
+
+  .admin-shell .question-zone,
+  .admin-shell .race-track-container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .admin-shell .race-track-container {
+    max-height: 46vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .player-shell #screen-join,
+  .player-shell #screen-lobby,
+  .player-shell #screen-podium {
+    padding: 10px;
+  }
+
+  .player-shell .join-card,
+  .player-shell .lobby-container,
+  .player-shell .podium-container {
+    border-radius: 18px;
+    padding: 18px 14px;
+  }
+
+  .player-shell .game-container {
+    padding: max(10px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom));
+  }
+
+  .player-shell .question-text-player {
+    font-size: 21px;
+  }
+
+  .player-shell .join-actions-row {
+    grid-template-columns: 1fr;
+  }
+
+  .player-shell .question-counter {
+    font-size: 16px;
+    padding: 7px 12px;
+  }
+
+  .player-shell .timer-text {
+    font-size: 24px;
+  }
+
+  .player-shell .choice-btn {
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+
+  .player-shell .podium-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .player-shell .game-footer {
+    justify-content: flex-start;
+  }
+
+  .player-shell .player-info,
+  .player-shell .score-display {
+    width: 100%;
+  }
+
+  .player-shell .score-display {
+    text-align: center;
+  }
+
+  .player-shell .podium-entry {
+    text-align: center;
+  }
+}
+
 /* ===== PODIUM SCREEN ===== */
 #screen-podium {
   flex-direction: column;

@@ -8,8 +8,8 @@ const Game = (() => {
   let timeLeft = 0;
   let questionActive = false;
   let finishRankCounter = 0;
-  let questionLaunchedByAdmin = false;
   let gamePaused = false;
+  let waitingForNextLaunch = false;
 
   // ---- Diffuser un événement aux joueurs via l'API ----
   function adminBroadcast(type, payload) {
@@ -39,8 +39,8 @@ const Game = (() => {
     // Reset
     currentQuestionIdx = 0;
     finishRankCounter = 0;
-    questionLaunchedByAdmin = false;
     gamePaused = false;
+    waitingForNextLaunch = false;
     players.forEach(p => {
       p.score = 0;
       p.position = 0;
@@ -57,6 +57,7 @@ const Game = (() => {
     document.getElementById('btn-stop-timer').style.display = 'none';
     document.getElementById('btn-pause-game').style.display = 'none';
     document.getElementById('btn-resume-game').style.display = 'none';
+    document.getElementById('btn-launch-question').textContent = '▶️ Lancer la question';
     document.getElementById('question-card').style.display = 'none';
     document.getElementById('question-result').style.display = 'none';
 
@@ -67,6 +68,10 @@ const Game = (() => {
   // ---- Lancer une question par l'admin ----
   function launchQuestion() {
     const questions = App.state.questions;
+    if (waitingForNextLaunch) {
+      currentQuestionIdx++;
+      waitingForNextLaunch = false;
+    }
     if (currentQuestionIdx >= questions.length) {
       endGame(); return;
     }
@@ -76,8 +81,8 @@ const Game = (() => {
 
     // Reset answeredCurrentQuestion
     App.state.players.forEach(p => p.answeredCurrentQuestion = false);
-    questionLaunchedByAdmin = true;
     questionActive = true;
+    gamePaused = false;
 
     // Header
     document.getElementById('track-question-num').textContent = `Q${currentQuestionIdx + 1}/${total}`;
@@ -100,26 +105,9 @@ const Game = (() => {
     const openAnswer = document.getElementById('open-answer');
     const letters = ['A', 'B', 'C', 'D'];
 
-    if (q.type === 'qcm') {
-      choicesGrid.style.display = 'grid';
-      openAnswer.style.display = 'none';
-      choicesGrid.innerHTML = '';
-      q.choices.forEach((choice, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'choice-btn';
-        btn.innerHTML = `<span class="choice-letter">${letters[i]}</span>${choice}`;
-        btn.onclick = () => handleQCMAnswer(i);
-        choicesGrid.appendChild(btn);
-      });
-    } else {
-      choicesGrid.style.display = 'none';
-      openAnswer.style.display = 'flex';
-      const input = document.getElementById('open-input');
-      input.value = '';
-      input.disabled = false;
-      input.focus();
-      input.onkeydown = e => { if (e.key === 'Enter') submitOpenAnswer(); };
-    }
+    choicesGrid.style.display = 'none';
+    openAnswer.style.display = 'none';
+    choicesGrid.innerHTML = '';
 
     // Timer
     startTimer();
@@ -128,59 +116,49 @@ const Game = (() => {
     adminBroadcast('question', { question: q, idx: currentQuestionIdx, total, timeLeft: getQuestionTime() });
   }
 
-  // ---- Afficher une question ----
-  function showQuestion() {
-    launchQuestion();
+  function getCorrectAnswerText() {
+    const q = App.state.questions[currentQuestionIdx];
+    const correctIndices = q.type === 'qcm' ? (q.correctIndices || [q.correct]) : [];
+
+    if (q.type === 'qcm') {
+      if (correctIndices.length === 1) {
+        return q.choices[correctIndices[0]];
+      } else {
+        const letters = ['A', 'B', 'C', 'D'];
+        const answers = correctIndices.map(i => `${letters[i]}: ${q.choices[i]}`).join(', ');
+        return `Réponses correctes: ${answers}`;
+      }
+    }
+    return q.answer;
+  }
+
+  function completeQuestion(statusText) {
+    if (!questionActive) return;
+    questionActive = false;
+    stopTimer();
+
+    const q = App.state.questions[currentQuestionIdx];
+    const correctIndices = q.type === 'qcm' ? (q.correctIndices || [q.correct]) : [];
+    const correctAnswerText = getCorrectAnswerText();
+
+    showCorrectAnswer(correctAnswerText);
+
+    adminBroadcast('questionEnd', { correctIndices, correctAnswer: correctAnswerText });
+    processResults();
+
+    document.getElementById('btn-stop-timer').style.display = 'none';
+    document.getElementById('btn-pause-game').style.display = 'none';
+    document.getElementById('btn-resume-game').style.display = 'none';
+    document.getElementById('btn-launch-question').style.display = 'block';
+    document.getElementById('btn-launch-question').textContent =
+      currentQuestionIdx >= App.state.questions.length - 1 ? '🏁 Voir les résultats' : '▶️ Lancer la question suivante';
+    document.getElementById('game-status').textContent = statusText;
+    waitingForNextLaunch = true;
   }
 
   // ---- Arrêter le chrono manuellement et traiter les résultats ----
   function stopTimerManually() {
-    if (!questionActive) return;
-    questionActive = false;
-    stopTimer();
-    
-    // Afficher la(les) bonne(s) réponse(s)
-    const q = App.state.questions[currentQuestionIdx];
-    let correctAnswerText;
-    const correctIndices = q.type === 'qcm' ? (q.correctIndices || [q.correct]) : [];
-    
-    if (q.type === 'qcm') {
-      if (correctIndices.length === 1) {
-        correctAnswerText = q.choices[correctIndices[0]];
-      } else {
-        // Plusieurs bonnes réponses
-        const letters = ['A', 'B', 'C', 'D'];
-        const answers = correctIndices.map(i => `${letters[i]}: ${q.choices[i]}`).join(', ');
-        correctAnswerText = `Réponses correctes: ${answers}`;
-      }
-    } else {
-      correctAnswerText = q.answer;
-    }
-    
-    // Marquer les bonnes réponses dans l'UI
-    const btns = document.querySelectorAll('.choice-btn');
-    btns.forEach((btn, i) => {
-      btn.disabled = true;
-      if (q.type === 'qcm' && correctIndices.includes(i)) {
-        btn.classList.add('correct');
-      }
-    });
-    
-    showCorrectAnswer(false, correctAnswerText);
-
-    // Informer les joueurs de la fin de question
-    adminBroadcast('questionEnd', { correctIndices, correctAnswer: correctAnswerText });
-
-    // Traiter les résultats et avancer les joueurs qui ont bien répondu
-    processResults();
-
-    // Masquer le bouton "Arrêter le chrono"
-    document.getElementById('btn-stop-timer').style.display = 'none';
-    document.getElementById('btn-pause-game').style.display = 'none';
-    document.getElementById('btn-resume-game').style.display = 'none';
-
-    document.getElementById('game-status').textContent = '✋ Chrono arrêté par le prof';
-    setTimeout(() => nextQuestion(), 3000);
+    completeQuestion('✋ Réponse affichée. Lancez la suite quand vous êtes prêt.');
   }
 
   // ---- Traiter les résultats et avancer les joueurs ----
@@ -232,60 +210,6 @@ const Game = (() => {
       `;
       lanes.appendChild(lane);
     });
-  }
-
-  // ---- Afficher une question ----
-  function showQuestion() {
-    const questions = App.state.questions;
-    if (currentQuestionIdx >= questions.length) {
-      endGame(); return;
-    }
-
-    const q = questions[currentQuestionIdx];
-    const total = questions.length;
-
-    // Reset answeredCurrentQuestion
-    App.state.players.forEach(p => p.answeredCurrentQuestion = false);
-    questionActive = true;
-
-    // Header
-    document.getElementById('track-question-num').textContent = `Q${currentQuestionIdx + 1}/${total}`;
-    document.getElementById('question-category').textContent = q.category || 'Question';
-    document.getElementById('question-text').textContent = q.text;
-
-    // Résultat précédent masqué
-    document.getElementById('question-result').style.display = 'none';
-    document.getElementById('question-card').style.display = 'flex';
-    document.getElementById('game-status').textContent = '';
-
-    // Choix QCM
-    const choicesGrid = document.getElementById('choices-grid');
-    const openAnswer = document.getElementById('open-answer');
-    const letters = ['A', 'B', 'C', 'D'];
-
-    if (q.type === 'qcm') {
-      choicesGrid.style.display = 'grid';
-      openAnswer.style.display = 'none';
-      choicesGrid.innerHTML = '';
-      q.choices.forEach((choice, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'choice-btn';
-        btn.innerHTML = `<span class="choice-letter">${letters[i]}</span>${choice}`;
-        btn.onclick = () => handleQCMAnswer(i);
-        choicesGrid.appendChild(btn);
-      });
-    } else {
-      choicesGrid.style.display = 'none';
-      openAnswer.style.display = 'flex';
-      const input = document.getElementById('open-input');
-      input.value = '';
-      input.disabled = false;
-      input.focus();
-      input.onkeydown = e => { if (e.key === 'Enter') submitOpenAnswer(); };
-    }
-
-    // Timer
-    startTimer();
   }
 
   // ---- Déterminer le temps pour une question ----
@@ -380,11 +304,7 @@ const Game = (() => {
   }
 
   function timeExpired() {
-    if (!questionActive) return;
-    questionActive = false;
-    showCorrectAnswer(false, null);
-    document.getElementById('game-status').textContent = '⏰ Temps écoulé !';
-    setTimeout(() => nextQuestion(), 3000);
+    completeQuestion('⏰ Temps écoulé. Lancez la question suivante.');
   }
 
   // ---- Réponse QCM ----
@@ -445,19 +365,12 @@ const Game = (() => {
   }
 
   // ---- Afficher la bonne réponse ----
-  function showCorrectAnswer(wasCorrect, correctAnswer) {
-    const q = App.state.questions[currentQuestionIdx];
-    const ans = correctAnswer || (q.type === 'qcm' ? q.choices[q.correct] : q.answer);
-    document.getElementById('result-icon').textContent = wasCorrect ? '✅' : '❌';
-    document.getElementById('result-text').textContent = wasCorrect ? 'Bonne réponse !' : 'Mauvaise réponse...';
-    document.getElementById('result-answer').textContent = `Réponse : ${ans}`;
+  function showCorrectAnswer(correctAnswer) {
+    document.getElementById('result-icon').textContent = '💡';
+    document.getElementById('result-text').textContent = 'Bonne réponse';
+    document.getElementById('result-answer').textContent = `Réponse : ${correctAnswer}`;
     document.getElementById('question-result').style.display = 'flex';
-    document.getElementById('question-card').style.display = 'none';
-  }
-
-  function showAnswerFeedback(isCorrect, correctAnswer) {
-    App.playSound(isCorrect ? 'correct' : 'wrong');
-    showCorrectAnswer(isCorrect, correctAnswer);
+    document.getElementById('question-card').style.display = 'flex';
   }
 
   // ---- Avancer un joueur ----
@@ -494,12 +407,6 @@ const Game = (() => {
       car.style.transform = 'scale(1.4)';
       setTimeout(() => { if (car) car.style.transform = ''; }, 400);
     }
-  }
-
-  // ---- Passer à la question suivante ----
-  function nextQuestion() {
-    currentQuestionIdx++;
-    showQuestion();
   }
 
   // ---- Fin de partie ----
