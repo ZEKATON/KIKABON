@@ -243,6 +243,7 @@ const server = http.createServer(async (req, res) => {
       const redirectCode = active ? active.code : null;
       return json(410, {
         error: 'Session close',
+        event: 'game_already_ended',
         redirectCode,
         redirectPath: redirectCode ? ('/join-new-game?code=' + redirectCode) : '/join-new-game',
       });
@@ -251,11 +252,28 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     const requestedPlayerId = Number(body.playerId);
     const requestedName = String(body.name || '').slice(0, 30);
+    const requestedSessionId = String(body.sessionId || '').slice(0, 80);
     const normalizedRequestedName = normalizePlayerName(requestedName);
+    const currentQuestionPayload = game.currentQuestion
+      ? {
+          question: game.currentQuestion.question,
+          idx: game.currentQuestion.idx,
+          total: game.currentQuestion.total,
+          timeLeft: Math.max(0, game.currentQuestion.duration - Math.floor((Date.now() - game.currentQuestion.startedAt) / 1000)),
+        }
+      : null;
     if (Number.isFinite(requestedPlayerId)) {
       const existing = game.players.find(p => p.id === requestedPlayerId);
       if (existing) {
-        return json(200, { player: existing, rejoined: true });
+        if (requestedSessionId) existing.sessionId = requestedSessionId;
+        return json(200, {
+          player: existing,
+          rejoined: true,
+          score: Number.isFinite(Number(existing.score)) ? Number(existing.score) : 0,
+          currentQuestionIndex: Number.isInteger(game.currentQuestionIndex) ? game.currentQuestionIndex : 0,
+          gamePhase: game.gamePhase,
+          currentQuestion: currentQuestionPayload,
+        });
       }
     }
 
@@ -263,9 +281,17 @@ const server = http.createServer(async (req, res) => {
     if (normalizedRequestedName) {
       const sameNamePlayer = game.players.find(p => normalizePlayerName(p.name) === normalizedRequestedName);
       if (sameNamePlayer) {
+        if (requestedSessionId) sameNamePlayer.sessionId = requestedSessionId;
         if (body.avatar) sameNamePlayer.avatar = body.avatar;
         if (body.color) sameNamePlayer.color = body.color;
-        return json(200, { player: sameNamePlayer, rejoined: true });
+        return json(200, {
+          player: sameNamePlayer,
+          rejoined: true,
+          score: Number.isFinite(Number(sameNamePlayer.score)) ? Number(sameNamePlayer.score) : 0,
+          currentQuestionIndex: Number.isInteger(game.currentQuestionIndex) ? game.currentQuestionIndex : 0,
+          gamePhase: game.gamePhase,
+          currentQuestion: currentQuestionPayload,
+        });
       }
     }
 
@@ -275,13 +301,21 @@ const server = http.createServer(async (req, res) => {
       name:   requestedName,
       avatar: body.avatar || '🐼',
       color:  body.color  || '#4fa3ff',
+      sessionId: requestedSessionId || null,
       score:  0,
       position: 0,
       answeredCurrentQuestion: false,
     };
     game.players.push(player);
     broadcast(code, 'playerJoin', player);
-    return json(200, { player });
+    return json(200, {
+      player,
+      rejoined: false,
+      score: 0,
+      currentQuestionIndex: Number.isInteger(game.currentQuestionIndex) ? game.currentQuestionIndex : 0,
+      gamePhase: game.gamePhase,
+      currentQuestion: currentQuestionPayload,
+    });
   }
 
   // ── GET /api/events/:code ──────────────────────────────────

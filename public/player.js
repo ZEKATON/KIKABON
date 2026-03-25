@@ -33,6 +33,20 @@ let playerAudioCtx = null;
 let heartbeatTimer = null;
 let heartbeatFailureCount = 0;
 
+function getOrCreateClientSessionId() {
+  const key = 'kikabon_client_session';
+  try {
+    let id = sessionStorage.getItem(key);
+    if (!id) {
+      id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem(key, id);
+    }
+    return id;
+  } catch (e) {
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+}
+
 function getQuestionTypeLabel(question) {
   if (!question || question.type === 'open') return 'Question ouverte';
   const correctIndices = Array.isArray(question.correctIndices)
@@ -245,6 +259,7 @@ async function tryRestoreSession() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         playerId: saved.playerId,
+        sessionId: getOrCreateClientSessionId(),
         name: saved.name,
         avatar: saved.avatar,
         color: saved.color,
@@ -258,6 +273,10 @@ async function tryRestoreSession() {
       }
       if (joinRes.status === 410 && /^\d{4}$/.test(String(joinErr.redirectCode || ''))) {
         redirectToJoinNewGame(String(joinErr.redirectCode), 'Partie terminee. Reinscris-toi pour rejoindre la nouvelle partie.');
+        return false;
+      }
+      if (joinRes.status === 410 && joinErr.event === 'game_already_ended') {
+        showToast('La partie est terminee. Veuillez attendre le lancement d\'un nouveau jeu.', 'error');
         return false;
       }
       clearSession();
@@ -291,6 +310,69 @@ async function tryAutoReconnect() {
   updatePlayerHeader();
   updatePlayerStats();
   return true;
+}
+
+async function tryAutoJoinByStoredName() {
+  if (playerState.currentPlayer) return true;
+  let storedName = '';
+  let storedAvatar = '';
+  try {
+    storedName = String(localStorage.getItem('playerName') || '').trim();
+    storedAvatar = String(localStorage.getItem('playerAvatar') || '').trim();
+  } catch (e) {
+    return false;
+  }
+  if (!storedName) return false;
+
+  try {
+    const activeRes = await fetch('/api/game-active');
+    if (!activeRes.ok) return false;
+    const activeData = await activeRes.json().catch(() => ({}));
+    const code = String(activeData.code || '').trim();
+    if (!/^\d{4}$/.test(code)) return false;
+
+    const joinRes = await fetch('/api/join/' + code, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: getOrCreateClientSessionId(),
+        name: storedName,
+        avatar: storedAvatar || '🐼',
+        color: PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)],
+      }),
+    });
+    if (!joinRes.ok) {
+      const err = await joinRes.json().catch(() => ({}));
+      if (joinRes.status === 410 && err.event === 'game_already_ended') {
+        showToast('La partie est terminee. Veuillez attendre le lancement d\'un nouveau jeu.', 'error');
+      }
+      return false;
+    }
+
+    const data = await joinRes.json();
+    const player = data.player || null;
+    if (!player) return false;
+    playerState.currentPlayer = player;
+    playerState.gameCode = code;
+    playerState.score = Number.isFinite(Number(player.score)) ? Number(player.score) : 0;
+    updatePlayerHeader();
+    updatePlayerStats();
+    showScreen('screen-lobby');
+    saveSession();
+
+    if (data.gamePhase === 'game' && data.currentQuestion) {
+      const incomingIdx = Number.isInteger(data.currentQuestionIndex)
+        ? data.currentQuestionIndex
+        : data.currentQuestion.idx;
+      PlayerGame.showQuestion(data.currentQuestion.question, incomingIdx, data.currentQuestion.total, data.currentQuestion.timeLeft);
+    }
+
+    connectSSE(code);
+    showToast('Reconnexion automatique reussie', 'success');
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 // ---- Navigation entre ecrans ----
@@ -504,6 +586,7 @@ async function joinGameWithCode() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         playerId: canResumeForCode ? saved.playerId : null,
+        sessionId: getOrCreateClientSessionId(),
         name: name,
         avatar: avatar,
         color: PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)]
@@ -524,6 +607,11 @@ async function joinGameWithCode() {
       if (res.status === 410 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
         // Session terminee: redirection vers route de reinscription
         redirectToJoinNewGame(String(err.redirectCode), 'Partie terminee. Entre ton prenom et choisis un avatar pour la nouvelle partie.');
+        return;
+      }
+
+      if (res.status === 410 && err.event === 'game_already_ended') {
+        showToast('La partie est terminee. Veuillez attendre le lancement d\'un nouveau jeu.', 'error');
         return;
       }
 
@@ -552,7 +640,15 @@ async function joinGameWithCode() {
     if (footerMsg) footerMsg.textContent = 'En attente du professeur pour démarrer le quiz...';
     updatePlayerHeader();
     updatePlayerStats();
+    try { localStorage.setItem('playerName', name); } catch (e) {}
     saveSession();
+
+    if (data.gamePhase === 'game' && data.currentQuestion) {
+      const incomingIdx = Number.isInteger(data.currentQuestionIndex)
+        ? data.currentQuestionIndex
+        : data.currentQuestion.idx;
+      PlayerGame.showQuestion(data.currentQuestion.question, incomingIdx, data.currentQuestion.total, data.currentQuestion.timeLeft);
+    }
 
     connectSSE(code);
     showToast((canResume ? 'Bon retour ' : 'Bienvenue ') + name, 'success');
@@ -1062,11 +1158,13 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Restauration auto: si le joueur revient, il reprend sa partie sans ressaisir ses infos
-  tryAutoReconnect().then(restored => {
+  tryAutoReconnect().then(async restored => {
     if (restored) {
       showToast('Session restauree', 'success');
       return;
     }
+    const autoJoined = await tryAutoJoinByStoredName();
+    if (autoJoined) return;
     initAvatarGrid();
   });
 
