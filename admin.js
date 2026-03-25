@@ -92,9 +92,14 @@ const Admin = (() => {
     const q = App.state.questions.find(q => q.id === id);
     if (!q) return;
     editingId = id;
-    correctIdx = q.type === 'qcm' ? q.correct : 0;
-    isMultipleChoice = q.type === 'qcm' ? (q.multipleAnswers || false) : false;
-    correctIndices = q.type === 'qcm' && q.correctIndices ? [...q.correctIndices] : [q.correct || 0];
+    const normalizedCorrectIndices = q.type === 'qcm'
+      ? (Array.isArray(q.correctIndices) && q.correctIndices.length > 0
+          ? [...new Set(q.correctIndices.filter(i => Number.isInteger(i) && i >= 0))]
+          : [q.correct || 0])
+      : [0];
+    correctIdx = q.type === 'qcm' ? normalizedCorrectIndices[0] : 0;
+    isMultipleChoice = q.type === 'qcm' ? (normalizedCorrectIndices.length > 1 || q.multipleAnswers || false) : false;
+    correctIndices = normalizedCorrectIndices;
     
     document.getElementById('modal-title').textContent = 'Modifier la question';
     document.getElementById('modal-type').value = q.type === 'open'
@@ -103,16 +108,11 @@ const Admin = (() => {
     document.getElementById('modal-question-text').value = q.text;
     document.getElementById('modal-category').value = q.category || '';
     updateModalType();
+    updateCorrectDisplay();
     
     if (q.type === 'qcm') {
       const inputs = document.querySelectorAll('.choice-input');
       q.choices.forEach((c, i) => { if (inputs[i]) inputs[i].value = c; });
-
-      // Charger les réponses correctes
-      correctIndices.forEach(idx => {
-        const btn = document.querySelector(`.choice-correct[data-idx="${idx}"]`);
-        if (btn) btn.classList.add('active');
-      });
     } else {
       document.getElementById('modal-open-answer').value = q.answer || '';
     }
@@ -288,7 +288,7 @@ const Admin = (() => {
         const indices = Array.isArray(normalized.correctIndices) && normalized.correctIndices.length > 0
           ? [...new Set(normalized.correctIndices.filter(i => Number.isInteger(i) && i >= 0))]
           : (Number.isInteger(normalized.correct) ? [normalized.correct] : [0]);
-        normalized.correctIndices = indices;
+        normalized.correctIndices = indices.sort((a, b) => a - b);
         normalized.correct = indices[0];
         normalized.multipleAnswers = indices.length > 1;
       }
