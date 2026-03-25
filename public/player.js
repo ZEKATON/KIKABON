@@ -321,21 +321,33 @@ async function joinGameWithCode() {
     });
   };
 
+  const prepareRedirectedJoin = (redirectCode) => {
+    clearSession();
+    playerState.currentPlayer = null;
+    playerState.gameCode = redirectCode;
+    playerState.score = 0;
+    playerState.correctCount = 0;
+    playerState.totalQuestions = 0;
+
+    const nameField = document.getElementById('join-name');
+    if (nameField) nameField.value = '';
+
+    playerState.selectedAvatar = AVATARS[0];
+    initAvatarGrid();
+    showScreen('screen-join');
+  };
+
   try {
     let res = await performJoin(code, canResume);
     if (!res.ok) {
       let err = await res.json().catch(() => ({}));
 
       if (res.status === 410 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
-        // Session terminee: rediriger automatiquement vers la partie active
-        code = String(err.redirectCode);
-        playerState.gameCode = code;
-        res = await performJoin(code, false);
-        if (!res.ok) {
-          err = await res.json().catch(() => ({}));
-        } else {
-          showToast('Redirection vers la partie active', 'success');
-        }
+        // Session terminee: orienter vers la partie active et forcer une nouvelle saisie
+        const redirectedCode = String(err.redirectCode);
+        prepareRedirectedJoin(redirectedCode);
+        showToast('Partie terminee. Entre ton prenom et choisis un avatar pour la nouvelle partie.', 'error');
+        return;
       }
 
       if (!res.ok) {
