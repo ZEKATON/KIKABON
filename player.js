@@ -460,6 +460,11 @@ function connectSSE(code) {
             const st = document.getElementById('game-status');
             if (st) st.textContent = '\u23f3 Prochaine question...';
           }
+        } else if (data.gamePhase === 'paused') {
+          showScreen('screen-game');
+          if (data.currentQuestion) {
+            PlayerGame.showQuestion(data.currentQuestion.question, data.currentQuestion.idx, data.currentQuestion.total, data.currentQuestion.timeLeft, true);
+          }
         } else if (data.gamePhase === 'ended') {
           clearSession();
         } else {
@@ -484,6 +489,17 @@ function connectSSE(code) {
     sse.addEventListener('question', function(e) {
       const data = JSON.parse(e.data);
       PlayerGame.showQuestion(data.question, data.idx, data.total, data.timeLeft);
+    });
+
+    sse.addEventListener('gamePause', function(e) {
+      const data = JSON.parse(e.data);
+      PlayerGame.pauseQuestion(data.timeLeft);
+    });
+
+    sse.addEventListener('gameResume', function(e) {
+      const data = JSON.parse(e.data);
+      PlayerGame.resumeQuestion(data.timeLeft);
+      showToast('La partie reprend', 'success');
     });
 
     sse.addEventListener('questionEnd', function(e) {
@@ -555,10 +571,13 @@ const PlayerGame = (function() {
   let selectedIndices = [];
   let playerTimerInterval = null;
   let playerTimerTotal = 60;
+  let playerTimeLeft = 60;
+  let playerPaused = false;
 
-  function showQuestion(q, idx, total, time) {
+  function showQuestion(q, idx, total, time, paused) {
     answered = false;
     selectedIndices = [];
+    playerPaused = !!paused;
     showScreen('screen-game');
 
     const counter = document.getElementById('track-question-num');
@@ -576,7 +595,7 @@ const PlayerGame = (function() {
     if (qText) qText.textContent = q.text;
     if (qCard) qCard.style.display = 'flex';
     if (qResult) qResult.style.display = 'none';
-    if (qStatus) qStatus.textContent = '';
+    if (qStatus) qStatus.textContent = playerPaused ? '⏸️ Partie en pause' : '';
     updatePlayerHeader();
 
     if (q.type === 'qcm' && grid) {
@@ -622,7 +641,8 @@ const PlayerGame = (function() {
         }
       }
     }
-    startPlayerTimer(time);
+    playerTimerTotal = time || 60;
+    startPlayerTimer(time, playerPaused, playerTimerTotal);
   }
 
   function toggleChoiceSelection(choiceIndex) {
@@ -698,19 +718,62 @@ const PlayerGame = (function() {
     submitAnswer(null, text);
   }
 
-  function startPlayerTimer(time) {
+  function startPlayerTimer(time, paused, totalTime) {
     clearInterval(playerTimerInterval);
-    playerTimerTotal = time || 60;
-    renderTimerUI(time);
+    playerTimeLeft = time || 60;
+    playerTimerTotal = totalTime || playerTimerTotal || playerTimeLeft || 60;
+    playerPaused = !!paused;
+    renderTimerUI(playerTimeLeft);
+    if (playerPaused) return;
     playerTimerInterval = setInterval(function() {
-      time--;
-      renderTimerUI(time);
-      if (time <= 0) clearInterval(playerTimerInterval);
+      playerTimeLeft--;
+      renderTimerUI(playerTimeLeft);
+      if (playerTimeLeft <= 0) clearInterval(playerTimerInterval);
     }, 1000);
   }
 
   function stopPlayerTimer() {
     clearInterval(playerTimerInterval);
+  }
+
+  function pauseQuestion(timeLeft) {
+    stopPlayerTimer();
+    if (typeof timeLeft === 'number' && timeLeft >= 0) {
+      playerTimeLeft = timeLeft;
+      renderTimerUI(playerTimeLeft);
+    }
+    playerPaused = true;
+    const status = document.getElementById('game-status');
+    if (status) status.textContent = '⏸️ Partie en pause';
+    showPauseOverlay();
+  }
+
+  function resumeQuestion(timeLeft) {
+    if (typeof timeLeft === 'number' && timeLeft >= 0) {
+      playerTimeLeft = timeLeft;
+    }
+    playerPaused = false;
+    hidePauseOverlay();
+    const status = document.getElementById('game-status');
+    if (status) status.textContent = '';
+    startPlayerTimer(playerTimeLeft, false, playerTimerTotal);
+  }
+
+  function showPauseOverlay() {
+    let overlay = document.getElementById('player-pause-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'player-pause-overlay';
+      overlay.className = 'pause-overlay';
+      overlay.innerHTML = '<div class="pause-content"><div class="pause-icon">⏸️</div><div class="pause-text">PARTIE EN PAUSE</div><div class="pause-subtitle">Attends que le professeur relance la partie</div></div>';
+      document.getElementById('screen-game').appendChild(overlay);
+    }
+    overlay.style.display = 'flex';
+  }
+
+  function hidePauseOverlay() {
+    const overlay = document.getElementById('player-pause-overlay');
+    if (overlay) overlay.style.display = 'none';
   }
 
   function renderTimerUI(time) {
@@ -801,6 +864,8 @@ const PlayerGame = (function() {
 
   return {
     showQuestion: showQuestion,
+    pauseQuestion: pauseQuestion,
+    resumeQuestion: resumeQuestion,
     toggleChoiceSelection: toggleChoiceSelection,
     submitQcmAnswer: submitQcmAnswer,
     submitAnswer: submitAnswer,

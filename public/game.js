@@ -474,6 +474,7 @@ const Game = (() => {
     showPauseOverlay();
     document.getElementById('btn-pause-game').style.display = 'none';
     document.getElementById('btn-resume-game').style.display = 'block';
+    adminBroadcast('gamePause', { timeLeft });
     App.playSound('ui');
     App.showToast('Jeu en pause', 'info');
   }
@@ -485,8 +486,9 @@ const Game = (() => {
     startTimer(true); // Resume with current timeLeft
     document.getElementById('btn-pause-game').style.display = 'block';
     document.getElementById('btn-resume-game').style.display = 'none';
+    adminBroadcast('gameResume', { timeLeft });
     App.playSound('ui');
-    App.showToast('Jeu repris', 'success');
+    App.showToast('La partie reprend', 'success');
   }
 
   function showPauseOverlay() {
