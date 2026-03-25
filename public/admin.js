@@ -329,6 +329,48 @@ const Admin = (() => {
     document.getElementById('import-text').value = '';
   }
 
+  function parseImportedChoiceLine(line) {
+    const match =
+      line.match(/^\s*([A-D])\s*[:\)\-\.]\s*(.+?)\s*$/i) ||
+      line.match(/^\s*([A-D])\s+(.+?)\s*$/i);
+    if (!match) return null;
+
+    const rawChoice = match[2].trim();
+    const isCorrect = /\*\s*$/.test(rawChoice);
+    const choice = rawChoice.replace(/\*\s*$/, '').trim();
+    return { choice, isCorrect };
+  }
+
+  function parseImportedQcmBlock(firstLine, lines) {
+    const questionText = firstLine.replace(/^QCM\s*:\s*/i, '').trim();
+    const choices = [];
+    const correctIndices = [];
+
+    lines.slice(1).forEach(line => {
+      const parsed = parseImportedChoiceLine(line);
+      if (!parsed) return;
+      choices.push(parsed.choice);
+      if (parsed.isCorrect) {
+        correctIndices.push(choices.length - 1);
+      }
+    });
+
+    if (!questionText || choices.length < 2 || correctIndices.length === 0) {
+      return null;
+    }
+
+    return {
+      id: Date.now() + Math.random(),
+      type: 'qcm',
+      text: questionText,
+      choices,
+      correct: correctIndices[0],
+      correctIndices,
+      multipleAnswers: correctIndices.length > 1,
+      category: ''
+    };
+  }
+
   function parseTextImport(text) {
     const questions = [];
     const blocks = text.split(/\n\s*\n/).filter(b => b.trim());
@@ -339,40 +381,8 @@ const Admin = (() => {
 
       // QCM
       if (/^QCM\s*:/i.test(firstLine)) {
-        const questionText = firstLine.replace(/^QCM\s*:\s*/i, '').trim();
-        const choices = [];
-        const detectedCorrectIndices = [];
-        lines.slice(1).forEach(line => {
-          const match =
-            line.match(/^\*?\s*([A-D])\s*[:\)\-\.]\s*(.+)/i) ||
-            line.match(/^\*?\s*([A-D])\s+(.+)/i);
-          if (match) {
-            let choice = match[2].trim();
-            const isCorrect = /\*/.test(line);
-            choice = choice.replace(/\*/g, '').trim();
-            choices.push(choice);
-            if (isCorrect) {
-              detectedCorrectIndices.push(choices.length - 1);
-            }
-          }
-        });
-        if (questionText && choices.length >= 2) {
-          // Un QCM doit definir ses bonnes reponses via '*'
-          if (detectedCorrectIndices.length === 0) {
-            return;
-          }
-          const safeCorrectIndices = detectedCorrectIndices;
-          questions.push({ 
-            id: Date.now() + Math.random(), 
-            type: 'qcm', 
-            text: questionText, 
-            choices, 
-            correct: safeCorrectIndices[0], 
-            correctIndices: safeCorrectIndices,
-            multipleAnswers: safeCorrectIndices.length > 1,
-            category: '' 
-          });
-        }
+        const qcm = parseImportedQcmBlock(firstLine, lines);
+        if (qcm) questions.push(qcm);
       }
       // Question ouverte
       else if (/^OUVERTE\s*:/i.test(firstLine)) {
