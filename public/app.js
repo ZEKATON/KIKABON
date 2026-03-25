@@ -114,6 +114,19 @@ const App = (() => {
 
   // Ouvre la modale et mémorise l'écran cible
   let _pendingAdminScreen = null;
+
+  function _closeAuthModal(callback) {
+    const overlay = document.getElementById('admin-auth-overlay');
+    if (!overlay) { if (callback) callback(); return; }
+    overlay.classList.remove('is-open');
+    overlay.classList.add('is-closing');
+    setTimeout(() => {
+      overlay.classList.remove('is-closing');
+      overlay.style.display = 'none';
+      if (callback) callback();
+    }, 220); // durée = transition CSS
+  }
+
   function requestAdminAccess(targetScreen) {
     if (isAdminUnlocked()) {
       state.accessGranted = true;
@@ -127,8 +140,12 @@ const App = (() => {
     const err     = document.getElementById('admin-auth-error');
     if (!overlay) return;
     if (err) err.style.display = 'none';
-    if (input) { input.value = ''; }
-    overlay.style.display = 'flex';
+    if (input) input.value = '';
+    overlay.style.display = '';
+    overlay.classList.remove('is-closing');
+    // forcer reflow avant d'ajouter la classe pour rejouer l'animation
+    void overlay.offsetWidth;
+    overlay.classList.add('is-open');
     setTimeout(() => { if (input) input.focus(); }, 80);
   }
 
@@ -138,19 +155,18 @@ const App = (() => {
     const val   = input ? input.value : '';
     if (val === ADMIN_PASSWORD) {
       try { sessionStorage.setItem(ADMIN_SESSION_KEY, '1'); } catch (e) {}
+      // Déblocage immédiat de l'interface, fermeture avec fondu
       state.accessGranted = true;
       unlockAdminScreens();
-      const overlay = document.getElementById('admin-auth-overlay');
-      if (overlay) overlay.style.display = 'none';
-      if (err) err.style.display = 'none';
-      showScreen(_pendingAdminScreen || 'screen-quiz-list');
+      const destScreen = _pendingAdminScreen || 'screen-quiz-list';
       _pendingAdminScreen = null;
+      _closeAuthModal(() => showScreen(destScreen));
     } else {
       if (err) err.style.display = 'block';
       if (input) {
         input.value = '';
         input.classList.remove('shake');
-        void input.offsetWidth; // force reflow pour rejouer l'animation
+        void input.offsetWidth;
         input.classList.add('shake');
         setTimeout(() => input.classList.remove('shake'), 400);
         input.focus();
@@ -159,11 +175,8 @@ const App = (() => {
   }
 
   function cancelAdminAccess() {
-    const overlay = document.getElementById('admin-auth-overlay');
-    if (overlay) overlay.style.display = 'none';
     _pendingAdminScreen = null;
-    showScreen('screen-home');
-  }
+    _closeAuthModal(() => showScreen('screen-home'));
 
   // ---- Init avatars sur écran Join ----
   function initAvatarGrid() {

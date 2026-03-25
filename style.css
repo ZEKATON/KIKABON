@@ -1426,10 +1426,24 @@ html, body {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   z-index: 9999;
-  display: flex !important;
+  display: none;
   align-items: center;
   justify-content: center;
-  animation: fadeInOverlay 0.2s ease;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.admin-auth-overlay.is-open {
+  display: flex;
+  opacity: 1;
+  pointer-events: all;
+  animation: fadeInOverlay 0.2s ease forwards;
+}
+.admin-auth-overlay.is-closing {
+  display: flex;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
 }
 @keyframes fadeInOverlay {
   from { opacity: 0; }
