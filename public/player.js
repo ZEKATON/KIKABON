@@ -180,6 +180,32 @@ function showToast(msg, type) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
 }
 
+function returnToJoinScreen() {
+  clearSession();
+  clearTimeout(reconnectTimeout);
+  if (playerState.sse) {
+    try { playerState.sse.close(); } catch (e) {}
+    playerState.sse = null;
+  }
+
+  playerState.currentPlayer = null;
+  playerState.gameCode = null;
+  playerState.score = 0;
+  playerState.correctCount = 0;
+  playerState.totalQuestions = 0;
+  playerState.selectedAvatar = AVATARS[0];
+
+  const standings = document.getElementById('podium-standings');
+  if (standings) standings.innerHTML = '';
+  const playersList = document.getElementById('players-list');
+  if (playersList) playersList.innerHTML = '';
+  const joinName = document.getElementById('join-name');
+  if (joinName) joinName.value = '';
+
+  initAvatarGrid();
+  showScreen('screen-join');
+}
+
 // ---- Grille d'avatars ----
 function initAvatarGrid() {
   const grid = document.getElementById('avatar-grid');
