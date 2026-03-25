@@ -367,35 +367,42 @@ const Admin = (() => {
   function saveQuiz() {
     const qs = App.state.questions;
     if (qs.length === 0) { App.showToast('Aucune question à sauvegarder !', 'error'); return; }
-    const name = prompt('Nom du quiz :', `Quiz ${new Date().toLocaleDateString('fr-FR')}`);
-    if (!name) return;
+
     const existingQuiz = App.state.currentQuiz && App.state.savedQuizzes.find(q => q.id === App.state.currentQuiz.id);
-    const gameCode = existingQuiz?.gameCode || generateUniqueSavedQuizCode(existingQuiz?.id || null);
-    const quiz = {
-      id: existingQuiz ? existingQuiz.id : Date.now(),
-      name,
-      questions: [...qs],
-      date: new Date().toLocaleDateString('fr-FR'),
-      count: qs.length,
-      gameCode,
-    };
+
     if (existingQuiz) {
+      // Mise à jour du quiz existant — pas de prompt, pas de téléchargement
+      const quiz = {
+        ...existingQuiz,
+        questions: [...qs],
+        date: new Date().toLocaleDateString('fr-FR'),
+        count: qs.length,
+      };
       const index = App.state.savedQuizzes.findIndex(q => q.id === existingQuiz.id);
       App.state.savedQuizzes[index] = quiz;
+      App.state.currentQuiz = quiz;
+      App.persistSavedQuizzes();
+      renderSaved();
+      App.showToast(`Quiz "${quiz.name}" mis à jour ✓`, 'success');
     } else {
+      // Nouveau quiz — demande un nom
+      const name = prompt('Nom du quiz :', `Quiz ${new Date().toLocaleDateString('fr-FR')}`);
+      if (!name) return;
+      const gameCode = generateUniqueSavedQuizCode(null);
+      const quiz = {
+        id: Date.now(),
+        name,
+        questions: [...qs],
+        date: new Date().toLocaleDateString('fr-FR'),
+        count: qs.length,
+        gameCode,
+      };
       App.state.savedQuizzes.push(quiz);
+      App.state.currentQuiz = quiz;
+      App.persistSavedQuizzes();
+      renderSaved();
+      App.showToast(`Quiz "${name}" créé ✓`, 'success');
     }
-    App.state.currentQuiz = quiz;
-    App.persistSavedQuizzes();
-    renderSaved();
-    App.showToast(`Quiz "${name}" sauvegardé ✓`, 'success');
-
-    // Téléchargement
-    const blob = new Blob([JSON.stringify({ name, questions: qs }, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `${name.replace(/[^a-z0-9]/gi, '_')}.json`;
-    a.click(); URL.revokeObjectURL(url);
   }
 
   // ---- Render saved quizzes ----
