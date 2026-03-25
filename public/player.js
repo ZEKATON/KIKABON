@@ -308,25 +308,46 @@ async function joinGameWithCode() {
     saved.name === typedName
   );
 
-  try {
-    const res = await fetch('/api/join/' + code, {
+  const performJoin = async (targetCode, canResumeForCode) => {
+    return fetch('/api/join/' + targetCode, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        playerId: canResume ? saved.playerId : null,
+        playerId: canResumeForCode ? saved.playerId : null,
         name: name,
         avatar: avatar,
         color: PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)]
       })
     });
+  };
+
+  try {
+    let res = await performJoin(code, canResume);
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      let err = await res.json().catch(() => ({}));
+
+      if (res.status === 410 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
+        // Session terminee: rediriger automatiquement vers la partie active
+        code = String(err.redirectCode);
+        playerState.gameCode = code;
+        res = await performJoin(code, false);
+        if (!res.ok) {
+          err = await res.json().catch(() => ({}));
+        } else {
+          showToast('Redirection vers la partie active', 'success');
+        }
+      }
+
+      if (!res.ok) {
       if (res.status === 404) {
         showToast('Aucune partie en cours. Attends que le professeur lance le jeu.', 'error');
+      } else if (res.status === 410) {
+        showToast('Cette session est close. Rejoins une nouvelle partie.', 'error');
       } else {
         showToast(err.error || 'Erreur', 'error');
       }
       return;
+      }
     }
     const data = await res.json();
     const player = data.player;

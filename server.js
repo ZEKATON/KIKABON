@@ -47,6 +47,13 @@ function normalizeRequestedCode(value) {
   return /^\d{4}$/.test(code) ? code : null;
 }
 
+function getLatestActiveGame(excludeCode = null) {
+  const activeGames = [...games.values()]
+    .filter(g => g && g.gamePhase !== 'ended' && g.code !== excludeCode)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return activeGames.length > 0 ? activeGames[0] : null;
+}
+
 // Diffuser un événement SSE à tous les clients d'une partie
 function broadcast(code, eventName, data) {
   const game = games.get(code);
@@ -142,11 +149,8 @@ const server = http.createServer(async (req, res) => {
   // ── GET /api/game/:code ────────────────────────────────────
   // Le joueur vérifie si la partie existe avant de rejoindre
   if (pathname === '/api/game-active' && method === 'GET') {
-    const activeGames = [...games.values()]
-      .filter(g => g && g.gamePhase !== 'ended')
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    if (activeGames.length === 0) return json(404, { error: 'Aucune partie active' });
-    const game = activeGames[0];
+    const game = getLatestActiveGame();
+    if (!game) return json(404, { error: 'Aucune partie active' });
     return json(200, { code: game.code, playerCount: game.players.length, gamePhase: game.gamePhase });
   }
 
@@ -154,7 +158,7 @@ const server = http.createServer(async (req, res) => {
     const code = pathname.split('/')[3];
     const game = games.get(code);
     if (!game) return json(404, { error: 'Partie introuvable' });
-    return json(200, { code, playerCount: game.players.length });
+    return json(200, { code, playerCount: game.players.length, gamePhase: game.gamePhase });
   }
 
   // ── POST /api/join/:code ───────────────────────────────────
@@ -163,6 +167,15 @@ const server = http.createServer(async (req, res) => {
     const code = pathname.split('/')[3];
     const game = games.get(code);
     if (!game) return json(404, { error: 'Partie introuvable' });
+
+    if (game.gamePhase === 'ended') {
+      const active = getLatestActiveGame(code);
+      return json(410, {
+        error: 'Session close',
+        redirectCode: active ? active.code : null,
+      });
+    }
+
     const body = await readBody(req);
     const requestedPlayerId = Number(body.playerId);
     if (Number.isFinite(requestedPlayerId)) {
