@@ -581,6 +581,14 @@ const Admin = (() => {
         if (ind) { ind.className = 'answer-indicator answered'; ind.title = 'A répondu'; }
       }
     });
+
+    adminSSE.addEventListener('game_reset_force', e => {
+      const data = JSON.parse(e.data || '{}');
+      App.state.players = [];
+      Lobby.clearPlayers();
+      const reason = data.reason === 'ended' ? 'fin de partie' : 'nouvelle session';
+      App.showToast(`Liste des joueurs remise a zero (${reason})`, 'success');
+    });
   }
 
   async function launchGame() {

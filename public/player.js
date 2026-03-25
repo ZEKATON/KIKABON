@@ -21,7 +21,7 @@ const PLAYER_COLORS = [
 const playerState = {
   currentPlayer: null,
   gameCode: null,
-  selectedAvatar: AVATARS[0],
+  selectedAvatar: null,
   sse: null,
   score: 0,
   correctCount: 0,
@@ -96,6 +96,9 @@ function updatePlayerStats() {
 function saveSession() {
   if (!playerState.currentPlayer || !playerState.gameCode) return;
   try {
+    localStorage.setItem('playerName', playerState.currentPlayer.name || '');
+    localStorage.setItem('playerAvatar', playerState.currentPlayer.avatar || '');
+    localStorage.setItem('currentPlayerId', String(playerState.currentPlayer.id || ''));
     localStorage.setItem('kikabon_session', JSON.stringify({
       playerId:       playerState.currentPlayer.id,
       name:           playerState.currentPlayer.name,
@@ -109,8 +112,17 @@ function saveSession() {
   } catch (e) {}
 }
 
+function clearPlayerIdentityStorage() {
+  try {
+    localStorage.removeItem('playerName');
+    localStorage.removeItem('playerAvatar');
+    localStorage.removeItem('currentPlayerId');
+    localStorage.removeItem('kikabon_session');
+  } catch (e) {}
+}
+
 function clearSession() {
-  try { localStorage.removeItem('kikabon_session'); } catch (e) {}
+  clearPlayerIdentityStorage();
 }
 
 function getSavedSession() {
@@ -232,7 +244,7 @@ function getActiveScreenId() {
 }
 
 function returnToJoinScreen() {
-  clearSession();
+  clearPlayerIdentityStorage();
   clearTimeout(reconnectTimeout);
   if (playerState.sse) {
     try { playerState.sse.close(); } catch (e) {}
@@ -244,7 +256,7 @@ function returnToJoinScreen() {
   playerState.score = 0;
   playerState.correctCount = 0;
   playerState.totalQuestions = 0;
-  playerState.selectedAvatar = AVATARS[0];
+  playerState.selectedAvatar = null;
 
   const standings = document.getElementById('podium-standings');
   if (standings) standings.innerHTML = '';
@@ -265,7 +277,7 @@ function initAvatarGrid() {
   grid.innerHTML = '';
   AVATARS.forEach((a, i) => {
     const btn = document.createElement('button');
-    btn.className = 'avatar-btn' + (i === 0 ? ' selected' : '');
+    btn.className = 'avatar-btn';
     btn.textContent = a;
     btn.type = 'button';
     btn.onclick = function() {
@@ -276,8 +288,8 @@ function initAvatarGrid() {
     };
     grid.appendChild(btn);
   });
-  playerState.selectedAvatar = AVATARS[0];
-  if (preview) preview.textContent = AVATARS[0];
+  playerState.selectedAvatar = null;
+  if (preview) preview.textContent = '❔';
 }
 
 // ---- Etapes du formulaire rejoindre ----
@@ -324,10 +336,15 @@ async function joinGameWithCode() {
   let code = playerState.gameCode || (codeInput ? codeInput.value : '').trim();
   const typedName = (nameInput ? nameInput.value : '').trim();
   const name = typedName;
-  const avatar = playerState.selectedAvatar || AVATARS[0];
+  const avatar = playerState.selectedAvatar;
 
   if (!name) {
     showToast('Entrez votre prénom', 'error');
+    return;
+  }
+
+  if (!avatar) {
+    showToast('Choisissez un avatar', 'error');
     return;
   }
 
@@ -520,9 +537,15 @@ function connectSSE(code) {
       PlayerGame.showPodium(data.players);
     });
 
-    sse.addEventListener('game_reset_force', function() {
-      try { localStorage.clear(); } catch (e) {}
-      window.location.href = '/';
+    sse.addEventListener('game_reset_force', function(e) {
+      const data = JSON.parse(e.data || '{}');
+      clearPlayerIdentityStorage();
+      const targetCode = String(data.redirectCode || playerState.gameCode || '').trim();
+      if (/^\d{4}$/.test(targetCode)) {
+        window.location.href = '/join-new-game?code=' + targetCode;
+      } else {
+        window.location.href = '/play';
+      }
     });
 
     sse.onerror = function() {

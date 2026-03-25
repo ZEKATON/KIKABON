@@ -58,6 +58,25 @@ function getLatestActiveGame(excludeCode = null) {
   return activeGames.length > 0 ? activeGames[0] : null;
 }
 
+function forceResetGameSession(code, options = {}) {
+  const game = games.get(code);
+  if (!game) return;
+  if (game.resetTimer) {
+    clearTimeout(game.resetTimer);
+    game.resetTimer = null;
+  }
+  game.gamePhase = 'waiting';
+  game.currentQuestion = null;
+  game.currentQuestionIndex = 0;
+  game.players = [];
+
+  broadcast(code, 'game_reset_force', {
+    status: 'waiting',
+    reason: options.reason || 'new_session',
+    redirectCode: options.redirectCode || null,
+  });
+}
+
 // Diffuser un événement SSE à tous les clients d'une partie
 function broadcast(code, eventName, data) {
   const game = games.get(code);
@@ -137,6 +156,7 @@ const server = http.createServer(async (req, res) => {
     const adminToken = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     const previousGame = games.get(code);
     if (previousGame) {
+      forceResetGameSession(code, { reason: 'new_session', redirectCode: code });
       previousGame.sseClients.forEach(r => { try { r.end(); } catch {} });
       games.delete(code);
     }
@@ -340,22 +360,9 @@ const server = http.createServer(async (req, res) => {
     } else if (body.type === 'gameEnd') {
       game.gamePhase = 'ended';
       game.currentQuestion = null;
-      if (game.resetTimer) {
-        clearTimeout(game.resetTimer);
-      }
       game.resetTimer = setTimeout(() => {
-        const currentGame = games.get(code);
-        if (!currentGame || currentGame !== game) return;
-
-        currentGame.gamePhase = 'waiting';
-        currentGame.questions = [];
-        currentGame.currentQuestion = null;
-        currentGame.currentQuestionIndex = 0;
-        currentGame.players = [];
-        currentGame.resetTimer = null;
-
-        broadcast(code, 'game_reset_force', { status: 'waiting' });
-      }, 30000);
+        forceResetGameSession(code, { reason: 'ended' });
+      }, 1500);
     }
 
     broadcast(code, body.type, body.payload || {});
