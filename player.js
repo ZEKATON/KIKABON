@@ -647,8 +647,15 @@ const PlayerGame = (function() {
 document.addEventListener('DOMContentLoaded', function() {
   showScreen('screen-join');
 
-  // Flux impose: le joueur saisit manuellement le code puis clique sur Suivant
-  const input = document.getElementById('join-code');
-  if (input) input.value = '';
-  initAvatarGrid();
+  // Restauration auto: si le joueur revient, il reprend sa partie sans ressaisir ses infos
+  tryRestoreSession().then(restored => {
+    if (restored) {
+      showScreen('screen-lobby');
+      updatePlayerHeader();
+      updatePlayerStats();
+      showToast('Session restauree', 'success');
+      return;
+    }
+    initAvatarGrid();
+  });
 });

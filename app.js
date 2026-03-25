@@ -239,29 +239,55 @@ const App = (() => {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   let audioCtx = null;
   let lobbyMusicTimer = null;
+  let lobbyMusicStep = 0;
 
   function playLobbyLoopBar() {
     if (!state.settings.soundEnabled) return;
     if (!audioCtx) audioCtx = new AudioCtx();
     const now = audioCtx.currentTime;
-    const pattern = [220, 330, 440, 330, 494, 392];
-    pattern.forEach((f, i) => {
+    const motifs = [
+      [523, 659, 784, 988, 784, 659],
+      [494, 622, 740, 988, 740, 622],
+      [440, 554, 659, 880, 659, 554],
+      [392, 494, 587, 784, 587, 494],
+    ];
+    const motif = motifs[lobbyMusicStep % motifs.length];
+    lobbyMusicStep++;
+
+    // Melodie
+    motif.forEach((f, i) => {
       const o = audioCtx.createOscillator();
       const g = audioCtx.createGain();
-      o.type = 'square';
+      o.type = i % 2 === 0 ? 'triangle' : 'sine';
       o.frequency.value = f;
       o.connect(g); g.connect(audioCtx.destination);
-      const t0 = now + i * 0.18;
-      g.gain.setValueAtTime(0.08, t0);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
-      o.start(t0); o.stop(t0 + 0.18);
+      const t0 = now + i * 0.24;
+      g.gain.setValueAtTime(0.055, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.22);
+      o.start(t0); o.stop(t0 + 0.24);
     });
+
+    // Basse legere
+    const bassRoots = [131, 123, 110, 98];
+    const bass = bassRoots[(lobbyMusicStep - 1) % bassRoots.length];
+    for (let i = 0; i < 3; i++) {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.value = bass;
+      o.connect(g); g.connect(audioCtx.destination);
+      const t0 = now + i * 0.48;
+      g.gain.setValueAtTime(0.035, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.42);
+      o.start(t0); o.stop(t0 + 0.44);
+    }
   }
 
   function startLobbyMusic() {
     if (!state.settings.soundEnabled || lobbyMusicTimer) return;
+    lobbyMusicStep = 0;
     playLobbyLoopBar();
-    lobbyMusicTimer = setInterval(playLobbyLoopBar, 1200);
+    lobbyMusicTimer = setInterval(playLobbyLoopBar, 1450);
   }
 
   function stopLobbyMusic() {
