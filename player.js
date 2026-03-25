@@ -195,18 +195,18 @@ async function joinGameWithCode() {
     try {
       const activeRes = await fetch('/api/game-active');
       if (!activeRes.ok) {
-        showToast('Aucune partie active pour le moment', 'error');
+        showToast('Aucune partie en cours. Attends que le professeur lance le jeu.', 'error');
         return;
       }
       const activeData = await activeRes.json();
       code = String(activeData.code || '').trim();
       if (!/^\d{4}$/.test(code)) {
-        showToast('Aucune partie active pour le moment', 'error');
+        showToast('Aucune partie en cours. Attends que le professeur lance le jeu.', 'error');
         return;
       }
       playerState.gameCode = code;
     } catch (e) {
-      showToast('Serveur indisponible', 'error');
+      showToast('Impossible de verifier la partie. Reessaie dans un instant.', 'error');
       return;
     }
   }
@@ -233,7 +233,7 @@ async function joinGameWithCode() {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       if (res.status === 404) {
-        showToast('Le professeur n a pas encore lance la partie', 'error');
+        showToast('Aucune partie en cours. Attends que le professeur lance le jeu.', 'error');
       } else {
         showToast(err.error || 'Erreur', 'error');
       }
