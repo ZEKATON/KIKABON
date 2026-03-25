@@ -29,7 +29,18 @@ const playerState = {
 };
 let reconnectTimeout = null;
 let playerAudioCtx = null;
-let pendingJoinMessage = '';
+
+function redirectToJoinNewGame(redirectCode, message) {
+  clearSession();
+  try {
+    sessionStorage.setItem('kikabon_join_message', message || 'Partie terminee. Reinscris-toi pour la nouvelle partie.');
+  } catch (e) {}
+  const hasValidCode = /^\d{4}$/.test(String(redirectCode || ''));
+  const target = hasValidCode
+    ? ('/join-new-game?code=' + String(redirectCode))
+    : '/join-new-game';
+  window.location.assign(target);
+}
 
 function playPlayerSound(type) {
   try {
@@ -125,9 +136,7 @@ async function tryRestoreSession() {
         const activeData = await activeRes.json().catch(() => ({}));
         const redirectCode = String(activeData.code || '').trim();
         if (/^\d{4}$/.test(redirectCode)) {
-          clearSession();
-          playerState.gameCode = redirectCode;
-          pendingJoinMessage = 'Partie terminee. Reinscris-toi pour rejoindre la nouvelle partie.';
+          redirectToJoinNewGame(redirectCode, 'Partie terminee. Reinscris-toi pour rejoindre la nouvelle partie.');
           return false;
         }
       }
@@ -148,9 +157,7 @@ async function tryRestoreSession() {
     if (!joinRes.ok) {
       const joinErr = await joinRes.json().catch(() => ({}));
       if (joinRes.status === 410 && /^\d{4}$/.test(String(joinErr.redirectCode || ''))) {
-        clearSession();
-        playerState.gameCode = String(joinErr.redirectCode);
-        pendingJoinMessage = 'Partie terminee. Reinscris-toi pour rejoindre la nouvelle partie.';
+        redirectToJoinNewGame(String(joinErr.redirectCode), 'Partie terminee. Reinscris-toi pour rejoindre la nouvelle partie.');
         return false;
       }
       clearSession();
@@ -350,32 +357,14 @@ async function joinGameWithCode() {
     });
   };
 
-  const prepareRedirectedJoin = (redirectCode) => {
-    clearSession();
-    playerState.currentPlayer = null;
-    playerState.gameCode = redirectCode;
-    playerState.score = 0;
-    playerState.correctCount = 0;
-    playerState.totalQuestions = 0;
-
-    const nameField = document.getElementById('join-name');
-    if (nameField) nameField.value = '';
-
-    playerState.selectedAvatar = AVATARS[0];
-    initAvatarGrid();
-    showScreen('screen-join');
-  };
-
   try {
     let res = await performJoin(code, canResume);
     if (!res.ok) {
       let err = await res.json().catch(() => ({}));
 
       if (res.status === 410 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
-        // Session terminee: orienter vers la partie active et forcer une nouvelle saisie
-        const redirectedCode = String(err.redirectCode);
-        prepareRedirectedJoin(redirectedCode);
-        showToast('Partie terminee. Entre ton prenom et choisis un avatar pour la nouvelle partie.', 'error');
+        // Session terminee: redirection vers route de reinscription
+        redirectToJoinNewGame(String(err.redirectCode), 'Partie terminee. Entre ton prenom et choisis un avatar pour la nouvelle partie.');
         return;
       }
 
@@ -804,6 +793,28 @@ const PlayerGame = (function() {
 document.addEventListener('DOMContentLoaded', function() {
   showScreen('screen-join');
 
+  const params = new URLSearchParams(window.location.search);
+  const forcedCode = String(params.get('code') || '').trim();
+  const isForcedJoinRoute = window.location.pathname === '/join-new-game';
+
+  if (isForcedJoinRoute) {
+    clearSession();
+    playerState.currentPlayer = null;
+    playerState.score = 0;
+    playerState.correctCount = 0;
+    playerState.totalQuestions = 0;
+    playerState.gameCode = /^\d{4}$/.test(forcedCode) ? forcedCode : null;
+    initAvatarGrid();
+    try {
+      const msg = sessionStorage.getItem('kikabon_join_message');
+      if (msg) {
+        showToast(msg, 'error');
+        sessionStorage.removeItem('kikabon_join_message');
+      }
+    } catch (e) {}
+    return;
+  }
+
   // Restauration auto: si le joueur revient, il reprend sa partie sans ressaisir ses infos
   tryAutoReconnect().then(restored => {
     if (restored) {
@@ -811,10 +822,6 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     initAvatarGrid();
-    if (pendingJoinMessage) {
-      showToast(pendingJoinMessage, 'error');
-      pendingJoinMessage = '';
-    }
   });
 
   window.addEventListener('online', () => {

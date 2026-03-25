@@ -82,6 +82,8 @@ function serveStatic(pathname, res) {
     filePath = path.join(PUBLIC_DIR, 'index.html');
   } else if (pathname === '/play') {
     filePath = path.join(PUBLIC_DIR, 'player.html');
+  } else if (pathname === '/join-new-game') {
+    filePath = path.join(PUBLIC_DIR, 'player.html');
   } else {
     filePath = path.join(PUBLIC_DIR, pathname);
   }
@@ -170,9 +172,11 @@ const server = http.createServer(async (req, res) => {
 
     if (game.gamePhase === 'ended') {
       const active = getLatestActiveGame(code);
+      const redirectCode = active ? active.code : null;
       return json(410, {
         error: 'Session close',
-        redirectCode: active ? active.code : null,
+        redirectCode,
+        redirectPath: redirectCode ? ('/join-new-game?code=' + redirectCode) : '/join-new-game',
       });
     }
 
