@@ -141,6 +141,15 @@ const server = http.createServer(async (req, res) => {
 
   // ── GET /api/game/:code ────────────────────────────────────
   // Le joueur vérifie si la partie existe avant de rejoindre
+  if (pathname === '/api/game-active' && method === 'GET') {
+    const activeGames = [...games.values()]
+      .filter(g => g && g.gamePhase !== 'ended')
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    if (activeGames.length === 0) return json(404, { error: 'Aucune partie active' });
+    const game = activeGames[0];
+    return json(200, { code: game.code, playerCount: game.players.length, gamePhase: game.gamePhase });
+  }
+
   if (pathname.startsWith('/api/game/') && method === 'GET') {
     const code = pathname.split('/')[3];
     const game = games.get(code);

@@ -144,10 +144,10 @@ function initAvatarGrid() {
 async function goToJoinStep(step) {
   const codeStep = document.getElementById('join-step-code');
   const infoStep = document.getElementById('join-step-info');
-  if (!codeStep || !infoStep) return;
+  if (!infoStep) return;
 
   if (step === 'code') {
-    codeStep.style.display = 'block';
+    if (codeStep) codeStep.style.display = 'block';
     infoStep.style.display = 'none';
     return;
   }
@@ -171,7 +171,7 @@ async function goToJoinStep(step) {
       return;
     }
     playerState.gameCode = code;
-    codeStep.style.display = 'none';
+    if (codeStep) codeStep.style.display = 'none';
     infoStep.style.display = 'block';
     setTimeout(initAvatarGrid, 50);
   }
@@ -181,15 +181,8 @@ async function goToJoinStep(step) {
 async function joinGameWithCode() {
   const codeInput = document.getElementById('join-code');
   const nameInput = document.getElementById('join-name');
-  const code = playerState.gameCode || (codeInput ? codeInput.value : '').trim();
+  let code = playerState.gameCode || (codeInput ? codeInput.value : '').trim();
   const typedName = (nameInput ? nameInput.value : '').trim();
-  const saved = getSavedSession();
-  const canResume = !!(
-    saved &&
-    String(saved.gameCode) === String(code) &&
-    saved.playerId &&
-    saved.name === typedName
-  );
   const name = typedName;
   const avatar = playerState.selectedAvatar || AVATARS[0];
 
@@ -199,9 +192,32 @@ async function joinGameWithCode() {
   }
 
   if (!code) {
-    showToast('Code manquant', 'error');
-    return;
+    try {
+      const activeRes = await fetch('/api/game-active');
+      if (!activeRes.ok) {
+        showToast('Aucune partie active pour le moment', 'error');
+        return;
+      }
+      const activeData = await activeRes.json();
+      code = String(activeData.code || '').trim();
+      if (!/^\d{4}$/.test(code)) {
+        showToast('Aucune partie active pour le moment', 'error');
+        return;
+      }
+      playerState.gameCode = code;
+    } catch (e) {
+      showToast('Serveur indisponible', 'error');
+      return;
+    }
   }
+
+  const saved = getSavedSession();
+  const canResume = !!(
+    saved &&
+    String(saved.gameCode) === String(code) &&
+    saved.playerId &&
+    saved.name === typedName
+  );
 
   try {
     const res = await fetch('/api/join/' + code, {
@@ -634,4 +650,5 @@ document.addEventListener('DOMContentLoaded', function() {
   // Flux impose: le joueur saisit manuellement le code puis clique sur Suivant
   const input = document.getElementById('join-code');
   if (input) input.value = '';
+  initAvatarGrid();
 });

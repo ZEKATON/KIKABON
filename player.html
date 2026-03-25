@@ -9,7 +9,7 @@
 </head>
 <body class="player-shell">
 
-<!-- ====== ÉCRAN REJOINDRE (avec code) ====== -->
+<!-- ====== ÉCRAN REJOINDRE ====== -->
 <div id="screen-join" class="screen active">
   <div class="join-bg">
     <div class="join-decor">🎯</div>
@@ -23,20 +23,8 @@
         <p class="join-subtitle">Rejoins la partie !</p>
       </div>
 
-      <!-- Étape 1: Code -->
-      <div class="join-step" id="join-step-code">
-        <div class="form-group">
-          <label>Code d'accès (4 chiffres)</label>
-          <input type="text" id="join-code" placeholder="Ex: 1234" maxlength="4" inputmode="numeric">
-          <p class="join-code-hint">Demande le code de la partie à ton professeur</p>
-        </div>
-        <button class="btn btn-primary full" onclick="goToJoinStep('info')">
-          ▶ Suivant
-        </button>
-      </div>
-
-      <!-- Étape 2: Pseudo et avatar -->
-      <div class="join-step" id="join-step-info" style="display:none">
+      <!-- Pseudo et avatar -->
+      <div class="join-step" id="join-step-info">
         <div class="form-group">
           <label>Ton prénom</label>
           <input type="text" id="join-name" placeholder="Ex: Marie" maxlength="20">
@@ -46,14 +34,9 @@
           <div class="avatar-grid" id="avatar-grid"></div>
         </div>
         <div class="join-avatar-preview" id="join-avatar-preview">🐼</div>
-        <div class="join-actions-row">
-          <button class="btn btn-ghost full" onclick="goToJoinStep('code')">
-            ← Retour
-          </button>
-          <button class="btn btn-primary full" onclick="joinGameWithCode()">
-            🚀 C'est parti !
-          </button>
-        </div>
+        <button class="btn btn-primary full" onclick="joinGameWithCode()">
+          ▶ Suivant
+        </button>
       </div>
     </div>
   </div>
