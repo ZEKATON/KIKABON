@@ -29,6 +29,7 @@ const playerState = {
 };
 let reconnectTimeout = null;
 let playerAudioCtx = null;
+let pendingJoinMessage = '';
 
 function playPlayerSound(type) {
   try {
@@ -116,6 +117,24 @@ async function tryRestoreSession() {
   try {
     const res = await fetch('/api/game/' + saved.gameCode);
     if (!res.ok) { clearSession(); return false; }
+
+    const gameMeta = await res.json().catch(() => ({}));
+    if (gameMeta && gameMeta.gamePhase === 'ended') {
+      const activeRes = await fetch('/api/game-active').catch(() => null);
+      if (activeRes && activeRes.ok) {
+        const activeData = await activeRes.json().catch(() => ({}));
+        const redirectCode = String(activeData.code || '').trim();
+        if (/^\d{4}$/.test(redirectCode)) {
+          clearSession();
+          playerState.gameCode = redirectCode;
+          pendingJoinMessage = 'Partie terminee. Reinscris-toi pour rejoindre la nouvelle partie.';
+          return false;
+        }
+      }
+      clearSession();
+      return false;
+    }
+
     const joinRes = await fetch('/api/join/' + saved.gameCode, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -126,7 +145,17 @@ async function tryRestoreSession() {
         color: saved.color,
       })
     });
-    if (!joinRes.ok) { clearSession(); return false; }
+    if (!joinRes.ok) {
+      const joinErr = await joinRes.json().catch(() => ({}));
+      if (joinRes.status === 410 && /^\d{4}$/.test(String(joinErr.redirectCode || ''))) {
+        clearSession();
+        playerState.gameCode = String(joinErr.redirectCode);
+        pendingJoinMessage = 'Partie terminee. Reinscris-toi pour rejoindre la nouvelle partie.';
+        return false;
+      }
+      clearSession();
+      return false;
+    }
     const joinData = await joinRes.json();
     const restoredPlayer = joinData.player || {};
     playerState.currentPlayer = {
@@ -782,6 +811,10 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     initAvatarGrid();
+    if (pendingJoinMessage) {
+      showToast(pendingJoinMessage, 'error');
+      pendingJoinMessage = '';
+    }
   });
 
   window.addEventListener('online', () => {
