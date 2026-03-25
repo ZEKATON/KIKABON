@@ -34,9 +34,9 @@
       <a href="/play" class="btn btn-primary">
         <span class="btn-icon">🎮</span> Accès Joueurs
       </a>
-      <a href="/admin" class="btn btn-secondary">
+      <button class="btn btn-secondary" onclick="App.requestAdminAccess()">
         <span class="btn-icon">🎓</span> Espace Professeur
-      </a>
+      </button>
     </div>
     <p class="home-tip">Les étudiants utilisent <strong>l'Accès Joueurs</strong> • Les professeurs utilisent <strong>l'Espace Professeur</strong></p>
   </div>
@@ -455,6 +455,33 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
 
 <!-- ====== NOTIFICATION TOAST ====== -->
 <div id="toast" class="toast"></div>
+
+<!-- ====== MODALE MOT DE PASSE ADMIN ====== -->
+<div id="admin-auth-overlay" class="admin-auth-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="admin-auth-title">
+  <div class="admin-auth-card">
+    <div class="admin-auth-icon">🔐</div>
+    <h2 class="admin-auth-title" id="admin-auth-title">Espace Professeur</h2>
+    <p class="admin-auth-subtitle">Saisissez le mot de passe pour accéder aux fonctions d'administration.</p>
+    <div class="admin-auth-field">
+      <input
+        type="password"
+        id="admin-auth-input"
+        class="admin-auth-input"
+        placeholder="Mot de passe"
+        maxlength="32"
+        autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') App.submitAdminPassword(); if(event.key==='Escape') App.cancelAdminAccess();"
+      >
+    </div>
+    <div id="admin-auth-error" class="admin-auth-error" style="display:none">
+      ❌ Mot de passe incorrect. Accès refusé.
+    </div>
+    <div class="admin-auth-actions">
+      <button class="btn btn-ghost" onclick="App.cancelAdminAccess()">Annuler</button>
+      <button class="btn btn-primary" onclick="App.submitAdminPassword()">🔓 Accéder</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 <script src="admin.js"></script>

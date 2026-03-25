@@ -19,7 +19,7 @@ const App = (() => {
     gameCode: null,     // Code à 4 chiffres pour la session actuelle
     adminToken: null,   // Token d'authentification admin (retourné par /api/host)
     currentQuiz: null,  // Quiz en cours
-    accessGranted: true, // accès admin automatique
+    accessGranted: false, // accès admin verrouillé par défaut
   };
 
   // ---- Avatars disponibles ----
@@ -36,8 +36,18 @@ const App = (() => {
     '#fd79a8','#6c5ce7','#00b894','#e17055',
   ];
 
+  // ---- Garde admin ----
+  const ADMIN_SCREENS = new Set(['screen-quiz-list', 'screen-admin', 'screen-lobby', 'screen-game']);
+  const ADMIN_PASSWORD = 'FORMA974';
+  const ADMIN_SESSION_KEY = 'kikabon_admin_ok';
+
   // ---- Écrans ----
   function showScreen(id) {
+    // Garde admin: intercepte si l'écran est réservé et l'accès n'est pas validé
+    if (ADMIN_SCREENS.has(id) && !isAdminUnlocked()) {
+      requestAdminAccess(id);
+      return;
+    }
     document.querySelectorAll('.screen').forEach(s => {
       s.classList.remove('active');
       s.style.display = '';
@@ -83,7 +93,77 @@ const App = (() => {
     }
   }
 
-  // ---- Fonction supprimée: vérification du mot de passe ----
+  // ---- Écrans réservés à l'admin (nécessitent le mot de passe) ----
+  function isAdminUnlocked() {
+    try { return sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  function lockAdminScreens() {
+    ADMIN_SCREENS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.visibility = 'hidden';
+    });
+  }
+
+  function unlockAdminScreens() {
+    ADMIN_SCREENS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.visibility = '';
+    });
+  }
+
+  // Ouvre la modale et mémorise l'écran cible
+  let _pendingAdminScreen = null;
+  function requestAdminAccess(targetScreen) {
+    if (isAdminUnlocked()) {
+      state.accessGranted = true;
+      unlockAdminScreens();
+      showScreen(targetScreen || 'screen-quiz-list');
+      return;
+    }
+    _pendingAdminScreen = targetScreen || 'screen-quiz-list';
+    const overlay = document.getElementById('admin-auth-overlay');
+    const input   = document.getElementById('admin-auth-input');
+    const err     = document.getElementById('admin-auth-error');
+    if (!overlay) return;
+    if (err) err.style.display = 'none';
+    if (input) { input.value = ''; }
+    overlay.style.display = 'flex';
+    setTimeout(() => { if (input) input.focus(); }, 80);
+  }
+
+  function submitAdminPassword() {
+    const input = document.getElementById('admin-auth-input');
+    const err   = document.getElementById('admin-auth-error');
+    const val   = input ? input.value : '';
+    if (val === ADMIN_PASSWORD) {
+      try { sessionStorage.setItem(ADMIN_SESSION_KEY, '1'); } catch (e) {}
+      state.accessGranted = true;
+      unlockAdminScreens();
+      const overlay = document.getElementById('admin-auth-overlay');
+      if (overlay) overlay.style.display = 'none';
+      if (err) err.style.display = 'none';
+      showScreen(_pendingAdminScreen || 'screen-quiz-list');
+      _pendingAdminScreen = null;
+    } else {
+      if (err) err.style.display = 'block';
+      if (input) {
+        input.value = '';
+        input.classList.remove('shake');
+        void input.offsetWidth; // force reflow pour rejouer l'animation
+        input.classList.add('shake');
+        setTimeout(() => input.classList.remove('shake'), 400);
+        input.focus();
+      }
+    }
+  }
+
+  function cancelAdminAccess() {
+    const overlay = document.getElementById('admin-auth-overlay');
+    if (overlay) overlay.style.display = 'none';
+    _pendingAdminScreen = null;
+    showScreen('screen-home');
+  }
 
   // ---- Init avatars sur écran Join ----
   function initAvatarGrid() {
@@ -353,6 +433,14 @@ const App = (() => {
       renderQuizList();
     }
 
+    // Masquer les écrans admin dès le départ si pas encore déverrouillé
+    if (!isAdminUnlocked()) {
+      lockAdminScreens();
+    } else {
+      state.accessGranted = true;
+      unlockAdminScreens();
+    }
+
     // Routage initial: /admin ouvre directement les quiz sauvegardés
     if (document.getElementById('screen-home')) {
       const path = window.location.pathname;
@@ -362,7 +450,9 @@ const App = (() => {
         path === '/admin/index.html' ||
         path.startsWith('/admin/');
       if (isAdminPath) {
-        showScreen('screen-quiz-list');
+        // Demande le mot de passe avant d'afficher l'interface admin
+        showScreen('screen-home');
+        requestAdminAccess('screen-quiz-list');
       } else {
         showScreen('screen-home');
       }
@@ -509,7 +599,7 @@ const App = (() => {
     renderQuizList();
   }
 
-  return { state, AVATARS, PLAYER_COLORS, showScreen, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, startLobbyMusic, stopLobbyMusic, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, init };
+  return { state, AVATARS, PLAYER_COLORS, showScreen, requestAdminAccess, submitAdminPassword, cancelAdminAccess, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, startLobbyMusic, stopLobbyMusic, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, init };
 })();
 
 // ============================================================
