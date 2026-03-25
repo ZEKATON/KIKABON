@@ -327,11 +327,11 @@ const Admin = (() => {
         let correct = 0;
         const detectedCorrectIndices = [];
         lines.slice(1).forEach(line => {
-          const match = line.match(/^([A-D])\s*:\s*(.+)/i);
+          const match = line.match(/^([A-D])\s*[:\)\-]\s*(.+)/i) || line.match(/^([A-D])\s+(.+)/i);
           if (match) {
             let choice = match[2].trim();
-            let isCorrect = choice.endsWith('*');
-            if (isCorrect) choice = choice.slice(0, -1).trim();
+            let isCorrect = choice.includes('*');
+            if (isCorrect) choice = choice.replace(/\*/g, '').trim();
             choices.push(choice);
             if (isCorrect) {
               correct = choices.length - 1;
