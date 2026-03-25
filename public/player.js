@@ -84,7 +84,7 @@ function updatePlayerStats() {
 function saveSession() {
   if (!playerState.currentPlayer || !playerState.gameCode) return;
   try {
-    sessionStorage.setItem('kikabon_session', JSON.stringify({
+    localStorage.setItem('kikabon_session', JSON.stringify({
       playerId:       playerState.currentPlayer.id,
       name:           playerState.currentPlayer.name,
       avatar:         playerState.currentPlayer.avatar,
@@ -98,12 +98,12 @@ function saveSession() {
 }
 
 function clearSession() {
-  try { sessionStorage.removeItem('kikabon_session'); } catch (e) {}
+  try { localStorage.removeItem('kikabon_session'); } catch (e) {}
 }
 
 function getSavedSession() {
   try {
-    return JSON.parse(sessionStorage.getItem('kikabon_session') || 'null');
+    return JSON.parse(localStorage.getItem('kikabon_session') || 'null');
   } catch (e) {
     return null;
   }
@@ -111,15 +111,34 @@ function getSavedSession() {
 
 async function tryRestoreSession() {
   let saved;
-  try { saved = JSON.parse(sessionStorage.getItem('kikabon_session') || 'null'); } catch (e) { saved = null; }
+  try { saved = JSON.parse(localStorage.getItem('kikabon_session') || 'null'); } catch (e) { saved = null; }
   if (!saved || !saved.playerId || !saved.gameCode) return false;
   try {
     const res = await fetch('/api/game/' + saved.gameCode);
     if (!res.ok) { clearSession(); return false; }
+    const joinRes = await fetch('/api/join/' + saved.gameCode, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playerId: saved.playerId,
+        name: saved.name,
+        avatar: saved.avatar,
+        color: saved.color,
+      })
+    });
+    if (!joinRes.ok) { clearSession(); return false; }
+    const joinData = await joinRes.json();
+    const restoredPlayer = joinData.player || {};
+    playerState.currentPlayer = {
+      id: restoredPlayer.id || saved.playerId,
+      name: restoredPlayer.name || saved.name,
+      avatar: restoredPlayer.avatar || saved.avatar,
+      color: restoredPlayer.color || saved.color,
+      score: restoredPlayer.score || saved.score || 0,
+    };
   } catch (e) { return false; }
-  playerState.currentPlayer = { id: saved.playerId, name: saved.name, avatar: saved.avatar, color: saved.color, score: saved.score || 0 };
   playerState.gameCode       = saved.gameCode;
-  playerState.score          = saved.score || 0;
+  playerState.score          = playerState.currentPlayer.score || saved.score || 0;
   playerState.correctCount   = saved.correctCount || 0;
   playerState.totalQuestions = saved.totalQuestions || 0;
   updatePlayerHeader();

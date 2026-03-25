@@ -33,6 +33,13 @@ const Game = (() => {
     return a.every((value, idx) => value === b[idx]);
   }
 
+  function getOpenAcceptedAnswers(rawAnswer) {
+    return String(rawAnswer || '')
+      .split(/\s*,\s*|\s+ou\s+/i)
+      .map(k => normalizeAnswerText(k))
+      .filter(Boolean);
+  }
+
   // ---- Diffuser un événement aux joueurs via l'API ----
   function adminBroadcast(type, payload) {
     const code  = App.state.gameCode;
@@ -236,10 +243,7 @@ const Game = (() => {
     correctEl.innerHTML = '';
 
     // Pré-classement : réponses correspondant aux mots-clés → zone correcte
-    const keywords = String(q.answer || '')
-      .split(/\s*,\s*|\s+ou\s+/i)
-      .map(k => normalizeAnswerText(k))
-      .filter(Boolean);
+    const acceptedAnswers = getOpenAcceptedAnswers(q.answer);
 
     App.state.players.forEach(player => {
       if (!player.answeredCurrentQuestion) {
@@ -247,7 +251,7 @@ const Game = (() => {
         return;
       }
       const norm = normalizeAnswerText(player.lastAnswer);
-      const autoOk = keywords.length > 0 && keywords.some(kw => norm.includes(kw));
+      const autoOk = acceptedAnswers.length > 0 && acceptedAnswers.includes(norm);
       const card = _buildAnswerCard(player, false);
       (autoOk ? correctEl : pendingEl).appendChild(card);
     });
@@ -372,11 +376,8 @@ const Game = (() => {
             isCorrect = validatedPlayerIds.has(player.id);
           } else {
             const playerAnswer = normalizeAnswerText(player.lastAnswer);
-            const keywords = String(q.answer || '')
-              .split(/\s*,\s*|\s+ou\s+/i)
-              .map(k => normalizeAnswerText(k))
-              .filter(Boolean);
-            isCorrect = keywords.some(kw => playerAnswer.includes(kw));
+            const acceptedAnswers = getOpenAcceptedAnswers(q.answer);
+            isCorrect = acceptedAnswers.includes(playerAnswer);
           }
         }
       }
