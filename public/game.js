@@ -104,7 +104,12 @@ const Game = (() => {
     const total = questions.length;
 
     // Reset answeredCurrentQuestion
-    App.state.players.forEach(p => p.answeredCurrentQuestion = false);
+    App.state.players.forEach(p => {
+      p.answeredCurrentQuestion = false;
+      // Réinitialiser l'indicateur de réponse (rouge)
+      const ind = document.getElementById(`indicator-${p.id}`);
+      if (ind) { ind.className = 'answer-indicator waiting'; ind.title = 'En attente...'; }
+    });
     questionActive = true;
     gamePaused = false;
 
@@ -399,6 +404,7 @@ const Game = (() => {
       lane.innerHTML = `
         <span class="lane-avatar">${player.avatar}</span>
         <span class="lane-name" style="color:${player.color}">${player.name}</span>
+        <span class="answer-indicator" id="indicator-${player.id}" title="En attente..."></span>
         <div class="lane-track">
           <div class="lane-progress" id="progress-${player.id}" style="width:0%;background:${player.color}"></div>
         </div>

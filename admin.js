@@ -498,6 +498,9 @@ const Admin = (() => {
           : (typeof answerIndex === 'number' ? [answerIndex] : []);
         player.lastAnswerIndex = player.lastAnswerIndices.length > 0 ? player.lastAnswerIndices[0] : null;
         player.lastAnswer = answer;
+        // Indicateur vert : le joueur a répondu
+        const ind = document.getElementById(`indicator-${playerId}`);
+        if (ind) { ind.className = 'answer-indicator answered'; ind.title = 'A répondu'; }
       }
     });
   }
