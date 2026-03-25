@@ -280,7 +280,21 @@ const Admin = (() => {
       return false;
     }
 
-    const questions = importedQuestions.map(q => ({ ...q, id: Date.now() + Math.random() }));
+    const questions = importedQuestions.map(q => {
+      const normalized = { ...q, id: Date.now() + Math.random() };
+
+      // Regle stricte d'import: une seule bonne reponse cochee en QCM
+      if (normalized.type === 'qcm') {
+        const firstCorrect = Array.isArray(normalized.correctIndices) && normalized.correctIndices.length > 0
+          ? normalized.correctIndices[0]
+          : (Number.isInteger(normalized.correct) ? normalized.correct : 0);
+        normalized.correct = firstCorrect;
+        normalized.correctIndices = [firstCorrect];
+        normalized.multipleAnswers = false;
+      }
+
+      return normalized;
+    });
     const quiz = {
       id: Date.now(),
       name,
