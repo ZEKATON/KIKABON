@@ -283,14 +283,14 @@ const Admin = (() => {
     const questions = importedQuestions.map(q => {
       const normalized = { ...q, id: Date.now() + Math.random() };
 
-      // Regle stricte d'import: une seule bonne reponse cochee en QCM
+      // Regle d'import: 1 '*' => choix unique, plusieurs '*' => choix multiple
       if (normalized.type === 'qcm') {
-        const firstCorrect = Array.isArray(normalized.correctIndices) && normalized.correctIndices.length > 0
-          ? normalized.correctIndices[0]
-          : (Number.isInteger(normalized.correct) ? normalized.correct : 0);
-        normalized.correct = firstCorrect;
-        normalized.correctIndices = [firstCorrect];
-        normalized.multipleAnswers = false;
+        const indices = Array.isArray(normalized.correctIndices) && normalized.correctIndices.length > 0
+          ? [...new Set(normalized.correctIndices.filter(i => Number.isInteger(i) && i >= 0))]
+          : (Number.isInteger(normalized.correct) ? [normalized.correct] : [0]);
+        normalized.correctIndices = indices;
+        normalized.correct = indices[0];
+        normalized.multipleAnswers = indices.length > 1;
       }
 
       return normalized;
@@ -361,8 +361,7 @@ const Admin = (() => {
           if (detectedCorrectIndices.length === 0) {
             return;
           }
-          // Forcer un seul choix correct: la premiere reponse marquee avec '*'
-          const safeCorrectIndices = [detectedCorrectIndices[0]];
+          const safeCorrectIndices = detectedCorrectIndices;
           questions.push({ 
             id: Date.now() + Math.random(), 
             type: 'qcm', 
@@ -370,7 +369,7 @@ const Admin = (() => {
             choices, 
             correct: safeCorrectIndices[0], 
             correctIndices: safeCorrectIndices,
-            multipleAnswers: false,
+            multipleAnswers: safeCorrectIndices.length > 1,
             category: '' 
           });
         }
