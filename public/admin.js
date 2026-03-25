@@ -526,6 +526,9 @@ const Admin = (() => {
       App.state.currentPlayer = null;
       App.state.gameCode = code;
       App.state.adminToken = adminToken;
+      if (typeof App.updateAdminCurrentCodeBadge === 'function') {
+        App.updateAdminCurrentCodeBadge();
+      }
       Lobby.clearPlayers();
       App.updateTrackLength();
 

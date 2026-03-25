@@ -67,6 +67,14 @@ function clearSession() {
   try { sessionStorage.removeItem('kikabon_session'); } catch (e) {}
 }
 
+function getSavedSession() {
+  try {
+    return JSON.parse(sessionStorage.getItem('kikabon_session') || 'null');
+  } catch (e) {
+    return null;
+  }
+}
+
 async function tryRestoreSession() {
   let saved;
   try { saved = JSON.parse(sessionStorage.getItem('kikabon_session') || 'null'); } catch (e) { saved = null; }
@@ -174,8 +182,10 @@ async function joinGameWithCode() {
   const nameInput = document.getElementById('join-name');
   const code = playerState.gameCode || (codeInput ? codeInput.value : '').trim();
   const typedName = (nameInput ? nameInput.value : '').trim();
-  const name = typedName || ('Eleve-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0'));
-  const avatar = playerState.selectedAvatar || AVATARS[0];
+  const saved = getSavedSession();
+  const canResume = !!(saved && String(saved.gameCode) === String(code) && saved.playerId);
+  const name = typedName || (canResume ? saved.name : ('Eleve-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0')));
+  const avatar = canResume ? (saved.avatar || AVATARS[0]) : (playerState.selectedAvatar || AVATARS[0]);
 
   if (!code) {
     showToast('Code manquant', 'error');
@@ -187,6 +197,7 @@ async function joinGameWithCode() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        playerId: canResume ? saved.playerId : null,
         name: name,
         avatar: avatar,
         color: PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)]
@@ -220,7 +231,7 @@ async function joinGameWithCode() {
     saveSession();
 
     connectSSE(code);
-    showToast('Bienvenue ' + name, 'success');
+    showToast((canResume ? 'Bon retour ' : 'Bienvenue ') + name, 'success');
   } catch (e) {
     console.error('Join error:', e);
     showToast('Erreur connexion', 'error');
@@ -612,5 +623,4 @@ document.addEventListener('DOMContentLoaded', function() {
   // Flux impose: le joueur saisit manuellement le code puis clique sur Suivant
   const input = document.getElementById('join-code');
   if (input) input.value = '';
-  clearSession();
 });

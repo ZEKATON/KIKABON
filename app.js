@@ -48,6 +48,7 @@ const App = (() => {
       // légère pause pour le reflow
       requestAnimationFrame(() => {
         target.classList.add('active');
+        updateAdminCurrentCodeBadge();
         
         // Screen-specific initialization
         if (id === 'screen-lobby') {
@@ -67,6 +68,18 @@ const App = (() => {
           }
         }
       });
+    }
+  }
+
+  function updateAdminCurrentCodeBadge() {
+    const badge = document.getElementById('admin-current-code');
+    const value = document.getElementById('admin-current-code-value');
+    if (!badge || !value) return;
+    if (state.gameCode) {
+      value.textContent = state.gameCode;
+      badge.style.display = 'block';
+    } else {
+      badge.style.display = 'none';
     }
   }
 
@@ -242,15 +255,27 @@ const App = (() => {
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
       osc.start(now); osc.stop(now + 0.4);
     } else if (type === 'start') {
-      const notes = [392, 494, 587, 784];
+      const notes = [523, 659, 784, 988, 1175, 988, 784];
       notes.forEach((f, i) => {
         const o2 = audioCtx.createOscillator();
         const g2 = audioCtx.createGain();
         o2.connect(g2); g2.connect(audioCtx.destination);
         o2.frequency.value = f;
-        g2.gain.setValueAtTime(0.25, now + i * 0.12);
-        g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.25);
-        o2.start(now + i * 0.12); o2.stop(now + i * 0.12 + 0.3);
+        g2.gain.setValueAtTime(0.18, now + i * 0.08);
+        g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.22);
+        o2.start(now + i * 0.08); o2.stop(now + i * 0.08 + 0.24);
+      });
+    } else if (type === 'tada') {
+      const notes = [784, 988, 1175, 1568];
+      notes.forEach((f, i) => {
+        const o2 = audioCtx.createOscillator();
+        const g2 = audioCtx.createGain();
+        o2.type = 'triangle';
+        o2.connect(g2); g2.connect(audioCtx.destination);
+        o2.frequency.value = f;
+        g2.gain.setValueAtTime(0.22, now + i * 0.07);
+        g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.25);
+        o2.start(now + i * 0.07); o2.stop(now + i * 0.07 + 0.28);
       });
     } else if (type === 'finish') {
       [523,659,784,1047].forEach((f, i) => {
@@ -318,6 +343,7 @@ const App = (() => {
       } else {
         showScreen('screen-home');
       }
+      updateAdminCurrentCodeBadge();
     }
   }
 
@@ -460,7 +486,7 @@ const App = (() => {
     renderQuizList();
   }
 
-  return { state, AVATARS, PLAYER_COLORS, showScreen, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, init };
+  return { state, AVATARS, PLAYER_COLORS, showScreen, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, init };
 })();
 
 // ============================================================

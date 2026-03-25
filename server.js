@@ -155,6 +155,13 @@ const server = http.createServer(async (req, res) => {
     const game = games.get(code);
     if (!game) return json(404, { error: 'Partie introuvable' });
     const body = await readBody(req);
+    const requestedPlayerId = Number(body.playerId);
+    if (Number.isFinite(requestedPlayerId)) {
+      const existing = game.players.find(p => p.id === requestedPlayerId);
+      if (existing) {
+        return json(200, { player: existing, rejoined: true });
+      }
+    }
     if (!body.name) return json(400, { error: 'name required' });
     const player = {
       id:     Date.now() + Math.random(),

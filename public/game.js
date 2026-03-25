@@ -172,6 +172,7 @@ const Game = (() => {
     if (!questionActive) return;
     questionActive = false;
     stopTimer();
+    App.playSound('tada');
 
     const q = App.state.questions[currentQuestionIdx];
     const correctIndices = q.type === 'qcm' ? (q.correctIndices || [q.correct]) : [];
