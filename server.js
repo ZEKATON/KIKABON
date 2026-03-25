@@ -222,18 +222,13 @@ const server = http.createServer(async (req, res) => {
     // Envoyer l'état courant aux nouveaux connectés (y compris question active pour reconnexion)
     const initPayload = { players: game.players, gamePhase: game.gamePhase };
     if (game.currentQuestion) {
-      const elapsed = game.currentQuestion.paused
-        ? 0
-        : Math.floor((Date.now() - game.currentQuestion.startedAt) / 1000);
-      const remaining = game.currentQuestion.paused
-        ? game.currentQuestion.timeLeft
-        : Math.max(0, game.currentQuestion.duration - elapsed);
+      const elapsed = Math.floor((Date.now() - game.currentQuestion.startedAt) / 1000);
+      const remaining = Math.max(0, game.currentQuestion.duration - elapsed);
       initPayload.currentQuestion = {
         question: game.currentQuestion.question,
         idx:      game.currentQuestion.idx,
         total:    game.currentQuestion.total,
         timeLeft: remaining,
-        paused:   !!game.currentQuestion.paused,
       };
     }
     res.write(`event: init\ndata: ${JSON.stringify(initPayload)}\n\n`);
@@ -319,30 +314,10 @@ const server = http.createServer(async (req, res) => {
         idx:       body.payload.idx,
         total:     body.payload.total,
         duration:  body.payload.timeLeft,
-        timeLeft:  body.payload.timeLeft,
         startedAt: Date.now(),
-        paused:    false,
       };
       game.currentQuestionIndex = Number.isInteger(body.payload.idx) ? body.payload.idx : game.currentQuestionIndex;
       game.gamePhase = 'game';
-    } else if (body.type === 'gamePause') {
-      game.gamePhase = 'paused';
-      if (game.currentQuestion) {
-        game.currentQuestion.timeLeft = Number.isFinite(body.payload?.timeLeft)
-          ? body.payload.timeLeft
-          : game.currentQuestion.timeLeft;
-        game.currentQuestion.paused = true;
-      }
-    } else if (body.type === 'gameResume') {
-      game.gamePhase = 'game';
-      if (game.currentQuestion) {
-        game.currentQuestion.timeLeft = Number.isFinite(body.payload?.timeLeft)
-          ? body.payload.timeLeft
-          : game.currentQuestion.timeLeft;
-        game.currentQuestion.duration = game.currentQuestion.timeLeft;
-        game.currentQuestion.startedAt = Date.now();
-        game.currentQuestion.paused = false;
-      }
     } else if (body.type === 'questionEnd') {
       game.currentQuestion = null;
     } else if (body.type === 'gameEnd') {

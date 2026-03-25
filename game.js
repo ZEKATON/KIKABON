@@ -8,7 +8,6 @@ const Game = (() => {
   let timeLeft = 0;
   let questionActive = false;
   let finishRankCounter = 0;
-  let gamePaused = false;
   let waitingForNextLaunch = false;
   let questionStatsHistory = [];
   let _pendingOpenQuestion = null; // { statusText, correctAnswerText, correctIndices }
@@ -68,7 +67,6 @@ const Game = (() => {
     // Reset
     currentQuestionIdx = 0;
     finishRankCounter = 0;
-    gamePaused = false;
     waitingForNextLaunch = false;
     questionStatsHistory = [];
     players.forEach(p => {
@@ -87,8 +85,6 @@ const Game = (() => {
     document.getElementById('btn-launch-question').style.display = 'block';
     document.getElementById('btn-stop-timer').style.display = 'none';
     document.getElementById('btn-add-time').style.display = 'none';
-    document.getElementById('btn-pause-game').style.display = 'none';
-    document.getElementById('btn-resume-game').style.display = 'none';
     document.getElementById('btn-launch-question').textContent = '▶️ Lancer la question';
     document.getElementById('question-card').style.display = 'none';
     document.getElementById('question-result').style.display = 'none';
@@ -119,7 +115,6 @@ const Game = (() => {
       if (ind) { ind.className = 'answer-indicator waiting'; ind.title = 'En attente...'; }
     });
     questionActive = true;
-    gamePaused = false;
 
     // Header
     document.getElementById('track-question-num').textContent = `Q${currentQuestionIdx + 1}/${total}`;
@@ -141,8 +136,6 @@ const Game = (() => {
     document.getElementById('btn-launch-question').style.display = 'none';
     document.getElementById('btn-stop-timer').style.display = 'block';
     document.getElementById('btn-add-time').style.display = 'block';
-    document.getElementById('btn-pause-game').style.display = 'block';
-    document.getElementById('btn-resume-game').style.display = 'none';
 
     // Choix QCM
     const choicesGrid = document.getElementById('choices-grid');
@@ -220,8 +213,6 @@ const Game = (() => {
 
     document.getElementById('btn-stop-timer').style.display = 'none';
     document.getElementById('btn-add-time').style.display = 'none';
-    document.getElementById('btn-pause-game').style.display = 'none';
-    document.getElementById('btn-resume-game').style.display = 'none';
     document.getElementById('btn-launch-question').style.display = 'block';
     document.getElementById('btn-launch-question').textContent =
       currentQuestionIdx >= App.state.questions.length - 1 ? '🏁 Voir les résultats' : '▶️ Lancer la question suivante';
@@ -337,7 +328,7 @@ const Game = (() => {
 
   // ---- Ajouter 10 secondes au chrono ----
   function addTime() {
-    if (!questionActive || gamePaused) return;
+    if (!questionActive) return;
     timeLeft += 10;
     const text = document.getElementById('timer-text');
     const adminChronoEl = document.getElementById('admin-panel-chrono-value');
@@ -464,56 +455,6 @@ const Game = (() => {
 
   function stopTimer() {
     clearInterval(timer);
-  }
-
-  // ---- Pause/Reprise ----
-  function pauseGame() {
-    if (!questionActive || gamePaused) return;
-    gamePaused = true;
-    clearInterval(timer);
-    showPauseOverlay();
-    document.getElementById('btn-pause-game').style.display = 'none';
-    document.getElementById('btn-resume-game').style.display = 'block';
-    adminBroadcast('gamePause', { timeLeft });
-    App.playSound('ui');
-    App.showToast('Jeu en pause', 'info');
-  }
-
-  function resumeGame() {
-    if (!questionActive || !gamePaused) return;
-    gamePaused = false;
-    hidePauseOverlay();
-    startTimer(true); // Resume with current timeLeft
-    document.getElementById('btn-pause-game').style.display = 'block';
-    document.getElementById('btn-resume-game').style.display = 'none';
-    adminBroadcast('gameResume', { timeLeft });
-    App.playSound('ui');
-    App.showToast('La partie reprend', 'success');
-  }
-
-  function showPauseOverlay() {
-    let overlay = document.getElementById('pause-overlay');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = 'pause-overlay';
-      overlay.className = 'pause-overlay';
-      overlay.innerHTML = `
-        <div class="pause-content">
-          <div class="pause-icon">⏸️</div>
-          <div class="pause-text">JEU EN PAUSE</div>
-          <div class="pause-subtitle">Le professeur contrôle la partie</div>
-        </div>
-      `;
-      document.getElementById('screen-game').appendChild(overlay);
-    }
-    overlay.style.display = 'flex';
-  }
-
-  function hidePauseOverlay() {
-    const overlay = document.getElementById('pause-overlay');
-    if (overlay) {
-      overlay.style.display = 'none';
-    }
   }
 
   function timeExpired() {
@@ -746,5 +687,5 @@ const Game = (() => {
     App.showToast('Modifiez les questions et relancez !', '');
   }
 
-  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, addTime, pauseGame, resumeGame, validateOpenAnswers };
+  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, addTime, validateOpenAnswers };
 })();
