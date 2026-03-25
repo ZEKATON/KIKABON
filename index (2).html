@@ -344,6 +344,25 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
     <div class="proj-question" id="proj-question"></div>
     <div class="proj-choices" id="proj-choices"></div>
   </div>
+
+  <!-- ====== Validation réponses ouvertes (admin) ====== -->
+  <div id="open-validation-overlay" style="display:none">
+    <div class="open-validation-panel">
+      <h3 class="open-val-title">📝 Validation des réponses ouvertes</h3>
+      <p class="open-val-subtitle">Glisse ou clique les ✅ bonnes réponses dans la zone verte, puis valide.</p>
+      <div class="open-val-zones">
+        <div class="open-val-zone" id="open-val-pending">
+          <div class="zone-label">🤔 Réponses à juger</div>
+          <div class="zone-cards" id="pending-cards"></div>
+        </div>
+        <div class="open-val-zone open-val-zone-correct" id="open-val-correct">
+          <div class="zone-label">✅ Bonnes réponses</div>
+          <div class="zone-cards" id="correct-cards"></div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="Game.validateOpenAnswers()">✅ Valider et donner les points</button>
+    </div>
+  </div>
 </div>
 
 <!-- ====== ÉCRAN PODIUM / FIN ====== -->

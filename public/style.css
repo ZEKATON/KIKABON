@@ -573,6 +573,51 @@ html, body {
 .lobby-qr-wrap #lobby-qrcode { background: #fff; padding: 8px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
 .lobby-qr-hint { font-size: 13px; color: var(--text2); margin: 0; }
 
+/* Validation réponses ouvertes - overlay admin */
+#open-validation-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10,8,20,0.93);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.open-validation-panel {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 28px;
+  width: 100%; max-width: 820px;
+  display: flex; flex-direction: column; gap: 16px;
+  max-height: 90vh; overflow-y: auto;
+}
+.open-val-title { font-family: var(--font-display); font-size: 20px; font-weight: 800; margin: 0; }
+.open-val-subtitle { font-size: 13px; color: var(--text2); margin: 0; }
+.open-val-zones { display: flex; gap: 14px; flex-wrap: wrap; }
+.open-val-zone {
+  flex: 1; min-width: 200px;
+  border: 2px dashed var(--border); border-radius: 14px; padding: 12px;
+  min-height: 120px; transition: border-color 0.2s, background 0.2s;
+}
+.open-val-zone-correct { border-color: rgba(78,203,113,0.5); background: rgba(78,203,113,0.06); }
+.open-val-zone.drag-over { border-color: var(--accent); background: rgba(247,201,72,0.08); }
+.zone-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text2); margin-bottom: 10px; }
+.zone-cards { display: flex; flex-wrap: wrap; gap: 8px; min-height: 50px; }
+.answer-card {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 10px;
+  background: var(--card2); border: 2px solid var(--border);
+  cursor: grab; user-select: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.answer-card:hover:not(.no-answer) { transform: scale(1.04); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+.answer-card.dragging { opacity: 0.35; }
+.answer-card.no-answer { opacity: 0.4; cursor: default; }
+.card-avatar { font-size: 18px; }
+.card-player-name { font-size: 12px; font-weight: 700; }
+.card-answer-text { font-size: 13px; color: var(--text); }
+@keyframes card-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(80px) rotate(8deg); opacity: 0; }
+}
+.card-fall { animation: card-fall 0.6s ease-in forwards; pointer-events: none; }
+
 /* QR Code Section */
 .lobby-qr-section {
   display: flex; flex-direction: column; align-items: center; gap: 12px;

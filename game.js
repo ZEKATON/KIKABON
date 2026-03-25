@@ -11,6 +11,7 @@ const Game = (() => {
   let gamePaused = false;
   let waitingForNextLaunch = false;
   let questionStatsHistory = [];
+  let _pendingOpenQuestion = null; // { statusText, correctAnswerText, correctIndices }
 
   function normalizeAnswerText(value) {
     return String(value || '')
@@ -169,9 +170,20 @@ const Game = (() => {
     const correctIndices = q.type === 'qcm' ? (q.correctIndices || [q.correct]) : [];
     const correctAnswerText = getCorrectAnswerText();
 
+    // Pour les questions ouvertes, afficher le panneau de validation admin
+    if (q.type === 'open') {
+      _pendingOpenQuestion = { statusText, correctAnswerText, correctIndices };
+      showOpenAnswerValidation(q);
+      return;
+    }
+
+    _finishCompleteQuestion(statusText, correctAnswerText, correctIndices, null);
+  }
+
+  function _finishCompleteQuestion(statusText, correctAnswerText, correctIndices, validatedPlayerIds) {
     showCorrectAnswer(correctAnswerText);
 
-    const results = processResults();
+    const results = processResults(validatedPlayerIds);
 
     // Statistiques de réussite par question et globales
     const qCorrect = results.filter(r => r.isCorrect).length;
@@ -204,13 +216,113 @@ const Game = (() => {
     waitingForNextLaunch = true;
   }
 
+  // ---- Panneau de validation des réponses ouvertes ----
+  function showOpenAnswerValidation(q) {
+    const overlay = document.getElementById('open-validation-overlay');
+    const pendingEl = document.getElementById('pending-cards');
+    const correctEl = document.getElementById('correct-cards');
+    pendingEl.innerHTML = '';
+    correctEl.innerHTML = '';
+
+    // Pré-classement : réponses correspondant aux mots-clés → zone correcte
+    const keywords = String(q.answer || '')
+      .split(/\s*,\s*|\s+ou\s+/i)
+      .map(k => normalizeAnswerText(k))
+      .filter(Boolean);
+
+    App.state.players.forEach(player => {
+      if (!player.answeredCurrentQuestion) {
+        pendingEl.appendChild(_buildAnswerCard(player, true));
+        return;
+      }
+      const norm = normalizeAnswerText(player.lastAnswer);
+      const autoOk = keywords.length > 0 && keywords.some(kw => norm.includes(kw));
+      const card = _buildAnswerCard(player, false);
+      (autoOk ? correctEl : pendingEl).appendChild(card);
+    });
+
+    // Zones de dépôt drag-and-drop
+    _setupDropZone(document.getElementById('open-val-pending'), pendingEl);
+    _setupDropZone(document.getElementById('open-val-correct'), correctEl);
+
+    overlay.style.display = 'flex';
+  }
+
+  function _buildAnswerCard(player, noAnswer) {
+    const card = document.createElement('div');
+    card.className = 'answer-card' + (noAnswer ? ' no-answer' : '');
+    card.draggable = !noAnswer;
+    card.dataset.playerId = String(player.id);
+    card.style.borderColor = player.color;
+    card.innerHTML = `
+      <span class="card-avatar">${player.avatar}</span>
+      <span class="card-player-name" style="color:${player.color}">${player.name}</span>
+      <span class="card-answer-text">${noAnswer ? '<em>—</em>' : player.lastAnswer}</span>
+    `;
+    if (!noAnswer) {
+      card.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', String(player.id));
+        card.classList.add('dragging');
+      });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      // Clic pour basculer entre les zones
+      card.addEventListener('click', () => {
+        const inCorrect = card.closest('#correct-cards');
+        if (inCorrect) {
+          document.getElementById('pending-cards').appendChild(card);
+        } else {
+          document.getElementById('correct-cards').appendChild(card);
+        }
+      });
+    }
+    return card;
+  }
+
+  function _setupDropZone(zoneEl, cardsEl) {
+    zoneEl.addEventListener('dragover', e => {
+      e.preventDefault();
+      zoneEl.classList.add('drag-over');
+    });
+    zoneEl.addEventListener('dragleave', () => zoneEl.classList.remove('drag-over'));
+    zoneEl.addEventListener('drop', e => {
+      e.preventDefault();
+      zoneEl.classList.remove('drag-over');
+      const playerId = e.dataTransfer.getData('text/plain');
+      const card = document.querySelector(`.answer-card[data-player-id="${playerId}"]`);
+      if (card) cardsEl.appendChild(card);
+    });
+  }
+
+  function validateOpenAnswers() {
+    const correctEl = document.getElementById('correct-cards');
+    const pendingEl = document.getElementById('pending-cards');
+    const validatedIds = new Set(
+      [...correctEl.querySelectorAll('.answer-card')].map(c => Number(c.dataset.playerId))
+    );
+
+    // Animation : les mauvaises réponses tombent
+    pendingEl.querySelectorAll('.answer-card:not(.no-answer)').forEach(card => {
+      card.classList.add('card-fall');
+    });
+
+    setTimeout(() => {
+      document.getElementById('open-validation-overlay').style.display = 'none';
+      if (_pendingOpenQuestion) {
+        const { statusText, correctAnswerText, correctIndices } = _pendingOpenQuestion;
+        _pendingOpenQuestion = null;
+        _finishCompleteQuestion(statusText, correctAnswerText, correctIndices, validatedIds);
+      }
+    }, 700);
+  }
+
   // ---- Arrêter le chrono manuellement et traiter les résultats ----
   function stopTimerManually() {
     completeQuestion('✋ Réponse affichée. Lancez la suite quand vous êtes prêt.');
   }
 
   // ---- Traiter les résultats et avancer les joueurs ----
-  function processResults() {
+  // validatedPlayerIds : Set d'IDs validés par l'admin (questions ouvertes), ou null pour auto
+  function processResults(validatedPlayerIds) {
     const q = App.state.questions[currentQuestionIdx];
     const results = [];
     
@@ -229,12 +341,17 @@ const Game = (() => {
           );
           isCorrect = areSameIndexSets(playerAnswers, correctAnswers);
         } else {
-          const playerAnswer = normalizeAnswerText(player.lastAnswer);
-          const keywords = String(q.answer || '')
-            .split(/\s*,\s*|\s+ou\s+/i)
-            .map(k => normalizeAnswerText(k))
-            .filter(Boolean);
-          isCorrect = keywords.some(kw => playerAnswer.includes(kw));
+          // Question ouverte : validation admin si disponible, sinon mots-clés
+          if (validatedPlayerIds != null) {
+            isCorrect = validatedPlayerIds.has(player.id);
+          } else {
+            const playerAnswer = normalizeAnswerText(player.lastAnswer);
+            const keywords = String(q.answer || '')
+              .split(/\s*,\s*|\s+ou\s+/i)
+              .map(k => normalizeAnswerText(k))
+              .filter(Boolean);
+            isCorrect = keywords.some(kw => playerAnswer.includes(kw));
+          }
         }
       }
 
@@ -597,5 +714,5 @@ const Game = (() => {
     App.showToast('Modifiez les questions et relancez !', '');
   }
 
-  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, pauseGame, resumeGame };
+  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, pauseGame, resumeGame, validateOpenAnswers };
 })();
