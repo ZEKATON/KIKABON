@@ -49,6 +49,10 @@ const App = (() => {
       requestAnimationFrame(() => {
         target.classList.add('active');
         updateAdminCurrentCodeBadge();
+
+        const isAdminLobby = id === 'screen-lobby' && !!document.getElementById('lobby-players');
+        if (isAdminLobby) startLobbyMusic();
+        else stopLobbyMusic();
         
         // Screen-specific initialization
         if (id === 'screen-lobby') {
@@ -194,6 +198,7 @@ const App = (() => {
     state.settings.advancePerCorrect = parseInt(document.getElementById('setting-advance').value) || 1;
     state.settings.trackLength = parseInt(document.getElementById('setting-track').value) || 10;
     state.settings.soundEnabled = document.getElementById('setting-sound').checked;
+    if (!state.settings.soundEnabled) stopLobbyMusic();
     localStorage.setItem('quizrace_settings', JSON.stringify(state.settings));
   }
 
@@ -233,6 +238,38 @@ const App = (() => {
   // ---- Sons ----
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   let audioCtx = null;
+  let lobbyMusicTimer = null;
+
+  function playLobbyLoopBar() {
+    if (!state.settings.soundEnabled) return;
+    if (!audioCtx) audioCtx = new AudioCtx();
+    const now = audioCtx.currentTime;
+    const pattern = [220, 330, 440, 330, 494, 392];
+    pattern.forEach((f, i) => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'square';
+      o.frequency.value = f;
+      o.connect(g); g.connect(audioCtx.destination);
+      const t0 = now + i * 0.18;
+      g.gain.setValueAtTime(0.08, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
+      o.start(t0); o.stop(t0 + 0.18);
+    });
+  }
+
+  function startLobbyMusic() {
+    if (!state.settings.soundEnabled || lobbyMusicTimer) return;
+    playLobbyLoopBar();
+    lobbyMusicTimer = setInterval(playLobbyLoopBar, 1200);
+  }
+
+  function stopLobbyMusic() {
+    if (lobbyMusicTimer) {
+      clearInterval(lobbyMusicTimer);
+      lobbyMusicTimer = null;
+    }
+  }
 
   function playSound(type) {
     if (!state.settings.soundEnabled) return;

@@ -171,8 +171,9 @@ async function goToJoinStep(step) {
       return;
     }
     playerState.gameCode = code;
-    // Nouveau flux: code valide + Suivant => inscription immediate puis salle d'attente
-    await joinGameWithCode();
+    codeStep.style.display = 'none';
+    infoStep.style.display = 'block';
+    setTimeout(initAvatarGrid, 50);
   }
 }
 
@@ -183,9 +184,19 @@ async function joinGameWithCode() {
   const code = playerState.gameCode || (codeInput ? codeInput.value : '').trim();
   const typedName = (nameInput ? nameInput.value : '').trim();
   const saved = getSavedSession();
-  const canResume = !!(saved && String(saved.gameCode) === String(code) && saved.playerId);
-  const name = typedName || (canResume ? saved.name : ('Eleve-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0')));
-  const avatar = canResume ? (saved.avatar || AVATARS[0]) : (playerState.selectedAvatar || AVATARS[0]);
+  const canResume = !!(
+    saved &&
+    String(saved.gameCode) === String(code) &&
+    saved.playerId &&
+    saved.name === typedName
+  );
+  const name = typedName;
+  const avatar = playerState.selectedAvatar || AVATARS[0];
+
+  if (!name) {
+    showToast('Entrez votre prénom', 'error');
+    return;
+  }
 
   if (!code) {
     showToast('Code manquant', 'error');
@@ -216,7 +227,7 @@ async function joinGameWithCode() {
     const player = data.player;
     playerState.currentPlayer = player;
     playerState.gameCode = code;
-    playerState.score = 0;
+    playerState.score = player.score || 0;
     playerState.correctCount = 0;
     playerState.totalQuestions = 0;
 
