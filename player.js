@@ -483,7 +483,18 @@ function connectSSE(code) {
 
     sse.addEventListener('question', function(e) {
       const data = JSON.parse(e.data);
-      PlayerGame.showQuestion(data.question, data.idx, data.total, data.timeLeft);
+      const idx = Number.isInteger(data.currentQuestionIndex) ? data.currentQuestionIndex : data.idx;
+      PlayerGame.showQuestion(data.question, idx, data.total, data.timeLeft);
+    });
+
+    sse.addEventListener('update_state', function(e) {
+      const data = JSON.parse(e.data);
+      if (data.phase !== 'question') return;
+      const incomingIdx = Number.isInteger(data.currentQuestionIndex) ? data.currentQuestionIndex : null;
+      if (incomingIdx === null || !data.question) return;
+      if (PlayerGame.getCurrentQuestionIndex() !== incomingIdx) {
+        PlayerGame.showQuestion(data.question, incomingIdx, data.total, data.timeLeft);
+      }
     });
 
     sse.addEventListener('questionEnd', function(e) {
@@ -556,10 +567,12 @@ const PlayerGame = (function() {
   let playerTimerInterval = null;
   let playerTimerTotal = 60;
   let playerTimeLeft = 60;
+  let currentDisplayedQuestionIndex = -1;
 
   function showQuestion(q, idx, total, time) {
     answered = false;
     selectedIndices = [];
+    currentDisplayedQuestionIndex = Number.isInteger(idx) ? idx : currentDisplayedQuestionIndex;
     showScreen('screen-game');
 
     const counter = document.getElementById('track-question-num');
@@ -690,6 +703,8 @@ const PlayerGame = (function() {
     }
     playPlayerSound('submit');
     showToast('Reponse envoyee', 'success');
+    const status = document.getElementById('game-status');
+    if (status) status.textContent = '✅ Reponse recue';
   }
 
   function submitOpenAnswer() {
@@ -804,6 +819,7 @@ const PlayerGame = (function() {
 
   return {
     showQuestion: showQuestion,
+    getCurrentQuestionIndex: function() { return currentDisplayedQuestionIndex; },
     toggleChoiceSelection: toggleChoiceSelection,
     submitQcmAnswer: submitQcmAnswer,
     submitAnswer: submitAnswer,

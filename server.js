@@ -47,6 +47,10 @@ function normalizeRequestedCode(value) {
   return /^\d{4}$/.test(code) ? code : null;
 }
 
+function normalizePlayerName(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function getLatestActiveGame(excludeCode = null) {
   const activeGames = [...games.values()]
     .filter(g => g && g.gamePhase !== 'ended' && g.code !== excludeCode)
@@ -184,16 +188,29 @@ const server = http.createServer(async (req, res) => {
 
     const body = await readBody(req);
     const requestedPlayerId = Number(body.playerId);
+    const requestedName = String(body.name || '').slice(0, 30);
+    const normalizedRequestedName = normalizePlayerName(requestedName);
     if (Number.isFinite(requestedPlayerId)) {
       const existing = game.players.find(p => p.id === requestedPlayerId);
       if (existing) {
         return json(200, { player: existing, rejoined: true });
       }
     }
-    if (!body.name) return json(400, { error: 'name required' });
+
+    // Reconnexion de secours: meme nom => recuperer le profil (score/position) existant.
+    if (normalizedRequestedName) {
+      const sameNamePlayer = game.players.find(p => normalizePlayerName(p.name) === normalizedRequestedName);
+      if (sameNamePlayer) {
+        if (body.avatar) sameNamePlayer.avatar = body.avatar;
+        if (body.color) sameNamePlayer.color = body.color;
+        return json(200, { player: sameNamePlayer, rejoined: true });
+      }
+    }
+
+    if (!requestedName) return json(400, { error: 'name required' });
     const player = {
       id:     Date.now() + Math.random(),
-      name:   String(body.name).slice(0, 30),
+      name:   requestedName,
       avatar: body.avatar || '🐼',
       color:  body.color  || '#4fa3ff',
       score:  0,

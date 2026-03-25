@@ -695,7 +695,16 @@ html, body {
 .lobby-player-delete:hover {
   opacity: 1;
 }
-.lobby-actions { display: flex; gap: 12px; }
+.lobby-actions {
+  display: flex;
+  gap: 12px;
+  position: sticky;
+  top: 8px;
+  z-index: 8;
+  background: linear-gradient(180deg, rgba(20,15,35,0.96), rgba(20,15,35,0.85));
+  padding: 8px;
+  border-radius: 12px;
+}
 
 /* ===== GAME SCREEN ===== */
 #screen-game {
@@ -738,7 +747,8 @@ html, body {
 .track-lanes { flex: 1; display: flex; flex-direction: column; padding: 8px; gap: 4px; overflow-y: auto; }
 .track-lane {
   display: flex; align-items: center; gap: 8px;
-  padding: 6px 4px;
+  min-height: 40px;
+  padding: 4px 4px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .lane-avatar { font-size: 20px; flex-shrink: 0; }
@@ -929,7 +939,7 @@ html, body {
 .admin-shell .race-track-container {
   order: 2;
   width: 100%;
-  max-height: 42vh;
+  max-height: 58vh;
   border-right: none;
   border-top: 1px solid var(--border);
 }
@@ -940,7 +950,8 @@ html, body {
 }
 
 .admin-shell .track-lane {
-  padding: 10px 6px;
+  min-height: 40px;
+  padding: 4px 6px;
 }
 
 .admin-shell .lane-name {
@@ -960,6 +971,9 @@ html, body {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: stretch;
+  position: sticky;
+  top: 8px;
+  z-index: 10;
 }
 
 .admin-shell .admin-controls-title {

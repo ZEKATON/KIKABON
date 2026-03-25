@@ -151,7 +151,20 @@ const Game = (() => {
     App.playSound('question');
 
     // Diffuser la question aux joueurs
-    adminBroadcast('question', { question: q, idx: currentQuestionIdx, total, timeLeft: getQuestionTime() });
+    adminBroadcast('question', {
+      question: q,
+      idx: currentQuestionIdx,
+      currentQuestionIndex: currentQuestionIdx,
+      total,
+      timeLeft: getQuestionTime()
+    });
+    adminBroadcast('update_state', {
+      phase: 'question',
+      currentQuestionIndex: currentQuestionIdx,
+      question: q,
+      total,
+      timeLeft: getQuestionTime()
+    });
   }
 
   function getCorrectAnswerText() {
@@ -209,6 +222,11 @@ const Game = (() => {
       correctIndices,
       correctAnswer: correctAnswerText,
       results,
+    });
+    adminBroadcast('update_state', {
+      phase: 'between',
+      currentQuestionIndex: currentQuestionIdx,
+      total: App.state.questions.length,
     });
 
     document.getElementById('btn-stop-timer').style.display = 'none';
