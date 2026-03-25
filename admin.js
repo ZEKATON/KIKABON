@@ -325,6 +325,7 @@ const Admin = (() => {
         const questionText = firstLine.replace(/^QCM\s*:\s*/i, '').trim();
         const choices = [];
         let correct = 0;
+        const detectedCorrectIndices = [];
         lines.slice(1).forEach(line => {
           const match = line.match(/^([A-D])\s*:\s*(.+)/i);
           if (match) {
@@ -332,18 +333,23 @@ const Admin = (() => {
             let isCorrect = choice.endsWith('*');
             if (isCorrect) choice = choice.slice(0, -1).trim();
             choices.push(choice);
-            if (isCorrect) correct = choices.length - 1;
+            if (isCorrect) {
+              correct = choices.length - 1;
+              detectedCorrectIndices.push(choices.length - 1);
+            }
           }
         });
         if (questionText && choices.length >= 2) {
+          const hasMultipleAnswers = detectedCorrectIndices.length > 1;
+          const safeCorrectIndices = detectedCorrectIndices.length > 0 ? detectedCorrectIndices : [0];
           questions.push({ 
             id: Date.now() + Math.random(), 
             type: 'qcm', 
             text: questionText, 
             choices, 
-            correct, 
-            correctIndices: [correct],
-            multipleAnswers: false,
+            correct: safeCorrectIndices[0], 
+            correctIndices: safeCorrectIndices,
+            multipleAnswers: hasMultipleAnswers,
             category: '' 
           });
         }
