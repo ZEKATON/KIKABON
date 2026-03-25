@@ -126,6 +126,16 @@ async function tryRestoreSession() {
   try { saved = JSON.parse(localStorage.getItem('kikabon_session') || 'null'); } catch (e) { saved = null; }
   if (!saved || !saved.playerId || !saved.gameCode) return false;
   try {
+    const activeRes = await fetch('/api/game-active').catch(() => null);
+    if (activeRes && activeRes.ok) {
+      const activeData = await activeRes.json().catch(() => ({}));
+      const activeCode = String(activeData.code || '').trim();
+      if (/^\d{4}$/.test(activeCode) && String(saved.gameCode) !== activeCode) {
+        redirectToJoinNewGame(activeCode, 'Une nouvelle partie est disponible. Reinscris-toi pour la rejoindre.');
+        return false;
+      }
+    }
+
     const res = await fetch('/api/game/' + saved.gameCode);
     if (!res.ok) { clearSession(); return false; }
 
