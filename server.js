@@ -144,6 +144,8 @@ const server = http.createServer(async (req, res) => {
       createdAt:       Date.now(),
       gamePhase:       'lobby',
       currentQuestion: null,
+      currentQuestionIndex: 0,
+      resetTimer:      null,
     });
     return json(200, { code, adminToken });
   }
@@ -301,6 +303,10 @@ const server = http.createServer(async (req, res) => {
 
     // Suivre la phase de jeu et la question courante (pour reconnexion)
     if (body.type === 'gameStart') {
+      if (game.resetTimer) {
+        clearTimeout(game.resetTimer);
+        game.resetTimer = null;
+      }
       game.gamePhase = 'game';
     } else if (body.type === 'question') {
       game.currentQuestion = {
@@ -310,11 +316,28 @@ const server = http.createServer(async (req, res) => {
         duration:  body.payload.timeLeft,
         startedAt: Date.now(),
       };
+      game.currentQuestionIndex = Number.isInteger(body.payload.idx) ? body.payload.idx : game.currentQuestionIndex;
     } else if (body.type === 'questionEnd') {
       game.currentQuestion = null;
     } else if (body.type === 'gameEnd') {
       game.gamePhase = 'ended';
       game.currentQuestion = null;
+      if (game.resetTimer) {
+        clearTimeout(game.resetTimer);
+      }
+      game.resetTimer = setTimeout(() => {
+        const currentGame = games.get(code);
+        if (!currentGame || currentGame !== game) return;
+
+        currentGame.gamePhase = 'waiting';
+        currentGame.questions = [];
+        currentGame.currentQuestion = null;
+        currentGame.currentQuestionIndex = 0;
+        currentGame.players = [];
+        currentGame.resetTimer = null;
+
+        broadcast(code, 'game_reset_force', { status: 'waiting' });
+      }, 30000);
     }
 
     broadcast(code, body.type, body.payload || {});

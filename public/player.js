@@ -226,6 +226,11 @@ function showToast(msg, type) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
 }
 
+function getActiveScreenId() {
+  const active = document.querySelector('.screen.active');
+  return active ? active.id : null;
+}
+
 function returnToJoinScreen() {
   clearSession();
   clearTimeout(reconnectTimeout);
@@ -429,6 +434,10 @@ function connectSSE(code) {
 
     sse.addEventListener('init', function(e) {
       const data = JSON.parse(e.data);
+      if (data.gamePhase === 'waiting' && getActiveScreenId() === 'screen-podium') {
+        location.reload();
+        return;
+      }
       const players = data.players || [];
       const container = document.getElementById('players-list');
       if (container) container.innerHTML = '';
@@ -498,6 +507,11 @@ function connectSSE(code) {
     sse.addEventListener('gameEnd', function(e) {
       const data = JSON.parse(e.data);
       PlayerGame.showPodium(data.players);
+    });
+
+    sse.addEventListener('game_reset_force', function() {
+      try { localStorage.clear(); } catch (e) {}
+      window.location.href = '/';
     });
 
     sse.onerror = function() {
