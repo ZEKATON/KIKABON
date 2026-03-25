@@ -347,8 +347,8 @@ const Admin = (() => {
           if (detectedCorrectIndices.length === 0) {
             return;
           }
-          const hasMultipleAnswers = detectedCorrectIndices.length > 1;
-          const safeCorrectIndices = detectedCorrectIndices;
+          // Forcer un seul choix correct: la premiere reponse marquee avec '*'
+          const safeCorrectIndices = [detectedCorrectIndices[0]];
           questions.push({ 
             id: Date.now() + Math.random(), 
             type: 'qcm', 
@@ -356,7 +356,7 @@ const Admin = (() => {
             choices, 
             correct: safeCorrectIndices[0], 
             correctIndices: safeCorrectIndices,
-            multipleAnswers: hasMultipleAnswers,
+            multipleAnswers: false,
             category: '' 
           });
         }
