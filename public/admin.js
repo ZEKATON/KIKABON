@@ -271,17 +271,45 @@ const Admin = (() => {
     updateCorrectDisplay();
   }
 
+  function createQuizFromImportedQuestions(importedQuestions, suggestedName) {
+    if (!Array.isArray(importedQuestions) || importedQuestions.length === 0) return false;
+    const defaultName = suggestedName || `Quiz ${new Date().toLocaleDateString('fr-FR')}`;
+    const name = prompt('Nom du quiz importé :', defaultName);
+    if (!name) {
+      App.showToast('Import annulé : nom du quiz requis', 'error');
+      return false;
+    }
+
+    const questions = importedQuestions.map(q => ({ ...q, id: Date.now() + Math.random() }));
+    const quiz = {
+      id: Date.now(),
+      name,
+      questions,
+      date: new Date().toLocaleDateString('fr-FR'),
+      count: questions.length,
+      gameCode: generateUniqueSavedQuizCode(null),
+    };
+
+    App.state.savedQuizzes.push(quiz);
+    App.state.currentQuiz = quiz;
+    App.state.questions = [...questions];
+    App.persistSavedQuizzes();
+    renderSaved();
+    renderQuestions();
+    showTab('tab-questions');
+    App.showToast(`Quiz "${name}" créé depuis import ✓`, 'success');
+    return true;
+  }
+
   // ---- Import from text ----
   function importFromText() {
     const text = document.getElementById('import-text').value.trim();
     if (!text) { App.showToast('Collez du texte à importer !', 'error'); return; }
     const questions = parseTextImport(text);
     if (questions.length === 0) { App.showToast('Format non reconnu', 'error'); return; }
-    App.state.questions.push(...questions);
-    renderQuestions();
+    const created = createQuizFromImportedQuestions(questions);
+    if (!created) return;
     document.getElementById('import-text').value = '';
-    App.showToast(`${questions.length} question(s) importée(s) ✓`, 'success');
-      showTab('tab-saved');
   }
 
   function parseTextImport(text) {
@@ -349,10 +377,7 @@ const Admin = (() => {
       try {
         const data = JSON.parse(e.target.result);
         if (Array.isArray(data.questions)) {
-          App.state.questions.push(...data.questions.map(q => ({ ...q, id: Date.now() + Math.random() })));
-          renderQuestions();
-          App.showToast(`${data.questions.length} question(s) importée(s) ✓`, 'success');
-           showTab('tab-saved');
+          createQuizFromImportedQuestions(data.questions, data.name || file.name.replace(/\.json$/i, ''));
         } else {
           App.showToast('Format JSON invalide', 'error');
         }
