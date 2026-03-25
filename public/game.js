@@ -78,6 +78,7 @@ const Game = (() => {
     // Afficher le bouton "Afficher la question" au lieu de la montrer automatiquement
     document.getElementById('btn-launch-question').style.display = 'block';
     document.getElementById('btn-stop-timer').style.display = 'none';
+    document.getElementById('btn-add-time').style.display = 'none';
     document.getElementById('btn-pause-game').style.display = 'none';
     document.getElementById('btn-resume-game').style.display = 'none';
     document.getElementById('btn-launch-question').textContent = '▶️ Lancer la question';
@@ -126,6 +127,7 @@ const Game = (() => {
     // Masquer le bouton "Afficher la question"
     document.getElementById('btn-launch-question').style.display = 'none';
     document.getElementById('btn-stop-timer').style.display = 'block';
+    document.getElementById('btn-add-time').style.display = 'block';
     document.getElementById('btn-pause-game').style.display = 'block';
     document.getElementById('btn-resume-game').style.display = 'none';
 
@@ -202,6 +204,7 @@ const Game = (() => {
     });
 
     document.getElementById('btn-stop-timer').style.display = 'none';
+    document.getElementById('btn-add-time').style.display = 'none';
     document.getElementById('btn-pause-game').style.display = 'none';
     document.getElementById('btn-resume-game').style.display = 'none';
     document.getElementById('btn-launch-question').style.display = 'block';
@@ -318,6 +321,20 @@ const Game = (() => {
   // ---- Arrêter le chrono manuellement et traiter les résultats ----
   function stopTimerManually() {
     completeQuestion('✋ Réponse affichée. Lancez la suite quand vous êtes prêt.');
+  }
+
+  // ---- Ajouter 10 secondes au chrono ----
+  function addTime() {
+    if (!questionActive || gamePaused) return;
+    timeLeft += 10;
+    const text = document.getElementById('timer-text');
+    const adminChronoEl = document.getElementById('admin-panel-chrono-value');
+    if (text) text.textContent = timeLeft;
+    if (adminChronoEl) adminChronoEl.textContent = timeLeft;
+    // Retirer l'effet d'urgence si on a ajouté du temps
+    const bar = document.getElementById('timer-bar');
+    if (bar && timeLeft > 10) bar.classList.remove('warning');
+    App.showToast('+10 secondes', 'success');
   }
 
   // ---- Traiter les résultats et avancer les joueurs ----
@@ -714,5 +731,5 @@ const Game = (() => {
     App.showToast('Modifiez les questions et relancez !', '');
   }
 
-  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, pauseGame, resumeGame, validateOpenAnswers };
+  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, addTime, pauseGame, resumeGame, validateOpenAnswers };
 })();
