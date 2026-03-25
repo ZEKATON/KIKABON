@@ -75,7 +75,12 @@ const Admin = (() => {
   }
 
   function persistQuestions() {
-    localStorage.setItem('quizrace_questions', JSON.stringify(App.state.questions));
+    try {
+      localStorage.setItem('quizrace_questions', JSON.stringify(App.state.questions));
+      console.log('[storage] questions saved successfully (' + App.state.questions.length + ')');
+    } catch (error) {
+      console.log('[storage] failed to save questions', error);
+    }
   }
 
   // ---- Add new question ----
@@ -429,6 +434,8 @@ const Admin = (() => {
     const qs = App.state.questions;
     if (qs.length === 0) { App.showToast('Aucune question à sauvegarder !', 'error'); return; }
 
+    App.loadSavedQuizzes();
+
     const existingQuiz = App.state.currentQuiz && App.state.savedQuizzes.find(q => q.id === App.state.currentQuiz.id);
 
     if (existingQuiz) {
@@ -442,8 +449,12 @@ const Admin = (() => {
       const index = App.state.savedQuizzes.findIndex(q => q.id === existingQuiz.id);
       App.state.savedQuizzes[index] = quiz;
       App.state.currentQuiz = quiz;
-      App.persistSavedQuizzes();
+      if (!App.persistSavedQuizzes(App.state.savedQuizzes)) {
+        App.showToast('Erreur de sauvegarde locale', 'error');
+        return;
+      }
       renderSaved();
+      console.log('[storage] quiz updated', quiz.name, quiz.id);
       App.showToast(`Quiz "${quiz.name}" mis à jour ✓`, 'success');
     } else {
       // Nouveau quiz — demande un nom
@@ -458,10 +469,16 @@ const Admin = (() => {
         count: qs.length,
         gameCode,
       };
-      App.state.savedQuizzes.push(quiz);
+      const currentSavedQuizzes = Array.isArray(App.state.savedQuizzes) ? [...App.state.savedQuizzes] : [];
+      currentSavedQuizzes.push(quiz);
+      App.state.savedQuizzes = currentSavedQuizzes;
       App.state.currentQuiz = quiz;
-      App.persistSavedQuizzes();
+      if (!App.persistSavedQuizzes(currentSavedQuizzes)) {
+        App.showToast('Erreur de sauvegarde locale', 'error');
+        return;
+      }
       renderSaved();
+      console.log('[storage] quiz created', quiz.name, quiz.id);
       App.showToast(`Quiz "${name}" créé ✓`, 'success');
     }
   }
@@ -533,7 +550,7 @@ const Admin = (() => {
 
   function deleteSavedQuiz(id) {
     App.state.savedQuizzes = App.state.savedQuizzes.filter(q => q.id !== id);
-    App.persistSavedQuizzes();
+    App.persistSavedQuizzes(App.state.savedQuizzes);
     renderSaved();
   }
 

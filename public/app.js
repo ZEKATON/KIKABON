@@ -36,6 +36,11 @@ const App = (() => {
     '#fd79a8','#6c5ce7','#00b894','#e17055',
   ];
 
+  const QUIZ_STORAGE_KEY = 'quizrace_saved';
+  const QUIZ_STORAGE_LEGACY_KEYS = ['quizzes'];
+  const QUESTIONS_STORAGE_KEY = 'quizrace_questions';
+  const SETTINGS_STORAGE_KEY = 'quizrace_settings';
+
   // ---- Garde admin ----
   const ADMIN_SCREENS = new Set(['screen-quiz-list', 'screen-admin', 'screen-lobby', 'screen-game']);
   const ADMIN_PASSWORD = 'FORMA974';
@@ -96,6 +101,87 @@ const App = (() => {
   // ---- Écrans réservés à l'admin (nécessitent le mot de passe) ----
   function isAdminUnlocked() {
     try { return sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  function safeParseJson(rawValue, fallbackValue, label) {
+    if (!rawValue) return fallbackValue;
+    try {
+      return JSON.parse(rawValue);
+    } catch (error) {
+      console.log('[storage] parse failed for ' + label, error);
+      return fallbackValue;
+    }
+  }
+
+  function safeStringifyJson(value, label) {
+    try {
+      return JSON.stringify(value);
+    } catch (error) {
+      console.log('[storage] stringify failed for ' + label, error);
+      return null;
+    }
+  }
+
+  function readSavedQuizzesFromStorage() {
+    const keys = [QUIZ_STORAGE_KEY, ...QUIZ_STORAGE_LEGACY_KEYS];
+    for (const key of keys) {
+      let rawValue = null;
+      try {
+        rawValue = localStorage.getItem(key);
+      } catch (error) {
+        console.log('[storage] read failed for ' + key, error);
+        return [];
+      }
+      if (!rawValue) continue;
+      const parsed = safeParseJson(rawValue, [], key);
+      if (Array.isArray(parsed)) {
+        console.log('[storage] loaded quizzes from ' + key + ' (' + parsed.length + ')');
+        return parsed;
+      }
+      console.log('[storage] ignored non-array payload in ' + key);
+    }
+    console.log('[storage] no saved quizzes found');
+    return [];
+  }
+
+  function normalizeSavedQuizzes(quizzes) {
+    let changed = false;
+    const used = new Set();
+    const normalized = (Array.isArray(quizzes) ? quizzes : []).map(quiz => {
+      const clone = { ...quiz };
+      let code = String(clone.gameCode || '').trim();
+      const valid = /^\d{4}$/.test(code) && !used.has(code);
+      if (!valid) {
+        do {
+          code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+        } while (used.has(code));
+        clone.gameCode = code;
+        changed = true;
+      }
+      used.add(code);
+      return clone;
+    });
+    return { quizzes: normalized, changed };
+  }
+
+  function persistSavedQuizzes(nextQuizzes) {
+    const source = Array.isArray(nextQuizzes) ? nextQuizzes : state.savedQuizzes;
+    const { quizzes } = normalizeSavedQuizzes(source);
+    const payload = safeStringifyJson(quizzes, QUIZ_STORAGE_KEY);
+    if (payload === null) {
+      console.log('[storage] failed to save quizzes');
+      return false;
+    }
+    try {
+      localStorage.setItem(QUIZ_STORAGE_KEY, payload);
+      state.savedQuizzes = quizzes;
+      console.log('[storage] quizzes saved successfully (' + quizzes.length + ')');
+      renderQuizList();
+      return true;
+    } catch (error) {
+      console.log('[storage] write failed for ' + QUIZ_STORAGE_KEY, error);
+      return false;
+    }
   }
 
   function lockAdminScreens() {
@@ -177,6 +263,7 @@ const App = (() => {
   function cancelAdminAccess() {
     _pendingAdminScreen = null;
     _closeAuthModal(() => showScreen('screen-home'));
+  }
 
   // ---- Init avatars sur écran Join ----
   function initAvatarGrid() {
@@ -271,8 +358,8 @@ const App = (() => {
 
   // ---- Charger les paramètres ----
   function loadSettings() {
-    const saved = localStorage.getItem('quizrace_settings');
-    if (saved) Object.assign(state.settings, JSON.parse(saved));
+    const saved = safeParseJson(localStorage.getItem(SETTINGS_STORAGE_KEY), null, SETTINGS_STORAGE_KEY);
+    if (saved && typeof saved === 'object') Object.assign(state.settings, saved);
     if (document.getElementById('setting-time')) {
       document.getElementById('setting-time').value = state.settings.timePerQuestion;
       document.getElementById('setting-advance').value = state.settings.advancePerCorrect;
@@ -287,40 +374,20 @@ const App = (() => {
     state.settings.advancePerCorrect = parseInt(document.getElementById('setting-advance').value) || 1;
     state.settings.trackLength = parseInt(document.getElementById('setting-track').value) || 10;
     state.settings.soundEnabled = document.getElementById('setting-sound').checked;
-    localStorage.setItem('quizrace_settings', JSON.stringify(state.settings));
+    const payload = safeStringifyJson(state.settings, SETTINGS_STORAGE_KEY);
+    if (payload !== null) {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, payload);
+    }
   }
 
   // ---- Charger quiz sauvegardés ----
   function loadSavedQuizzes() {
-    const saved = localStorage.getItem('quizrace_saved');
-    if (saved) state.savedQuizzes = JSON.parse(saved);
-
-    // Garantir un code de jeu unique par quiz sauvegarde
-    let changed = false;
-    const used = new Set();
-    state.savedQuizzes = (state.savedQuizzes || []).map(quiz => {
-      const clone = { ...quiz };
-      let code = String(clone.gameCode || '').trim();
-      const valid = /^\d{4}$/.test(code) && !used.has(code);
-      if (!valid) {
-        do {
-          code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-        } while (used.has(code));
-        clone.gameCode = code;
-        changed = true;
-      }
-      used.add(code);
-      return clone;
-    });
-
-    if (changed) {
-      localStorage.setItem('quizrace_saved', JSON.stringify(state.savedQuizzes));
+    const loadedQuizzes = readSavedQuizzesFromStorage();
+    const normalized = normalizeSavedQuizzes(loadedQuizzes);
+    state.savedQuizzes = normalized.quizzes;
+    if (normalized.changed) {
+      persistSavedQuizzes(state.savedQuizzes);
     }
-  }
-
-  function persistSavedQuizzes() {
-    localStorage.setItem('quizrace_saved', JSON.stringify(state.savedQuizzes));
-    renderQuizList(); // Re-render la liste des quiz quand les sauvegardés changent
   }
 
   // ---- Sons ----
@@ -431,10 +498,11 @@ const App = (() => {
     }
 
     // Charger des questions de démo si rien
-    if (!localStorage.getItem('quizrace_questions')) {
+    if (!localStorage.getItem(QUESTIONS_STORAGE_KEY)) {
       state.questions = getDemoQuestions();
     } else {
-      state.questions = JSON.parse(localStorage.getItem('quizrace_questions'));
+      const savedQuestions = safeParseJson(localStorage.getItem(QUESTIONS_STORAGE_KEY), getDemoQuestions(), QUESTIONS_STORAGE_KEY);
+      state.questions = Array.isArray(savedQuestions) ? savedQuestions : getDemoQuestions();
     }
 
     // Rendu admin uniquement si le module Admin est disponible
