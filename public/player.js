@@ -22,6 +22,7 @@ const playerState = {
   currentPlayer: null,
   gameCode: null,
   selectedAvatar: null,
+  currentQuestion: null,
   sse: null,
   score: 0,
   correctCount: 0,
@@ -29,9 +30,59 @@ const playerState = {
 };
 let reconnectTimeout = null;
 let playerAudioCtx = null;
+let heartbeatTimer = null;
+let heartbeatFailureCount = 0;
+
+function getQuestionTypeLabel(question) {
+  if (!question || question.type === 'open') return 'Question ouverte';
+  const correctIndices = Array.isArray(question.correctIndices)
+    ? question.correctIndices.filter(i => Number.isInteger(i) && i >= 0)
+    : (typeof question.correct === 'number' ? [question.correct] : []);
+  const isMultipleChoice = question.multipleAnswers || correctIndices.length > 1;
+  return isMultipleChoice ? 'Choix multiple' : 'Choix unique';
+}
+
+function formatQuestionMeta(question) {
+  const typeLabel = getQuestionTypeLabel(question);
+  const categoryLabel = String(question && question.category ? question.category : '').trim();
+  return categoryLabel ? `${typeLabel} • ${categoryLabel}` : typeLabel;
+}
+
+function updateLobbyPlayerCount(countOverride) {
+  const counter = document.getElementById('lobby-player-count');
+  if (!counter) return;
+  const count = Number.isInteger(countOverride)
+    ? countOverride
+    : document.querySelectorAll('#players-list .lobby-player-card').length;
+  if (count === 0) {
+    counter.textContent = 'Aucun joueur connecté';
+    return;
+  }
+  counter.textContent = `${count} joueur${count > 1 ? 's' : ''} connecté${count > 1 ? 's' : ''}`;
+}
+
+function formatCorrectAnswerText(question, correctAnswer) {
+  if (!correctAnswer) return '';
+  const answerText = String(correctAnswer).trim();
+  if (!question || question.type === 'qcm') {
+    const hasMultiple = /^r[eé]ponses\s+correctes\s*:/i.test(answerText);
+    const cleanAnswer = answerText.replace(/^r[eé]ponses\s+correctes\s*:\s*/i, '');
+    return hasMultiple
+      ? 'Les bonnes reponses sont : ' + cleanAnswer
+      : 'La bonne reponse est : ' + cleanAnswer;
+  }
+  const acceptedAnswers = answerText
+    .split(/\s*,\s*|\s+ou\s+/i)
+    .map(item => item.trim())
+    .filter(Boolean);
+  return acceptedAnswers.length > 1
+    ? 'Reponses acceptees : ' + acceptedAnswers.join(', ')
+    : 'Reponse attendue : ' + answerText;
+}
 
 function resetPlayerStateOnly() {
   clearTimeout(reconnectTimeout);
+  stopHeartbeat();
   if (playerState.sse) {
     try { playerState.sse.close(); } catch (e) {}
     playerState.sse = null;
@@ -42,6 +93,7 @@ function resetPlayerStateOnly() {
   playerState.correctCount = 0;
   playerState.totalQuestions = 0;
   playerState.selectedAvatar = null;
+  playerState.currentQuestion = null;
 }
 
 function redirectToJoinNewGame(redirectCode, message) {
@@ -163,7 +215,15 @@ async function tryRestoreSession() {
     }
 
     const res = await fetch('/api/game/' + saved.gameCode);
-    if (!res.ok) { clearSession(); return false; }
+    if (!res.ok) {
+      const gameErr = await res.json().catch(() => ({}));
+      if (res.status === 409 && /^\d{4}$/.test(String(gameErr.redirectCode || ''))) {
+        redirectToJoinNewGame(String(gameErr.redirectCode), 'Une nouvelle partie est active. Reinscris-toi pour la rejoindre.');
+        return false;
+      }
+      clearSession();
+      return false;
+    }
 
     const gameMeta = await res.json().catch(() => ({}));
     if (gameMeta && gameMeta.gamePhase === 'ended') {
@@ -192,6 +252,10 @@ async function tryRestoreSession() {
     });
     if (!joinRes.ok) {
       const joinErr = await joinRes.json().catch(() => ({}));
+      if (joinRes.status === 409 && /^\d{4}$/.test(String(joinErr.redirectCode || ''))) {
+        redirectToJoinNewGame(String(joinErr.redirectCode), 'Une nouvelle partie est active. Reinscris-toi pour la rejoindre.');
+        return false;
+      }
       if (joinRes.status === 410 && /^\d{4}$/.test(String(joinErr.redirectCode || ''))) {
         redirectToJoinNewGame(String(joinErr.redirectCode), 'Partie terminee. Reinscris-toi pour rejoindre la nouvelle partie.');
         return false;
@@ -250,6 +314,56 @@ function showToast(msg, type) {
   toast.className = 'toast ' + (type || '') + ' show';
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+async function pingServerWithTimeout(timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch('/api/ping', { cache: 'no-store', signal: controller.signal });
+    if (!response.ok) return null;
+    return await response.json().catch(() => null);
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function startHeartbeat() {
+  stopHeartbeat();
+  heartbeatFailureCount = 0;
+  heartbeatTimer = setInterval(async function() {
+    const ping = await pingServerWithTimeout(4500);
+    if (!ping || !ping.ok) {
+      heartbeatFailureCount += 1;
+      if (heartbeatFailureCount === 1) {
+        showToast('Connexion lente. Tentative de reconnexion...', 'error');
+      }
+      if (heartbeatFailureCount >= 2) {
+        if (playerState.currentPlayer && playerState.gameCode && !playerState.sse) {
+          connectSSE(playerState.gameCode);
+        } else {
+          tryAutoReconnect();
+        }
+      }
+      return;
+    }
+
+    heartbeatFailureCount = 0;
+    const activeCode = String(ping.activeCode || '').trim();
+    const currentCode = String(playerState.gameCode || '').trim();
+    if (currentCode && /^\d{4}$/.test(activeCode) && activeCode !== currentCode) {
+      redirectToJoinNewGame(activeCode, 'Une nouvelle partie est active. Reinscris-toi pour la rejoindre.');
+    }
+  }, 15000);
 }
 
 function getActiveScreenId() {
@@ -317,6 +431,11 @@ async function goToJoinStep(step) {
     try {
       const res = await fetch('/api/game/' + code);
       if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 409 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
+          redirectToJoinNewGame(String(err.redirectCode), 'La partie active a change. Reinscris-toi pour la rejoindre.');
+          return;
+        }
         showToast('Partie introuvable pour ce code', 'error');
         return;
       }
@@ -397,6 +516,11 @@ async function joinGameWithCode() {
     if (!res.ok) {
       let err = await res.json().catch(() => ({}));
 
+      if (res.status === 409 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
+        redirectToJoinNewGame(String(err.redirectCode), 'La partie active a change. Reinscris-toi pour la rejoindre.');
+        return;
+      }
+
       if (res.status === 410 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
         // Session terminee: redirection vers route de reinscription
         redirectToJoinNewGame(String(err.redirectCode), 'Partie terminee. Entre ton prenom et choisis un avatar pour la nouvelle partie.');
@@ -423,8 +547,6 @@ async function joinGameWithCode() {
     playerState.totalQuestions = 0;
 
     addPlayerToLobby(player);
-    const codeDisplay = document.getElementById('lobby-code');
-    if (codeDisplay) codeDisplay.textContent = code;
     showScreen('screen-lobby');
     const footerMsg = document.querySelector('#screen-lobby .lobby-footer p');
     if (footerMsg) footerMsg.textContent = 'En attente du professeur pour démarrer le quiz...';
@@ -451,6 +573,7 @@ function connectSSE(code) {
   try {
     const sse = new EventSource('/api/events/' + code);
     playerState.sse = sse;
+    startHeartbeat();
 
     sse.addEventListener('init', function(e) {
       const data = JSON.parse(e.data);
@@ -462,6 +585,7 @@ function connectSSE(code) {
       const container = document.getElementById('players-list');
       if (container) container.innerHTML = '';
       players.forEach(p => addPlayerToLobby(p));
+      updateLobbyPlayerCount(players.length);
 
       // Reconnexion : restaurer état depuis serveur
       if (playerState.currentPlayer) {
@@ -483,8 +607,6 @@ function connectSSE(code) {
         } else if (data.gamePhase === 'ended') {
           clearSession();
         } else {
-          const codeDisplay = document.getElementById('lobby-code');
-          if (codeDisplay) codeDisplay.textContent = code;
           showScreen('screen-lobby');
         }
       }
@@ -512,7 +634,11 @@ function connectSSE(code) {
       if (data.phase !== 'question') return;
       const incomingIdx = Number.isInteger(data.currentQuestionIndex) ? data.currentQuestionIndex : null;
       if (incomingIdx === null || !data.question) return;
-      if (PlayerGame.getCurrentQuestionIndex() !== incomingIdx) {
+      const currentQuestion = PlayerGame.getCurrentQuestion();
+      const needsSync = PlayerGame.getCurrentQuestionIndex() !== incomingIdx
+        || !currentQuestion
+        || String(currentQuestion.text || '') !== String(data.question.text || '');
+      if (needsSync) {
         PlayerGame.showQuestion(data.question, incomingIdx, data.total, data.timeLeft);
       }
     });
@@ -555,6 +681,20 @@ function connectSSE(code) {
     sse.onerror = function() {
       if (playerState.sse === sse) playerState.sse = null;
       clearTimeout(reconnectTimeout);
+
+      const currentCode = String(playerState.gameCode || '').trim();
+      if (currentCode) {
+        fetch('/api/game-active')
+          .then(r => r.ok ? r.json() : null)
+          .then(activeData => {
+            const activeCode = String(activeData && activeData.code ? activeData.code : '').trim();
+            if (/^\d{4}$/.test(activeCode) && activeCode !== currentCode) {
+              redirectToJoinNewGame(activeCode, 'Une nouvelle partie est active. Reinscris-toi pour la rejoindre.');
+            }
+          })
+          .catch(() => {});
+      }
+
       if (playerState.currentPlayer && playerState.gameCode) {
         reconnectTimeout = setTimeout(function() {
           connectSSE(playerState.gameCode);
@@ -576,13 +716,17 @@ function addPlayerToLobby(player) {
   const container = document.getElementById('players-list');
   if (!container) return;
   const id = 'lobby-player-' + player.id;
-  if (document.getElementById(id)) return;
+  if (document.getElementById(id)) {
+    updateLobbyPlayerCount();
+    return;
+  }
   const card = document.createElement('div');
   card.className = 'lobby-player-card';
   card.id = id;
   card.innerHTML = '<div class="lobby-player-avatar">' + player.avatar + '</div>' +
                    '<div class="lobby-player-name" style="color:' + player.color + '">' + player.name + '</div>';
   container.appendChild(card);
+  updateLobbyPlayerCount();
 }
 
 // ============================================================
@@ -602,6 +746,7 @@ const PlayerGame = (function() {
     answerSubmitting = false;
     selectedIndices = [];
     currentDisplayedQuestionIndex = Number.isInteger(idx) ? idx : currentDisplayedQuestionIndex;
+    playerState.currentQuestion = q;
     showScreen('screen-game');
 
     const counter = document.getElementById('track-question-num');
@@ -615,7 +760,7 @@ const PlayerGame = (function() {
 
     if (counter) counter.textContent = 'Q' + (idx + 1) + '/' + total;
     playPlayerSound('question');
-    if (qCat) qCat.textContent = q.category || 'Question';
+    if (qCat) qCat.textContent = formatQuestionMeta(q);
     if (qText) qText.textContent = q.text;
     if (qCard) qCard.style.display = 'flex';
     if (qResult) qResult.style.display = 'none';
@@ -648,6 +793,8 @@ const PlayerGame = (function() {
       }
       submitBtn.style.display = 'block';
       submitBtn.disabled = true;
+      submitBtn.classList.remove('answer-locked');
+      submitBtn.textContent = 'Valider mes reponses';
     } else if (q.type === 'open') {
       if (grid) grid.style.display = 'none';
       const submitBtn = document.getElementById('qcm-submit-btn');
@@ -711,10 +858,14 @@ const PlayerGame = (function() {
       grid.querySelectorAll('.choice-btn').forEach((b, i) => {
         b.disabled = true;
         b.classList.toggle('selected', normalizedIndices.includes(i));
+        b.classList.add('answer-locked');
       });
     }
     const submitBtn = document.getElementById('qcm-submit-btn');
-    if (submitBtn) submitBtn.disabled = true;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.classList.add('answer-locked');
+    }
 
     const player = playerState.currentPlayer;
     const code = playerState.gameCode;
@@ -738,18 +889,30 @@ const PlayerGame = (function() {
           grid.querySelectorAll('.choice-btn').forEach((b, i) => {
             b.disabled = false;
             b.classList.toggle('selected', normalizedIndices.includes(i));
+            b.classList.remove('answer-locked');
           });
         }
-        if (submitBtn) submitBtn.disabled = normalizedIndices.length === 0;
+        if (submitBtn) {
+          submitBtn.disabled = normalizedIndices.length === 0;
+          submitBtn.classList.remove('answer-locked');
+          submitBtn.textContent = 'Valider mes reponses';
+        }
+        const openInput = document.getElementById('open-input');
+        if (openInput) openInput.disabled = false;
         showToast('Connexion instable: reessaie', 'error');
         return;
       }
     }
     answerSubmitting = false;
     playPlayerSound('submit');
-    showToast('Reponse envoyee', 'success');
+    showToast('Reponse enregistree', 'success');
+    if (submitBtn) {
+      submitBtn.textContent = 'Reponse enregistree';
+      submitBtn.disabled = true;
+      submitBtn.classList.add('answer-locked');
+    }
     const status = document.getElementById('game-status');
-    if (status) status.textContent = '✅ Reponse recue';
+    if (status) status.textContent = '✅ Reponse enregistree';
   }
 
   function submitOpenAnswer() {
@@ -824,15 +987,7 @@ const PlayerGame = (function() {
         if (text) text.textContent = 'Resultat';
       }
       if (ans) {
-        if (correctAnswer) {
-          const hasMultiple = String(correctAnswer).toLowerCase().includes('reponses correctes');
-          const cleanAnswer = String(correctAnswer).replace(/^reponses\s+correctes\s*:\s*/i, '');
-          ans.textContent = hasMultiple
-            ? ('Les bonnes reponses sont : ' + cleanAnswer)
-            : ('La bonne reponse est : ' + cleanAnswer);
-        } else {
-          ans.textContent = '';
-        }
+        ans.textContent = formatCorrectAnswerText(playerState.currentQuestion, correctAnswer);
       }
       result.style.display = 'flex';
     }
@@ -865,6 +1020,7 @@ const PlayerGame = (function() {
   return {
     showQuestion: showQuestion,
     getCurrentQuestionIndex: function() { return currentDisplayedQuestionIndex; },
+    getCurrentQuestion: function() { return playerState.currentQuestion; },
     toggleChoiceSelection: toggleChoiceSelection,
     submitQcmAnswer: submitQcmAnswer,
     submitAnswer: submitAnswer,
@@ -880,6 +1036,8 @@ const PlayerGame = (function() {
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
   showScreen('screen-join');
+  updateLobbyPlayerCount(0);
+  startHeartbeat();
 
   const params = new URLSearchParams(window.location.search);
   const forcedCode = String(params.get('code') || '').trim();
@@ -914,10 +1072,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   window.addEventListener('online', () => {
     showToast('Connexion retablie', 'success');
+    startHeartbeat();
     tryAutoReconnect();
   });
 
   window.addEventListener('offline', () => {
+    stopHeartbeat();
     showToast('Connexion perdue. Tentative de reconnexion...', 'error');
   });
 

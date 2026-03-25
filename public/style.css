@@ -565,7 +565,8 @@ html, body {
   position: relative; z-index: 1;
   display: flex; flex-direction: column;
   align-items: center; gap: 24px;
-  max-width: 800px; width: 100%; padding: 40px;
+  justify-content: center;
+  max-width: 920px; width: 100%; min-height: 100vh; padding: 40px;
 }
 .lobby-title {
   font-family: var(--font-display); font-size: 42px; font-weight: 800;
@@ -585,7 +586,21 @@ html, body {
   font-weight: 800;
 }
 .lobby-subtitle { font-size: 16px; color: var(--text2); }
-.lobby-qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 12px 0; }
+.lobby-subtitle-hint { margin-top: -14px; }
+.lobby-player-count {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.lobby-qr-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 4px 0 8px;
+}
 .lobby-qr-wrap #lobby-qrcode { background: #fff; padding: 8px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
 .lobby-qr-hint { font-size: 13px; color: var(--text2); margin: 0; }
 
@@ -668,8 +683,10 @@ html, body {
 }
 
 .lobby-players {
-  display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
-  min-height: 120px;
+  display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-content: flex-start;
+  width: min(100%, 860px);
+  min-height: 180px;
+  padding: 8px 12px 24px;
 }
 .lobby-player-card {
   background: var(--card); border: 2px solid var(--border);
@@ -700,7 +717,7 @@ html, body {
   gap: 12px;
   position: sticky;
   top: 8px;
-  z-index: 8;
+  z-index: 20;
   background: linear-gradient(180deg, rgba(20,15,35,0.96), rgba(20,15,35,0.85));
   padding: 8px;
   border-radius: 12px;
@@ -831,6 +848,10 @@ html, body {
   background: rgba(247,201,72,0.18);
 }
 .choice-btn:disabled { cursor: default; }
+.choice-btn.answer-locked {
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
 .choice-btn.correct { border-color: var(--green); background: rgba(78,203,113,0.15); color: var(--green); }
 .choice-btn.wrong { border-color: var(--accent2); background: rgba(255,107,107,0.1); opacity: 0.7; }
 .choice-letter {
@@ -856,6 +877,11 @@ html, body {
   margin-top: 4px;
 }
 
+#qcm-submit-btn.answer-locked {
+  opacity: 0.7;
+  filter: grayscale(0.2);
+}
+
 .question-result {
   background: var(--card); border: 1px solid var(--border);
   border-radius: 20px; padding: 28px;
@@ -875,15 +901,30 @@ html, body {
   padding: 16px; background: var(--card2);
   border: 1px solid var(--border); border-radius: 12px;
   margin-top: 0;
+  position: sticky;
+  top: 10px;
+  z-index: 12;
 }
 .admin-controls-title {
-  font-size: 12px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.1em; color: var(--text2);
-  text-align: center; margin-bottom: 4px;
+  font-size: 30px;
+  font-weight: 900;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  color: #ffe186;
+  text-align: center;
+  margin-bottom: 4px;
+  line-height: 1.15;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.45);
 }
 .admin-controls-title.has-question {
-  font-size: 13px; text-transform: none; letter-spacing: 0;
-  color: var(--text); text-align: left; line-height: 1.4; font-weight: 700;
+  font-size: 36px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #ffe186;
+  text-align: center;
+  line-height: 1.12;
+  font-weight: 900;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.45);
 }
 .admin-panel-chrono {
   display: flex; align-items: center; gap: 8px;
@@ -914,7 +955,7 @@ html, body {
   letter-spacing: 0.08em; color: var(--text2);
 }
 .stat-value {
-  font-size: 24px; font-weight: 800;
+  font-size: 30px; font-weight: 900;
   font-family: var(--font-display); color: var(--accent);
 }
 
@@ -934,29 +975,41 @@ html, body {
   order: 1;
   padding-bottom: 12px;
   padding-top: 12px;
+  flex: 0 0 auto;
+  overflow: visible;
 }
 
 .admin-shell .race-track-container {
   order: 2;
   width: 100%;
-  max-height: 58vh;
+  max-height: 72vh;
   border-right: none;
   border-top: 1px solid var(--border);
+  overflow-y: auto;
 }
 
 .admin-shell .track-lanes {
   padding: 12px;
-  gap: 8px;
+  gap: 6px;
 }
 
 .admin-shell .track-lane {
-  min-height: 40px;
-  padding: 4px 6px;
+  min-height: 28px;
+  padding: 2px 6px;
 }
 
 .admin-shell .lane-name {
-  width: 110px;
-  font-size: 13px;
+  width: 138px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-shell .lane-avatar {
+  font-size: 17px;
+}
+
+.admin-shell .lane-car {
+  font-size: 16px;
 }
 
 /* Admin: masquer tout ce qui est au-dessus des contrôles prof */
@@ -965,6 +1018,84 @@ html, body {
 .admin-shell #question-result,
 .admin-shell .game-status {
   display: none !important;
+}
+
+.qcm-vote-recap {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  margin-top: 6px;
+}
+
+.qcm-recap-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff2bf;
+}
+
+.qcm-recap-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 2fr) minmax(120px, 3fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.qcm-recap-label {
+  font-size: 15px;
+  color: #f7f8ff;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.qcm-recap-bar-wrap {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+.qcm-recap-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4fa3ff, #00d2d3);
+}
+
+.qcm-recap-value {
+  font-size: 14px;
+  font-weight: 800;
+  color: #e8ebff;
+}
+
+.qcm-recap-row.is-correct .qcm-recap-label,
+.qcm-recap-row.is-correct .qcm-recap-value {
+  color: var(--green);
+}
+
+.qcm-recap-row.is-correct .qcm-recap-bar {
+  background: linear-gradient(90deg, #4ecb71, #9be15d);
+}
+
+@media (min-width: 960px) {
+  #screen-lobby .lobby-content {
+    padding-right: 260px;
+  }
+
+  #screen-lobby .lobby-qr-wrap {
+    position: absolute;
+    top: 22px;
+    right: 18px;
+    width: 220px;
+    z-index: 6;
+  }
+
+  #screen-lobby .lobby-players {
+    width: min(100%, 900px);
+  }
 }
 
 .admin-shell .admin-control-panel {
@@ -983,6 +1114,26 @@ html, body {
 .admin-shell .admin-control-panel .btn {
   width: auto;
   flex: 1 1 220px;
+}
+
+@media (max-width: 900px) {
+  .admin-controls-title.has-question {
+    font-size: 28px;
+  }
+
+  .admin-shell .lane-name {
+    width: 104px;
+    font-size: 12px;
+  }
+
+  .qcm-recap-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .qcm-recap-bar-wrap {
+    height: 10px;
+  }
 }
 
 .player-shell {
@@ -1272,6 +1423,11 @@ html, body {
   border: 1px solid rgba(247,201,72,0.2);
   border-radius: 999px;
   padding: 8px 12px;
+}
+
+.player-shell .lobby-player-count {
+  font-size: 16px;
+  text-align: center;
 }
 
 .player-shell .waiting-animation {

@@ -77,6 +77,15 @@ function forceResetGameSession(code, options = {}) {
   });
 }
 
+function clearStaleGamesForNewHostSession(activeCode) {
+  for (const [code, game] of games) {
+    if (!game || code === activeCode) continue;
+    forceResetGameSession(code, { reason: 'new_session', redirectCode: activeCode });
+    game.sseClients.forEach(r => { try { r.end(); } catch {} });
+    games.delete(code);
+  }
+}
+
 // Diffuser un événement SSE à tous les clients d'une partie
 function broadcast(code, eventName, data) {
   const game = games.get(code);
@@ -171,7 +180,19 @@ const server = http.createServer(async (req, res) => {
       currentQuestionIndex: 0,
       resetTimer:      null,
     });
+    clearStaleGamesForNewHostSession(code);
     return json(200, { code, adminToken });
+  }
+
+  // ── GET /api/ping ─────────────────────────────────────────
+  // Heartbeat pour limiter les effets du sommeil Render côté clients
+  if (pathname === '/api/ping' && method === 'GET') {
+    const active = getLatestActiveGame();
+    return json(200, {
+      ok: true,
+      now: Date.now(),
+      activeCode: active ? active.code : null,
+    });
   }
 
   // ── GET /api/game/:code ────────────────────────────────────
@@ -186,6 +207,16 @@ const server = http.createServer(async (req, res) => {
     const code = pathname.split('/')[3];
     const game = games.get(code);
     if (!game) return json(404, { error: 'Partie introuvable' });
+    if (game.gamePhase !== 'ended') {
+      const active = getLatestActiveGame();
+      if (active && active.code !== code) {
+        return json(409, {
+          error: 'Partie inactive',
+          redirectCode: active.code,
+          redirectPath: '/join-new-game?code=' + active.code,
+        });
+      }
+    }
     return json(200, { code, playerCount: game.players.length, gamePhase: game.gamePhase });
   }
 
@@ -195,6 +226,17 @@ const server = http.createServer(async (req, res) => {
     const code = pathname.split('/')[3];
     const game = games.get(code);
     if (!game) return json(404, { error: 'Partie introuvable' });
+
+    if (game.gamePhase !== 'ended') {
+      const active = getLatestActiveGame();
+      if (active && active.code !== code) {
+        return json(409, {
+          error: 'Partie inactive',
+          redirectCode: active.code,
+          redirectPath: '/join-new-game?code=' + active.code,
+        });
+      }
+    }
 
     if (game.gamePhase === 'ended') {
       const active = getLatestActiveGame(code);
@@ -248,6 +290,16 @@ const server = http.createServer(async (req, res) => {
     const code = pathname.split('/')[3];
     const game = games.get(code);
     if (!game) { res.writeHead(404); res.end('Game not found'); return; }
+    if (game.gamePhase !== 'ended') {
+      const active = getLatestActiveGame();
+      if (active && active.code !== code) {
+        return json(409, {
+          error: 'Partie inactive',
+          redirectCode: active.code,
+          redirectPath: '/join-new-game?code=' + active.code,
+        });
+      }
+    }
 
     res.writeHead(200, {
       'Content-Type':      'text/event-stream',
@@ -360,6 +412,27 @@ const server = http.createServer(async (req, res) => {
         startedAt: Date.now(),
       };
       game.currentQuestionIndex = Number.isInteger(body.payload.idx) ? body.payload.idx : game.currentQuestionIndex;
+      game.gamePhase = 'game';
+    } else if (body.type === 'update_state') {
+      if (!body.payload || typeof body.payload !== 'object') body.payload = {};
+      if (!Number.isInteger(body.payload.currentQuestionIndex)) {
+        body.payload.currentQuestionIndex = game.currentQuestionIndex;
+      }
+      if (body.payload.phase === 'question' && !body.payload.question && game.currentQuestion) {
+        body.payload.question = game.currentQuestion.question;
+        body.payload.total = game.currentQuestion.total;
+        const elapsed = Math.floor((Date.now() - game.currentQuestion.startedAt) / 1000);
+        body.payload.timeLeft = Math.max(0, game.currentQuestion.duration - elapsed);
+      }
+      game.gamePhase = body.payload.phase === 'question' ? 'game' : game.gamePhase;
+    } else if (body.type === 'next_question') {
+      const payload = body.payload || {};
+      const nextIndex = Number.isInteger(payload.currentQuestionIndex)
+        ? payload.currentQuestionIndex
+        : (Number.isInteger(payload.idx) ? payload.idx : null);
+      if (nextIndex !== null) {
+        game.currentQuestionIndex = nextIndex;
+      }
       game.gamePhase = 'game';
     } else if (body.type === 'questionEnd') {
       game.currentQuestion = null;

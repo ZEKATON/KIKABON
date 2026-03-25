@@ -10,10 +10,6 @@
 </head>
 <body class="admin-shell">
 
-<div class="admin-current-code" id="admin-current-code" style="display:none">
-  🔢 Code jeu: <span id="admin-current-code-value">----</span>
-</div>
-
 <!-- ====== ÉCRAN D'ACCUEIL ====== -->
 <div id="screen-home" class="screen">
   <div class="home-bg">
@@ -231,20 +227,15 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
   <div class="lobby-bg"></div>
   <div class="lobby-content">
     <h2 class="lobby-title">🏁 Salle d'attente</h2>
-    
-    <!-- Code d'accès visible pour le prof -->
-    <div class="lobby-code-display">
-      <span class="code-label">Code d'accès:</span>
-      <span class="code-value" id="lobby-code">-</span>
-    </div>
 
     <!-- QR code pour rejoindre -->
     <div class="lobby-qr-wrap">
       <div id="lobby-qrcode"></div>
-      <p class="lobby-qr-hint">📱 Scanne pour rejoindre, puis saisis le code</p>
+      <p class="lobby-qr-hint">📱 Scanne pour rejoindre directement la partie</p>
     </div>
 
-    <p class="lobby-subtitle">Les joueurs rejoignent la partie...</p>
+    <p class="lobby-subtitle lobby-player-count" id="lobby-player-count">Aucun joueur connecté</p>
+    <p class="lobby-subtitle lobby-subtitle-hint">Les joueurs rejoignent la partie...</p>
     <div id="lobby-players" class="lobby-players"></div>
     <div class="lobby-actions">
       <button class="btn btn-primary lg" onclick="Game.start()" id="btn-launch-quiz-lobby">
@@ -308,7 +299,7 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
 
       <!-- Panneau de contrôle admin -->
       <div class="admin-control-panel" id="admin-control-panel">
-        <div class="admin-controls-title" id="admin-controls-title">🎓 Contrôles Prof</div>
+        <div class="admin-controls-title" id="admin-controls-title">En attente du lancement</div>
         <div class="admin-panel-chrono" id="admin-panel-chrono" style="display:none">
           <span class="admin-panel-chrono-icon">⏱️</span>
           <span class="admin-panel-chrono-value" id="admin-panel-chrono-value">30</span>
@@ -337,6 +328,8 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
           </div>
         </div>
       </div>
+
+      <div class="qcm-vote-recap" id="qcm-vote-recap" style="display:none"></div>
     </div>
   </div>
 

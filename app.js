@@ -71,9 +71,12 @@ const App = (() => {
           // Generate QR code pointing to player join page
           const qrContainer = document.getElementById('lobby-qrcode');
           if (qrContainer) {
+            const joinUrl = state.gameCode
+              ? `https://kikabon.onrender.com/join-new-game?code=${encodeURIComponent(state.gameCode)}`
+              : 'https://kikabon.onrender.com/play';
             qrContainer.innerHTML = '';
             new QRCode(qrContainer, {
-              text: 'https://kikabon.onrender.com/play',
+              text: joinUrl,
               width: 160,
               height: 160,
               colorDark: '#1a1a2e',
@@ -691,10 +694,28 @@ const Lobby = (() => {
     return document.getElementById('lobby-players') || document.getElementById('players-list');
   }
 
+  function updatePlayerCount() {
+    const counter = document.getElementById('lobby-player-count');
+    const launchButton = document.getElementById('btn-launch-quiz-lobby');
+    if (!counter) return;
+    const count = Array.isArray(App.state.players) ? App.state.players.length : 0;
+    if (count === 0) {
+      counter.textContent = 'Aucun joueur connecté';
+      if (launchButton) launchButton.textContent = '🚦 Lancer le quiz (0 joueur)';
+      return;
+    }
+    counter.textContent = `${count} joueur${count > 1 ? 's' : ''} connecté${count > 1 ? 's' : ''}`;
+    if (launchButton) launchButton.textContent = `🚦 Lancer le quiz (${count} joueur${count > 1 ? 's' : ''})`;
+  }
+
   function addPlayer(player) {
     const container = getContainer();
     if (!container) return;
     const isAdmin = !!document.getElementById('lobby-players');
+    if (document.getElementById(`lobby-player-${player.id}`)) {
+      updatePlayerCount();
+      return;
+    }
     const card = document.createElement('div');
     card.className = 'lobby-player-card';
     card.id = `lobby-player-${player.id}`;
@@ -704,6 +725,7 @@ const Lobby = (() => {
       ${isAdmin ? `<button class="lobby-player-delete" onclick="Lobby.removePlayer(${player.id})" title="Supprimer le joueur">🗑️</button>` : ''}
     `;
     container.appendChild(card);
+    updatePlayerCount();
   }
 
   function removePlayer(playerId) {
@@ -711,6 +733,7 @@ const Lobby = (() => {
     if (playerIndex !== -1) App.state.players.splice(playerIndex, 1);
     const card = document.getElementById(`lobby-player-${playerId}`);
     if (card) card.remove();
+    updatePlayerCount();
     App.showToast('Joueur supprimé', 'success');
   }
 
@@ -719,14 +742,16 @@ const Lobby = (() => {
     if (!container) return;
     container.innerHTML = '';
     App.state.players.forEach(player => addPlayer(player));
+    updatePlayerCount();
   }
 
   function clearPlayers() {
     const container = getContainer();
     if (container) container.innerHTML = '';
+    updatePlayerCount();
   }
 
-  return { addPlayer, removePlayer, refreshPlayers, clearPlayers };
+  return { addPlayer, removePlayer, refreshPlayers, clearPlayers, updatePlayerCount };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);

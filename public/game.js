@@ -39,6 +39,37 @@ const Game = (() => {
       .filter(Boolean);
   }
 
+  function getQuestionTypeLabel(question) {
+    if (!question || question.type === 'open') return 'Question ouverte';
+    const correctIndices = normalizeIndexArray(question.correctIndices || [question.correct]);
+    const isMultipleChoice = question.multipleAnswers || correctIndices.length > 1;
+    return isMultipleChoice ? 'QCM a choix multiples' : 'QCM a choix unique';
+  }
+
+  function formatQuestionMeta(question) {
+    const typeLabel = getQuestionTypeLabel(question);
+    const categoryLabel = String(question && question.category ? question.category : '').trim();
+    return categoryLabel ? `${typeLabel} • ${categoryLabel}` : typeLabel;
+  }
+
+  function formatCorrectAnswerLabel(question, correctAnswer) {
+    if (!correctAnswer) return '';
+    if (!question || question.type === 'qcm') {
+      const answerText = String(correctAnswer).replace(/^R[eé]ponses\s+correctes\s*:\s*/i, '').trim();
+      const correctIndices = normalizeIndexArray(question && (question.correctIndices || [question.correct]));
+      return correctIndices.length > 1
+        ? `Bonnes réponses : ${answerText}`
+        : `Bonne réponse : ${answerText}`;
+    }
+    const acceptedAnswers = String(correctAnswer)
+      .split(/\s*,\s*|\s+ou\s+/i)
+      .map(answer => answer.trim())
+      .filter(Boolean);
+    return acceptedAnswers.length > 1
+      ? `Réponses acceptées : ${acceptedAnswers.join(', ')}`
+      : `Réponse attendue : ${String(correctAnswer).trim()}`;
+  }
+
   // ---- Diffuser un événement aux joueurs via l'API ----
   function adminBroadcast(type, payload) {
     const code  = App.state.gameCode;
@@ -118,17 +149,25 @@ const Game = (() => {
 
     // Header
     document.getElementById('track-question-num').textContent = `Q${currentQuestionIdx + 1}/${total}`;
-    document.getElementById('question-category').textContent = q.category || 'Question';
+    document.getElementById('question-category').textContent = formatQuestionMeta(q);
     document.getElementById('question-text').textContent = q.text;
 
     // Afficher la question dans le panneau de contrôle admin
     const ctrlTitle = document.getElementById('admin-controls-title');
-    if (ctrlTitle) { ctrlTitle.textContent = q.text; ctrlTitle.classList.add('has-question'); }
+    if (ctrlTitle) {
+      ctrlTitle.textContent = getQuestionTypeLabel(q);
+      ctrlTitle.classList.add('has-question');
+    }
     const adminChrono = document.getElementById('admin-panel-chrono');
     if (adminChrono) adminChrono.style.display = 'flex';
 
     // Résultat précédent masqué
     document.getElementById('question-result').style.display = 'none';
+    const recap = document.getElementById('qcm-vote-recap');
+    if (recap) {
+      recap.style.display = 'none';
+      recap.innerHTML = '';
+    }
     document.getElementById('question-card').style.display = 'flex';
     document.getElementById('game-status').textContent = '';
 
@@ -204,7 +243,9 @@ const Game = (() => {
   }
 
   function _finishCompleteQuestion(statusText, correctAnswerText, correctIndices, validatedPlayerIds) {
+    const q = App.state.questions[currentQuestionIdx];
     showCorrectAnswer(correctAnswerText);
+    renderQcmVoteRecap(q, correctIndices);
 
     const results = processResults(validatedPlayerIds);
 
@@ -237,7 +278,10 @@ const Game = (() => {
     document.getElementById('game-status').textContent = statusText;
     // Remettre le titre par défaut et masquer le chrono
     const ctrlTitle = document.getElementById('admin-controls-title');
-    if (ctrlTitle) { ctrlTitle.textContent = '🎓 Contrôles Prof'; ctrlTitle.classList.remove('has-question'); }
+    if (ctrlTitle) {
+      ctrlTitle.textContent = 'En attente de la prochaine question';
+      ctrlTitle.classList.remove('has-question');
+    }
     const adminChronoDiv = document.getElementById('admin-panel-chrono');
     if (adminChronoDiv) adminChronoDiv.style.display = 'none';
     waitingForNextLaunch = true;
@@ -538,11 +582,58 @@ const Game = (() => {
 
   // ---- Afficher la bonne réponse ----
   function showCorrectAnswer(correctAnswer) {
+    const currentQuestion = App.state.questions[currentQuestionIdx] || null;
     document.getElementById('result-icon').textContent = '💡';
-    document.getElementById('result-text').textContent = 'Bonne réponse';
-    document.getElementById('result-answer').textContent = `Réponse : ${correctAnswer}`;
+    document.getElementById('result-text').textContent = 'Correction';
+    document.getElementById('result-answer').textContent = formatCorrectAnswerLabel(currentQuestion, correctAnswer);
     document.getElementById('question-result').style.display = 'flex';
     document.getElementById('question-card').style.display = 'flex';
+  }
+
+  function renderQcmVoteRecap(question, correctIndices) {
+    const recap = document.getElementById('qcm-vote-recap');
+    if (!recap) return;
+    recap.innerHTML = '';
+
+    if (!question || question.type !== 'qcm' || !Array.isArray(question.choices)) {
+      recap.style.display = 'none';
+      return;
+    }
+
+    const counts = question.choices.map(() => 0);
+    const participants = App.state.players.length;
+    App.state.players.forEach(player => {
+      const answers = normalizeIndexArray(
+        Array.isArray(player.lastAnswerIndices)
+          ? player.lastAnswerIndices
+          : (typeof player.lastAnswerIndex === 'number' ? [player.lastAnswerIndex] : [])
+      );
+      answers.forEach(idx => {
+        if (Number.isInteger(idx) && idx >= 0 && idx < counts.length) counts[idx] += 1;
+      });
+    });
+
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const safeCorrect = normalizeIndexArray(correctIndices || []);
+    const title = document.createElement('div');
+    title.className = 'qcm-recap-title';
+    title.textContent = 'Repartition des reponses';
+    recap.appendChild(title);
+
+    question.choices.forEach((choice, idx) => {
+      const votes = counts[idx] || 0;
+      const pct = participants > 0 ? Math.round((votes / participants) * 100) : 0;
+      const row = document.createElement('div');
+      row.className = 'qcm-recap-row' + (safeCorrect.includes(idx) ? ' is-correct' : '');
+      row.innerHTML = `
+        <div class="qcm-recap-label">${letters[idx] || idx + 1}. ${choice}</div>
+        <div class="qcm-recap-bar-wrap"><div class="qcm-recap-bar" style="width:${pct}%"></div></div>
+        <div class="qcm-recap-value">${votes} (${pct}%)</div>
+      `;
+      recap.appendChild(row);
+    });
+
+    recap.style.display = 'grid';
   }
 
   // ---- Statistiques admin ----

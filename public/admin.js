@@ -496,7 +496,6 @@ const Admin = (() => {
       item.innerHTML = `
         <div class="saved-info">
            <button class="saved-launch-btn" onclick="Admin.loadAndLaunchQuiz(${quiz.id})">▶️ ${quiz.name}</button>
-          <p>🔢 Code jeu : <strong>${quiz.gameCode || '----'}</strong></p>
           <p>${quiz.count} question(s) — ${quiz.date}</p>
         </div>
         <div class="saved-actions">
@@ -622,8 +621,6 @@ const Admin = (() => {
       connectAdminSSE(code);
 
       App.showScreen('screen-lobby');
-      const codeDisplay = document.getElementById('lobby-code');
-      if (codeDisplay) codeDisplay.textContent = code;
     } catch {
       App.showToast('Erreur de connexion au serveur', 'error');
     }
