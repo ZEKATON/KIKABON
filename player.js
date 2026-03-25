@@ -147,6 +147,16 @@ async function tryRestoreSession() {
   return true;
 }
 
+async function tryAutoReconnect() {
+  if (playerState.currentPlayer && playerState.sse) return true;
+  const restored = await tryRestoreSession();
+  if (!restored) return false;
+  showScreen('screen-lobby');
+  updatePlayerHeader();
+  updatePlayerStats();
+  return true;
+}
+
 // ---- Navigation entre ecrans ----
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => {
@@ -409,6 +419,10 @@ function connectSSE(code) {
       if (playerState.currentPlayer && playerState.gameCode) {
         reconnectTimeout = setTimeout(function() {
           connectSSE(playerState.gameCode);
+        }, 3000);
+      } else {
+        reconnectTimeout = setTimeout(function() {
+          tryAutoReconnect();
         }, 3000);
       }
     };
@@ -703,14 +717,21 @@ document.addEventListener('DOMContentLoaded', function() {
   showScreen('screen-join');
 
   // Restauration auto: si le joueur revient, il reprend sa partie sans ressaisir ses infos
-  tryRestoreSession().then(restored => {
+  tryAutoReconnect().then(restored => {
     if (restored) {
-      showScreen('screen-lobby');
-      updatePlayerHeader();
-      updatePlayerStats();
       showToast('Session restauree', 'success');
       return;
     }
     initAvatarGrid();
+  });
+
+  window.addEventListener('online', () => {
+    tryAutoReconnect();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      tryAutoReconnect();
+    }
   });
 });
