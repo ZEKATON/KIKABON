@@ -155,7 +155,7 @@ const Game = (() => {
     // Afficher la question dans le panneau de contrôle admin
     const ctrlTitle = document.getElementById('admin-controls-title');
     if (ctrlTitle) {
-      ctrlTitle.textContent = getQuestionTypeLabel(q);
+      ctrlTitle.textContent = `${getQuestionTypeLabel(q)} - ${q.text}`;
       ctrlTitle.classList.add('has-question');
     }
     const adminChrono = document.getElementById('admin-panel-chrono');

@@ -365,6 +365,10 @@ async function tryAutoJoinByStoredName() {
         ? data.currentQuestionIndex
         : data.currentQuestion.idx;
       PlayerGame.showQuestion(data.currentQuestion.question, incomingIdx, data.currentQuestion.total, data.currentQuestion.timeLeft);
+    } else if (data.gamePhase === 'game') {
+      showScreen('screen-game');
+      const status = document.getElementById('game-status');
+      if (status) status.textContent = '⏳ Prochaine question...';
     }
 
     connectSSE(code);
