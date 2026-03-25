@@ -30,6 +30,20 @@ const playerState = {
 let reconnectTimeout = null;
 let playerAudioCtx = null;
 
+function resetPlayerStateOnly() {
+  clearTimeout(reconnectTimeout);
+  if (playerState.sse) {
+    try { playerState.sse.close(); } catch (e) {}
+    playerState.sse = null;
+  }
+  playerState.currentPlayer = null;
+  playerState.gameCode = null;
+  playerState.score = 0;
+  playerState.correctCount = 0;
+  playerState.totalQuestions = 0;
+  playerState.selectedAvatar = null;
+}
+
 function redirectToJoinNewGame(redirectCode, message) {
   clearSession();
   try {
@@ -245,18 +259,7 @@ function getActiveScreenId() {
 
 function returnToJoinScreen() {
   clearPlayerIdentityStorage();
-  clearTimeout(reconnectTimeout);
-  if (playerState.sse) {
-    try { playerState.sse.close(); } catch (e) {}
-    playerState.sse = null;
-  }
-
-  playerState.currentPlayer = null;
-  playerState.gameCode = null;
-  playerState.score = 0;
-  playerState.correctCount = 0;
-  playerState.totalQuestions = 0;
-  playerState.selectedAvatar = null;
+  resetPlayerStateOnly();
 
   const standings = document.getElementById('podium-standings');
   if (standings) standings.innerHTML = '';
@@ -539,8 +542,9 @@ function connectSSE(code) {
 
     sse.addEventListener('game_reset_force', function(e) {
       const data = JSON.parse(e.data || '{}');
-      clearPlayerIdentityStorage();
       const targetCode = String(data.redirectCode || playerState.gameCode || '').trim();
+      clearPlayerIdentityStorage();
+      resetPlayerStateOnly();
       if (/^\d{4}$/.test(targetCode)) {
         window.location.href = '/join-new-game?code=' + targetCode;
       } else {
@@ -591,9 +595,11 @@ const PlayerGame = (function() {
   let playerTimerTotal = 60;
   let playerTimeLeft = 60;
   let currentDisplayedQuestionIndex = -1;
+  let answerSubmitting = false;
 
   function showQuestion(q, idx, total, time) {
     answered = false;
+    answerSubmitting = false;
     selectedIndices = [];
     currentDisplayedQuestionIndex = Number.isInteger(idx) ? idx : currentDisplayedQuestionIndex;
     showScreen('screen-game');
@@ -691,9 +697,9 @@ const PlayerGame = (function() {
     submitAnswer(selectedIndices.slice(), null);
   }
 
-  function submitAnswer(answerIndices, answerText) {
-    if (answered) return;
-    answered = true;
+  async function submitAnswer(answerIndices, answerText) {
+    if (answered || answerSubmitting) return;
+    answerSubmitting = true;
 
     const normalizedIndices = Array.isArray(answerIndices)
       ? answerIndices.filter(i => typeof i === 'number')
@@ -713,7 +719,8 @@ const PlayerGame = (function() {
     const player = playerState.currentPlayer;
     const code = playerState.gameCode;
     if (player && code) {
-      fetch('/api/answer/' + code, {
+      try {
+        const res = await fetch('/api/answer/' + code, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -722,8 +729,23 @@ const PlayerGame = (function() {
           answerIndex: firstIndex,
           answer: answerText
         })
-      }).catch(e => console.log('Answer error:', e));
+        });
+        if (!res.ok) throw new Error('answer rejected');
+        answered = true;
+      } catch (e) {
+        answerSubmitting = false;
+        if (grid) {
+          grid.querySelectorAll('.choice-btn').forEach((b, i) => {
+            b.disabled = false;
+            b.classList.toggle('selected', normalizedIndices.includes(i));
+          });
+        }
+        if (submitBtn) submitBtn.disabled = normalizedIndices.length === 0;
+        showToast('Connexion instable: reessaie', 'error');
+        return;
+      }
     }
+    answerSubmitting = false;
     playPlayerSound('submit');
     showToast('Reponse envoyee', 'success');
     const status = document.getElementById('game-status');
@@ -891,7 +913,12 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   window.addEventListener('online', () => {
+    showToast('Connexion retablie', 'success');
     tryAutoReconnect();
+  });
+
+  window.addEventListener('offline', () => {
+    showToast('Connexion perdue. Tentative de reconnexion...', 'error');
   });
 
   document.addEventListener('visibilitychange', () => {

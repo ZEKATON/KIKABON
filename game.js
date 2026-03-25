@@ -303,18 +303,18 @@ const Game = (() => {
   }
 
   function _setupDropZone(zoneEl, cardsEl) {
-    zoneEl.addEventListener('dragover', e => {
+    zoneEl.ondragover = e => {
       e.preventDefault();
       zoneEl.classList.add('drag-over');
-    });
-    zoneEl.addEventListener('dragleave', () => zoneEl.classList.remove('drag-over'));
-    zoneEl.addEventListener('drop', e => {
+    };
+    zoneEl.ondragleave = () => zoneEl.classList.remove('drag-over');
+    zoneEl.ondrop = e => {
       e.preventDefault();
       zoneEl.classList.remove('drag-over');
       const playerId = e.dataTransfer.getData('text/plain');
       const card = document.querySelector(`.answer-card[data-player-id="${playerId}"]`);
       if (card) cardsEl.appendChild(card);
-    });
+    };
   }
 
   function validateOpenAnswers() {
@@ -558,8 +558,11 @@ const Game = (() => {
   // ---- Avancer un joueur ----
   function advance(player) {
     const trackLen = App.state.settings.trackLength;
-    player.score += 100;
-    player.position = Math.min(player.position + App.state.settings.advancePerCorrect, trackLen);
+    const currentScore = Number.isFinite(Number(player.score)) ? Number(player.score) : 0;
+    const currentPosition = Number.isFinite(Number(player.position)) ? Number(player.position) : 0;
+    const step = Number.isFinite(Number(App.state.settings.advancePerCorrect)) ? Number(App.state.settings.advancePerCorrect) : 1;
+    player.score = currentScore + 100;
+    player.position = Math.min(currentPosition + step, trackLen);
     updateTrackUI(player);
 
     if (player.position >= trackLen && !player.finished) {

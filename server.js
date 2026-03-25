@@ -291,6 +291,9 @@ const server = http.createServer(async (req, res) => {
     const code = pathname.split('/')[3];
     const game = games.get(code);
     if (!game) return json(404, { error: 'Partie introuvable' });
+    if (game.gamePhase !== 'game' || !game.currentQuestion) {
+      return json(409, { error: 'Question inactive' });
+    }
     const body = await readBody(req);
     const { playerId, answerIndices, answerIndex, answer } = body;
     const player = game.players.find(p => p.id === playerId);
@@ -334,7 +337,10 @@ const server = http.createServer(async (req, res) => {
     if (body.type === 'gameEnd' && Array.isArray(body.payload?.players)) {
       body.payload.players.forEach(upd => {
         const p = game.players.find(p => p.id === upd.id);
-        if (p) { p.score = upd.score || 0; p.position = upd.position || 0; }
+        if (p) {
+          p.score = Number.isFinite(Number(upd.score)) ? Number(upd.score) : 0;
+          p.position = Number.isFinite(Number(upd.position)) ? Number(upd.position) : 0;
+        }
       });
     }
 
