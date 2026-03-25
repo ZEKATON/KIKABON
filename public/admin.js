@@ -306,7 +306,10 @@ const Admin = (() => {
     const text = document.getElementById('import-text').value.trim();
     if (!text) { App.showToast('Collez du texte à importer !', 'error'); return; }
     const questions = parseTextImport(text);
-    if (questions.length === 0) { App.showToast('Format non reconnu', 'error'); return; }
+    if (questions.length === 0) {
+      App.showToast('Aucune question valide: marquez les bonnes reponses avec *', 'error');
+      return;
+    }
     const created = createQuizFromImportedQuestions(questions);
     if (!created) return;
     document.getElementById('import-text').value = '';
@@ -324,24 +327,28 @@ const Admin = (() => {
       if (/^QCM\s*:/i.test(firstLine)) {
         const questionText = firstLine.replace(/^QCM\s*:\s*/i, '').trim();
         const choices = [];
-        let correct = 0;
         const detectedCorrectIndices = [];
         lines.slice(1).forEach(line => {
-          const match = line.match(/^([A-D])\s*[:\)\-]\s*(.+)/i) || line.match(/^([A-D])\s+(.+)/i);
+          const match =
+            line.match(/^\*?\s*([A-D])\s*[:\)\-\.]\s*(.+)/i) ||
+            line.match(/^\*?\s*([A-D])\s+(.+)/i);
           if (match) {
             let choice = match[2].trim();
-            let isCorrect = choice.includes('*');
-            if (isCorrect) choice = choice.replace(/\*/g, '').trim();
+            const isCorrect = /\*/.test(line);
+            choice = choice.replace(/\*/g, '').trim();
             choices.push(choice);
             if (isCorrect) {
-              correct = choices.length - 1;
               detectedCorrectIndices.push(choices.length - 1);
             }
           }
         });
         if (questionText && choices.length >= 2) {
+          // Un QCM doit definir ses bonnes reponses via '*'
+          if (detectedCorrectIndices.length === 0) {
+            return;
+          }
           const hasMultipleAnswers = detectedCorrectIndices.length > 1;
-          const safeCorrectIndices = detectedCorrectIndices.length > 0 ? detectedCorrectIndices : [0];
+          const safeCorrectIndices = detectedCorrectIndices;
           questions.push({ 
             id: Date.now() + Math.random(), 
             type: 'qcm', 
