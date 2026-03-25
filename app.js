@@ -328,6 +328,27 @@ const App = (() => {
         g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.22);
         o2.start(now + i * 0.08); o2.stop(now + i * 0.08 + 0.24);
       });
+    } else if (type === 'question') {
+      const notes = [659, 784, 988];
+      notes.forEach((f, i) => {
+        const o2 = audioCtx.createOscillator();
+        const g2 = audioCtx.createGain();
+        o2.type = 'triangle';
+        o2.connect(g2); g2.connect(audioCtx.destination);
+        o2.frequency.value = f;
+        g2.gain.setValueAtTime(0.14, now + i * 0.06);
+        g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.2);
+        o2.start(now + i * 0.06); o2.stop(now + i * 0.06 + 0.22);
+      });
+    } else if (type === 'ui') {
+      const o2 = audioCtx.createOscillator();
+      const g2 = audioCtx.createGain();
+      o2.type = 'sine';
+      o2.connect(g2); g2.connect(audioCtx.destination);
+      o2.frequency.setValueAtTime(740, now);
+      g2.gain.setValueAtTime(0.1, now);
+      g2.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      o2.start(now); o2.stop(now + 0.14);
     } else if (type === 'tada') {
       const notes = [784, 988, 1175, 1568];
       notes.forEach((f, i) => {
@@ -549,7 +570,7 @@ const App = (() => {
     renderQuizList();
   }
 
-  return { state, AVATARS, PLAYER_COLORS, showScreen, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, init };
+  return { state, AVATARS, PLAYER_COLORS, showScreen, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, startLobbyMusic, stopLobbyMusic, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, init };
 })();
 
 // ============================================================

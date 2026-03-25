@@ -73,6 +73,7 @@ const Game = (() => {
     });
 
     App.showScreen('screen-game');
+    if (typeof App.stopLobbyMusic === 'function') App.stopLobbyMusic();
     App.playSound('start');
     buildTrack();
     // Afficher le bouton "Afficher la question" au lieu de la montrer automatiquement
@@ -147,6 +148,7 @@ const Game = (() => {
 
     // Timer
     startTimer();
+    App.playSound('question');
 
     // Diffuser la question aux joueurs
     adminBroadcast('question', { question: q, idx: currentQuestionIdx, total, timeLeft: getQuestionTime() });
@@ -340,6 +342,7 @@ const Game = (() => {
     // Retirer l'effet d'urgence si on a ajouté du temps
     const bar = document.getElementById('timer-bar');
     if (bar && timeLeft > 10) bar.classList.remove('warning');
+    App.playSound('ui');
     App.showToast('+10 secondes', 'success');
   }
 
@@ -470,6 +473,7 @@ const Game = (() => {
     showPauseOverlay();
     document.getElementById('btn-pause-game').style.display = 'none';
     document.getElementById('btn-resume-game').style.display = 'block';
+    App.playSound('ui');
     App.showToast('Jeu en pause', 'info');
   }
 
@@ -480,6 +484,7 @@ const Game = (() => {
     startTimer(true); // Resume with current timeLeft
     document.getElementById('btn-pause-game').style.display = 'block';
     document.getElementById('btn-resume-game').style.display = 'none';
+    App.playSound('ui');
     App.showToast('Jeu repris', 'success');
   }
 

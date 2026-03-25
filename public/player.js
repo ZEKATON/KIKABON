@@ -28,6 +28,40 @@ const playerState = {
   totalQuestions: 0,
 };
 let reconnectTimeout = null;
+let playerAudioCtx = null;
+
+function playPlayerSound(type) {
+  try {
+    if (!playerAudioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      playerAudioCtx = new Ctx();
+    }
+    const now = playerAudioCtx.currentTime;
+    if (type === 'question') {
+      [659, 784, 988].forEach((f, i) => {
+        const o = playerAudioCtx.createOscillator();
+        const g = playerAudioCtx.createGain();
+        o.type = 'triangle';
+        o.frequency.value = f;
+        o.connect(g); g.connect(playerAudioCtx.destination);
+        const t0 = now + i * 0.06;
+        g.gain.setValueAtTime(0.09, t0);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
+        o.start(t0); o.stop(t0 + 0.2);
+      });
+    } else if (type === 'submit') {
+      const o = playerAudioCtx.createOscillator();
+      const g = playerAudioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(740, now);
+      o.connect(g); g.connect(playerAudioCtx.destination);
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      o.start(now); o.stop(now + 0.14);
+    }
+  } catch (e) {}
+}
 
 function updatePlayerHeader() {
   const avatar = document.getElementById('player-avatar');
@@ -403,6 +437,7 @@ const PlayerGame = (function() {
     const openAns = document.getElementById('open-answer');
 
     if (counter) counter.textContent = 'Q' + (idx + 1) + '/' + total;
+    playPlayerSound('question');
     if (qCat) qCat.textContent = q.category || 'Question';
     if (qText) qText.textContent = q.text;
     if (qCard) qCard.style.display = 'flex';
@@ -517,6 +552,7 @@ const PlayerGame = (function() {
         })
       }).catch(e => console.log('Answer error:', e));
     }
+    playPlayerSound('submit');
     showToast('Reponse envoyee', 'success');
   }
 
