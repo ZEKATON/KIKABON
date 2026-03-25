@@ -163,9 +163,8 @@ async function goToJoinStep(step) {
       return;
     }
     playerState.gameCode = code;
-    codeStep.style.display = 'none';
-    infoStep.style.display = 'block';
-    setTimeout(initAvatarGrid, 50);
+    // Nouveau flux: code valide + Suivant => inscription immediate puis salle d'attente
+    await joinGameWithCode();
   }
 }
 
@@ -174,13 +173,10 @@ async function joinGameWithCode() {
   const codeInput = document.getElementById('join-code');
   const nameInput = document.getElementById('join-name');
   const code = playerState.gameCode || (codeInput ? codeInput.value : '').trim();
-  const name = (nameInput ? nameInput.value : '').trim();
-  const avatar = playerState.selectedAvatar;
+  const typedName = (nameInput ? nameInput.value : '').trim();
+  const name = typedName || ('Eleve-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0'));
+  const avatar = playerState.selectedAvatar || AVATARS[0];
 
-  if (!name) {
-    showToast('Entrez votre nom', 'error');
-    return;
-  }
   if (!code) {
     showToast('Code manquant', 'error');
     return;
@@ -613,16 +609,8 @@ const PlayerGame = (function() {
 document.addEventListener('DOMContentLoaded', function() {
   showScreen('screen-join');
 
-  const params = new URLSearchParams(window.location.search);
-  const codeFromUrl = params.get('code');
+  // Flux impose: le joueur saisit manuellement le code puis clique sur Suivant
   const input = document.getElementById('join-code');
-  if (input) {
-    input.value = codeFromUrl || '';
-  }
-  if (codeFromUrl) {
-    playerState.gameCode = codeFromUrl;
-    setTimeout(function() { goToJoinStep('info'); }, 400);
-  } else {
-    tryRestoreSession();
-  }
+  if (input) input.value = '';
+  clearSession();
 });
