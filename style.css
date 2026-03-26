@@ -1176,8 +1176,102 @@ html, body {
 .admin-shell .timer-bar-wrap,
 .admin-shell #question-card,
 .admin-shell #question-result,
-.admin-shell .game-status {
+.admin-shell .game-status,
+.admin-shell .qcm-vote-recap {
   display: none !important;
+}
+
+.admin-shell #screen-game.is-summary-view .question-zone {
+  flex: 0 0 34vh;
+  max-height: 34vh;
+  overflow-y: auto;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.admin-shell #screen-game.is-summary-view .race-track-container {
+  margin-top: 8px;
+}
+
+.admin-shell #screen-game.is-summary-view #question-result {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.admin-shell #screen-game.is-summary-view .result-icon {
+  font-size: 34px;
+  flex-shrink: 0;
+}
+
+.admin-shell #screen-game.is-summary-view .result-text {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.admin-shell #screen-game.is-summary-view .result-answer {
+  font-size: 15px;
+  flex: 1 1 auto;
+  text-align: left;
+  line-height: 1.35;
+}
+
+.admin-shell #screen-game.is-summary-view .game-status {
+  display: block !important;
+  min-height: 0;
+  text-align: left;
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+.admin-shell #screen-game.is-summary-view .qcm-vote-recap {
+  display: grid !important;
+  margin-top: 0;
+  max-height: 16vh;
+  overflow-y: auto;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-modal {
+  position: static;
+  inset: auto;
+  background: transparent;
+  padding: 0;
+  justify-content: stretch;
+  align-items: stretch;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-card {
+  width: 100%;
+  max-height: 16vh;
+  padding: 12px;
+  gap: 8px;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-head h3 {
+  font-size: 18px;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-correct {
+  font-size: 15px;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-list {
+  gap: 6px;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-row {
+  grid-template-columns: minmax(180px, 2fr) minmax(120px, 1fr) auto;
+  gap: 8px;
+  padding: 6px 8px;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-label,
+.admin-shell #screen-game.is-summary-view .admin-results-value {
+  font-size: 12px;
 }
 
 .qcm-vote-recap {

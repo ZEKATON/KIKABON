@@ -112,6 +112,7 @@ const Game = (() => {
     if (typeof App.stopLobbyMusic === 'function') App.stopLobbyMusic();
     App.playSound('start');
     buildTrack();
+    setAdminSummaryMode(false);
     // Afficher le bouton "Afficher la question" au lieu de la montrer automatiquement
     document.getElementById('btn-launch-question').style.display = 'block';
     document.getElementById('btn-stop-timer').style.display = 'none';
@@ -137,6 +138,7 @@ const Game = (() => {
 
     const q = questions[currentQuestionIdx];
     const total = questions.length;
+    setAdminSummaryMode(false);
 
     // Reset answeredCurrentQuestion
     App.state.players.forEach(p => {
@@ -245,6 +247,7 @@ const Game = (() => {
 
   function _finishCompleteQuestion(statusText, correctAnswerText, correctIndices, validatedPlayerIds) {
     const q = App.state.questions[currentQuestionIdx];
+    setAdminSummaryMode(true);
     showCorrectAnswer(correctAnswerText);
     renderQcmVoteRecap(q, correctIndices);
 
@@ -345,6 +348,13 @@ const Game = (() => {
   function closeAdminResultsModal() {
     const modal = document.getElementById('admin-results-modal');
     if (modal) modal.style.display = 'none';
+    setAdminSummaryMode(false);
+  }
+
+  function setAdminSummaryMode(active) {
+    const screen = document.getElementById('screen-game');
+    if (!screen) return;
+    screen.classList.toggle('is-summary-view', !!active);
   }
 
   // ---- Panneau de validation des réponses ouvertes ----
