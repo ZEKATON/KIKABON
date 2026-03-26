@@ -877,7 +877,14 @@ const PlayerGame = (function() {
         btn.className = 'choice-btn';
         btn.type = 'button';
         btn.innerHTML = '<span class="choice-letter">' + letters[i] + '</span>' + choice;
-        btn.onclick = function() { toggleChoiceSelection(i); };
+        btn.addEventListener('pointerdown', function(event) {
+          event.preventDefault();
+        });
+        btn.addEventListener('click', function(event) {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleChoiceSelection(i);
+        });
         grid.appendChild(btn);
       });
 
@@ -918,6 +925,9 @@ const PlayerGame = (function() {
 
   function toggleChoiceSelection(choiceIndex) {
     if (answered) return;
+    const question = playerState.currentQuestion;
+    if (!question || !Array.isArray(question.choices)) return;
+    if (!Number.isInteger(choiceIndex) || choiceIndex < 0 || choiceIndex >= question.choices.length) return;
     const pos = selectedIndices.indexOf(choiceIndex);
     if (pos >= 0) {
       selectedIndices.splice(pos, 1);
@@ -981,7 +991,8 @@ const PlayerGame = (function() {
           answer: answerText
         })
         });
-        if (!res.ok) throw new Error('answer rejected');
+        const ack = await res.json().catch(() => ({ ok: false }));
+        if (!res.ok || ack.ok !== true) throw new Error('answer rejected');
         answered = true;
       } catch (e) {
         answerSubmitting = false;
