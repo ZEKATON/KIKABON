@@ -247,12 +247,11 @@ const Game = (() => {
 
   function _finishCompleteQuestion(statusText, correctAnswerText, correctIndices, validatedPlayerIds) {
     const q = App.state.questions[currentQuestionIdx];
-    setAdminSummaryMode(true);
+    setAdminSummaryMode(q.type === 'open');
     showCorrectAnswer(correctAnswerText);
     renderQcmVoteRecap(q, correctIndices);
 
     const results = processResults(validatedPlayerIds);
-    showAdminResultsModal(q, correctAnswerText, correctIndices, results);
 
     // Statistiques de réussite par question et globales
     const qCorrect = results.filter(r => r.isCorrect).length;
@@ -263,6 +262,7 @@ const Game = (() => {
     const allTotal   = questionStatsHistory.reduce((s, q) => s + q.total, 0);
     const overallPct = allTotal > 0 ? Math.round(allCorrect / allTotal * 100) : 0;
     updateAdminStats(qPct, overallPct);
+    showAdminResultsModal(q, correctAnswerText, correctIndices, results, qPct, overallPct);
 
     adminBroadcast('questionEnd', {
       correctIndices,
@@ -271,6 +271,7 @@ const Game = (() => {
     });
     const totalQuestions = Math.max(App.state.questions.length, 1);
     const isLastQuestion = currentQuestionIdx >= totalQuestions - 1;
+    const useResultsModal = q.type === 'qcm';
 
     adminBroadcast('update_state', {
       phase: isLastQuestion ? 'finished' : 'between',
@@ -280,8 +281,8 @@ const Game = (() => {
 
     document.getElementById('btn-stop-timer').style.display = 'none';
     document.getElementById('btn-add-time').style.display = 'none';
-    document.getElementById('btn-launch-question').style.display = isLastQuestion ? 'none' : 'block';
-    document.getElementById('btn-launch-question').textContent = '▶️ Lancer la question suivante';
+    document.getElementById('btn-launch-question').style.display = useResultsModal ? 'none' : 'block';
+    document.getElementById('btn-launch-question').textContent = isLastQuestion ? '🏁 Voir les resultats' : '▶️ Lancer la question suivante';
     document.getElementById('game-status').textContent = statusText;
     // Remettre le titre par défaut et masquer le chrono
     const ctrlTitle = document.getElementById('admin-controls-title');
@@ -291,29 +292,29 @@ const Game = (() => {
     }
     const adminChronoDiv = document.getElementById('admin-panel-chrono');
     if (adminChronoDiv) adminChronoDiv.style.display = 'none';
-    if (isLastQuestion) {
-      waitingForNextLaunch = false;
-      currentQuestionIdx = totalQuestions;
-      setTimeout(() => endGame(), 1200);
-      return;
-    }
-
     waitingForNextLaunch = true;
   }
 
-  function showAdminResultsModal(question, correctAnswerText, correctIndices, results) {
+  function showAdminResultsModal(question, correctAnswerText, correctIndices, results, questionRate, overallRate) {
     const modal = document.getElementById('admin-results-modal');
     const correctEl = document.getElementById('admin-results-correct');
     const listEl = document.getElementById('admin-results-list');
-    if (!modal || !correctEl || !listEl) return;
+    const questionRateEl = document.getElementById('admin-results-question-rate');
+    const overallRateEl = document.getElementById('admin-results-overall-rate');
+    const nextBtn = document.getElementById('admin-results-next-btn');
+    if (!modal || !correctEl || !listEl || !questionRateEl || !overallRateEl || !nextBtn) return;
 
     if (!question || question.type !== 'qcm' || !Array.isArray(question.choices)) {
       closeAdminResultsModal();
       return;
     }
 
+    const isLastQuestion = currentQuestionIdx >= Math.max(App.state.questions.length, 1) - 1;
+    questionRateEl.textContent = `${Number.isFinite(questionRate) ? questionRate : 0}%`;
+    overallRateEl.textContent = `${Number.isFinite(overallRate) ? overallRate : 0}%`;
     correctEl.textContent = formatCorrectAnswerLabel(question, correctAnswerText);
     listEl.innerHTML = '';
+    nextBtn.textContent = isLastQuestion ? 'Voir les resultats finaux' : 'Lancer la question suivante';
 
     const counts = question.choices.map(() => 0);
     App.state.players.forEach(player => {
@@ -349,6 +350,11 @@ const Game = (() => {
     const modal = document.getElementById('admin-results-modal');
     if (modal) modal.style.display = 'none';
     setAdminSummaryMode(false);
+  }
+
+  function goToNextFromResultsModal() {
+    closeAdminResultsModal();
+    launchQuestion();
   }
 
   function setAdminSummaryMode(active) {
@@ -870,5 +876,5 @@ const Game = (() => {
     App.showToast('Modifiez les questions et relancez !', '');
   }
 
-  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, addTime, validateOpenAnswers, closeAdminResultsModal };
+  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, addTime, validateOpenAnswers, closeAdminResultsModal, goToNextFromResultsModal };
 })();

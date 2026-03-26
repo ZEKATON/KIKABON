@@ -337,10 +337,24 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
         <div class="admin-results-card">
           <div class="admin-results-head">
             <h3>Resultats de la question</h3>
-            <button class="btn btn-ghost sm" type="button" onclick="Game.closeAdminResultsModal()">Fermer</button>
+            <button class="admin-results-close" type="button" aria-label="Fermer" onclick="Game.closeAdminResultsModal()">✕</button>
+          </div>
+          <div class="admin-results-stats">
+            <div class="admin-results-stat-card">
+              <span class="admin-results-stat-label">Reussite question</span>
+              <span class="admin-results-stat-value" id="admin-results-question-rate">—</span>
+            </div>
+            <div class="admin-results-stat-card">
+              <span class="admin-results-stat-label">Reussite globale</span>
+              <span class="admin-results-stat-value" id="admin-results-overall-rate">—</span>
+            </div>
           </div>
           <div class="admin-results-correct" id="admin-results-correct"></div>
           <div class="admin-results-list" id="admin-results-list"></div>
+          <div class="admin-results-actions">
+            <button class="btn btn-ghost" type="button" onclick="Game.closeAdminResultsModal()">Retour a la course</button>
+            <button class="btn btn-primary" type="button" id="admin-results-next-btn" onclick="Game.goToNextFromResultsModal()">Lancer la question suivante</button>
+          </div>
         </div>
       </div>
     </div>

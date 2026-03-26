@@ -1070,16 +1070,62 @@ html, body {
   gap: 10px;
 }
 
+.admin-results-close {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  color: #f6f8ff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
 .admin-results-head h3 {
   margin: 0;
   font-size: 24px;
   color: #ffe9a7;
 }
 
+.admin-results-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.admin-results-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.admin-results-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #cfd5ff;
+}
+
+.admin-results-stat-value {
+  font-size: 28px;
+  font-weight: 900;
+  color: #ffe186;
+  font-family: var(--font-display);
+}
+
 .admin-results-correct {
   font-size: 18px;
-  font-weight: 800;
-  color: #f7f8ff;
+  font-weight: 900;
+  color: #9df0af;
+  background: rgba(78,203,113,0.12);
+  border: 1px solid rgba(78,203,113,0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
 }
 
 .admin-results-list {
@@ -1127,6 +1173,17 @@ html, body {
 .admin-results-pill.bad {
   color: #2b1b1b;
   background: #ff8d8d;
+}
+
+.admin-results-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.admin-results-actions .btn {
+  min-height: 44px;
 }
 
 .admin-shell .track-lanes {
@@ -1257,6 +1314,18 @@ html, body {
 
 .admin-shell #screen-game.is-summary-view .admin-results-head h3 {
   font-size: 18px;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-stats {
+  grid-template-columns: 1fr 1fr;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-stat-card {
+  padding: 8px 10px;
+}
+
+.admin-shell #screen-game.is-summary-view .admin-results-stat-value {
+  font-size: 20px;
 }
 
 .admin-shell #screen-game.is-summary-view .admin-results-correct {
