@@ -285,21 +285,15 @@ const Admin = (() => {
       return false;
     }
 
-    const questions = importedQuestions.map(q => {
-      const normalized = { ...q, id: Date.now() + Math.random() };
+    const questions = importedQuestions
+      .map((q, idx) => normalizeImportedQuestion(q, idx))
+      .filter(Boolean);
 
-      // Regle d'import: 1 '*' => choix unique, plusieurs '*' => choix multiple
-      if (normalized.type === 'qcm') {
-        const indices = Array.isArray(normalized.correctIndices) && normalized.correctIndices.length > 0
-          ? [...new Set(normalized.correctIndices.filter(i => Number.isInteger(i) && i >= 0))]
-          : (Number.isInteger(normalized.correct) ? [normalized.correct] : [0]);
-        normalized.correctIndices = indices.sort((a, b) => a - b);
-        normalized.correct = indices[0];
-        normalized.multipleAnswers = indices.length > 1;
-      }
+    if (questions.length === 0) {
+      App.showToast('Import invalide: aucune question exploitable', 'error');
+      return false;
+    }
 
-      return normalized;
-    });
     const quiz = {
       id: Date.now(),
       name,
@@ -312,12 +306,95 @@ const Admin = (() => {
     App.state.savedQuizzes.push(quiz);
     App.state.currentQuiz = quiz;
     App.state.questions = [...questions];
+    App.updateTrackLength();
     App.persistSavedQuizzes();
     renderSaved();
     renderQuestions();
     showTab('tab-questions');
     App.showToast(`Quiz "${name}" créé depuis import ✓`, 'success');
     return true;
+  }
+
+  function normalizeImportedQuestion(rawQuestion, index) {
+    if (!rawQuestion || typeof rawQuestion !== 'object') return null;
+
+    const q = { ...rawQuestion };
+    const id = Date.now() + Math.random() + index;
+    const text = String(q.text || q.question || q.title || '').trim();
+    if (!text) return null;
+
+    const category = String(q.category || q.theme || '').trim();
+    const sourceType = String(q.type || '').trim().toLowerCase();
+    const rawChoices = Array.isArray(q.choices)
+      ? q.choices
+      : (Array.isArray(q.options) ? q.options : (Array.isArray(q.propositions) ? q.propositions : []));
+
+    const looksLikeQcm = sourceType === 'qcm' || sourceType === 'multiple' || sourceType === 'single' || rawChoices.length > 0;
+
+    if (looksLikeQcm) {
+      const choices = rawChoices.map(choice => String(choice || '').trim()).filter(Boolean);
+      if (choices.length < 2) return null;
+
+      let indices = [];
+      if (Array.isArray(q.correctIndices)) {
+        indices = q.correctIndices
+          .map(v => Number(v))
+          .filter(v => Number.isInteger(v) && v >= 0 && v < choices.length);
+      } else if (Array.isArray(q.correctAnswers)) {
+        indices = q.correctAnswers
+          .map(v => Number(v))
+          .filter(v => Number.isInteger(v) && v >= 0 && v < choices.length);
+      } else if (Array.isArray(q.correct_answers)) {
+        indices = q.correct_answers
+          .map(v => Number(v))
+          .filter(v => Number.isInteger(v) && v >= 0 && v < choices.length);
+      } else if (Array.isArray(q.correct)) {
+        indices = q.correct
+          .map(v => Number(v))
+          .filter(v => Number.isInteger(v) && v >= 0 && v < choices.length);
+      } else if (typeof q.correct === 'number' && Number.isInteger(q.correct)) {
+        if (q.correct >= 0 && q.correct < choices.length) indices = [q.correct];
+      } else if (typeof q.correct === 'string') {
+        const letter = q.correct.trim().toUpperCase();
+        if (/^[A-Z]$/.test(letter)) {
+          const idx = letter.charCodeAt(0) - 65;
+          if (idx >= 0 && idx < choices.length) indices = [idx];
+        } else {
+          const asNumber = Number(letter);
+          if (Number.isInteger(asNumber) && asNumber >= 0 && asNumber < choices.length) indices = [asNumber];
+        }
+      }
+
+      const uniqueIndices = [...new Set(indices)].sort((a, b) => a - b);
+      if (uniqueIndices.length === 0) {
+        uniqueIndices.push(0);
+      }
+
+      return {
+        id,
+        type: 'qcm',
+        text,
+        category,
+        choices,
+        correct: uniqueIndices[0],
+        correctIndices: uniqueIndices,
+        multipleAnswers: uniqueIndices.length > 1,
+      };
+    }
+
+    const rawAnswer = Array.isArray(q.answer)
+      ? q.answer.join(', ')
+      : (q.answer ?? q.expectedAnswer ?? q.expected ?? q.reponse ?? q.solution ?? '');
+    const answer = String(rawAnswer || '').trim();
+    if (!answer) return null;
+
+    return {
+      id,
+      type: 'open',
+      text,
+      answer,
+      category,
+    };
   }
 
   // ---- Import from text ----
@@ -336,8 +413,8 @@ const Admin = (() => {
 
   function parseImportedChoiceLine(line) {
     const match =
-      line.match(/^\s*([A-D])\s*[:\)\-\.]\s*(.+?)\s*$/i) ||
-      line.match(/^\s*([A-D])\s+(.+?)\s*$/i);
+      line.match(/^\s*([A-Z])\s*[:\)\-\.]\s*(.+?)\s*$/i) ||
+      line.match(/^\s*([A-Z])\s+(.+?)\s*$/i);
     if (!match) return null;
 
     const rawChoice = match[2].trim();
@@ -378,20 +455,33 @@ const Admin = (() => {
 
   function parseTextImport(text) {
     const questions = [];
-    const blocks = text.split(/\n\s*\n/).filter(b => b.trim());
-    blocks.forEach(block => {
+    const normalizedText = String(text || '').replace(/\r\n/g, '\n');
+    const blocks = normalizedText
+      .split(/\n\s*\n/)
+      .map(b => b.trim())
+      .filter(Boolean);
+
+    // Fallback: si pas de paragraphes séparés, on segmente à chaque nouvelle entête de question.
+    const effectiveBlocks = blocks.length <= 1
+      ? normalizedText
+          .split(/\n(?=(?:QCM|OUVERTE)\s*(?:\d+\s*)?:)/i)
+          .map(b => b.trim())
+          .filter(Boolean)
+      : blocks;
+
+    effectiveBlocks.forEach(block => {
       const lines = block.trim().split('\n').map(l => l.trim()).filter(l => l);
       if (lines.length === 0) return;
       const firstLine = lines[0];
 
       // QCM
-      if (/^QCM\s*:/i.test(firstLine)) {
+      if (/^QCM\s*(?:\d+\s*)?:/i.test(firstLine)) {
         const qcm = parseImportedQcmBlock(firstLine, lines);
         if (qcm) questions.push(qcm);
       }
       // Question ouverte
-      else if (/^OUVERTE\s*:/i.test(firstLine)) {
-        const questionText = firstLine.replace(/^OUVERTE\s*:\s*/i, '').trim();
+      else if (/^OUVERTE\s*(?:\d+\s*)?:/i.test(firstLine)) {
+        const questionText = firstLine.replace(/^OUVERTE\s*(?:\d+\s*)?:\s*/i, '').trim();
         let answer = '';
         lines.slice(1).forEach(line => {
           const match = line.match(/^R[ÉE]PONSE\s*:\s*(.+)/i);
@@ -417,8 +507,16 @@ const Admin = (() => {
     reader.onload = e => {
       try {
         const data = JSON.parse(e.target.result);
-        if (Array.isArray(data.questions)) {
-          createQuizFromImportedQuestions(data.questions, data.name || file.name.replace(/\.json$/i, ''));
+        const candidateQuestions = Array.isArray(data)
+          ? data
+          : (Array.isArray(data.questions)
+              ? data.questions
+              : (Array.isArray(data.quiz && data.quiz.questions)
+                  ? data.quiz.questions
+                  : (Array.isArray(data.items) ? data.items : [])));
+
+        if (candidateQuestions.length > 0) {
+          createQuizFromImportedQuestions(candidateQuestions, data.name || file.name.replace(/\.json$/i, ''));
         } else {
           App.showToast('Format JSON invalide', 'error');
         }

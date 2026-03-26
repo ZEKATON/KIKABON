@@ -264,17 +264,19 @@ const Game = (() => {
       correctAnswer: correctAnswerText,
       results,
     });
+    const totalQuestions = Math.max(App.state.questions.length, 1);
+    const isLastQuestion = currentQuestionIdx >= totalQuestions - 1;
+
     adminBroadcast('update_state', {
-      phase: 'between',
-      currentQuestionIndex: currentQuestionIdx,
-      total: App.state.questions.length,
+      phase: isLastQuestion ? 'finished' : 'between',
+      currentQuestionIndex: isLastQuestion ? totalQuestions : currentQuestionIdx,
+      total: totalQuestions,
     });
 
     document.getElementById('btn-stop-timer').style.display = 'none';
     document.getElementById('btn-add-time').style.display = 'none';
-    document.getElementById('btn-launch-question').style.display = 'block';
-    document.getElementById('btn-launch-question').textContent =
-      currentQuestionIdx >= App.state.questions.length - 1 ? '🏁 Voir les résultats' : '▶️ Lancer la question suivante';
+    document.getElementById('btn-launch-question').style.display = isLastQuestion ? 'none' : 'block';
+    document.getElementById('btn-launch-question').textContent = '▶️ Lancer la question suivante';
     document.getElementById('game-status').textContent = statusText;
     // Remettre le titre par défaut et masquer le chrono
     const ctrlTitle = document.getElementById('admin-controls-title');
@@ -284,6 +286,13 @@ const Game = (() => {
     }
     const adminChronoDiv = document.getElementById('admin-panel-chrono');
     if (adminChronoDiv) adminChronoDiv.style.display = 'none';
+    if (isLastQuestion) {
+      waitingForNextLaunch = false;
+      currentQuestionIdx = totalQuestions;
+      setTimeout(() => endGame(), 1200);
+      return;
+    }
+
     waitingForNextLaunch = true;
   }
 
@@ -648,7 +657,8 @@ const Game = (() => {
 
   // ---- Avancer un joueur ----
   function advance(player) {
-    const trackLen = App.state.settings.trackLength;
+    const trackLen = Math.max(App.state.questions.length, 1);
+    App.state.settings.trackLength = trackLen;
     const currentScore = Number.isFinite(Number(player.score)) ? Number(player.score) : 0;
     const currentPosition = Number.isFinite(Number(player.position)) ? Number(player.position) : 0;
     const step = Number.isFinite(Number(App.state.settings.advancePerCorrect)) ? Number(App.state.settings.advancePerCorrect) : 1;
@@ -672,7 +682,7 @@ const Game = (() => {
 
   // ---- Mise à jour visuelle de la piste ----
   function updateTrackUI(player) {
-    const trackLen = App.state.settings.trackLength;
+    const trackLen = Math.max(App.state.questions.length, 1);
     const pct = (player.position / trackLen) * 100;
     const bar = document.getElementById(`progress-${player.id}`);
     if (bar) bar.style.width = pct + '%';
