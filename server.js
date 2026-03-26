@@ -132,7 +132,14 @@ function serveStatic(pathname, res) {
       return;
     }
     const mime = MIME[path.extname(filePath)] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': mime });
+    res.writeHead(200, {
+      'Content-Type': mime,
+      // Avoid stale JS/CSS/HTML after deploys on shared classroom devices.
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store',
+    });
     res.end(content);
   });
 }
