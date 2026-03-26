@@ -599,10 +599,21 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin: 4px 0 8px;
+  margin: 6px 0 10px;
 }
-.lobby-qr-wrap #lobby-qrcode { background: #fff; padding: 8px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
-.lobby-qr-hint { font-size: 13px; color: var(--text2); margin: 0; }
+.lobby-qr-wrap #lobby-qrcode {
+  background: #fff;
+  padding: 12px;
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+}
+.lobby-qr-wrap #lobby-qrcode img,
+.lobby-qr-wrap #lobby-qrcode canvas {
+  width: 240px !important;
+  height: 240px !important;
+  display: block;
+}
+.lobby-qr-hint { font-size: 15px; color: var(--text); font-weight: 700; margin: 0; }
 
 /* Validation réponses ouvertes - overlay admin */
 #open-validation-overlay {
@@ -969,26 +980,29 @@ html, body {
 
 .admin-shell .game-layout {
   flex-direction: column;
+  height: 100vh;
 }
 
 .admin-shell .question-zone {
   order: 1;
-  padding-bottom: 4px;
-  padding-top: 4px;
-  flex: 0 0 14vh;
-  max-height: 14vh;
-  gap: 6px;
+  padding-bottom: 2px;
+  padding-top: 2px;
+  flex: 0 0 12vh;
+  max-height: 12vh;
+  gap: 4px;
   overflow: visible;
 }
 
 .admin-shell .race-track-container {
   order: 2;
   width: 100%;
-  height: 80vh;
-  max-height: 80vh;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
   border-right: none;
   border-top: 1px solid var(--border);
-  margin-top: 10px;
+  margin-top: 4px;
   position: relative;
   overflow-y: auto;
 }
@@ -1114,6 +1128,7 @@ html, body {
   padding: 8px;
   gap: 3px;
   padding-bottom: 34px;
+  min-height: 0;
 }
 
 .admin-shell .track-lane {
@@ -1222,14 +1237,14 @@ html, body {
 
 @media (min-width: 960px) {
   #screen-lobby .lobby-content {
-    padding-right: 260px;
+    padding-right: 360px;
   }
 
   #screen-lobby .lobby-qr-wrap {
     position: absolute;
     top: 22px;
     right: 18px;
-    width: 220px;
+    width: 320px;
     z-index: 6;
   }
 
@@ -1240,25 +1255,66 @@ html, body {
 
 .admin-shell .admin-control-panel {
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: stretch;
   position: sticky;
   top: 4px;
   z-index: 10;
-  padding: 8px;
-  gap: 8px;
+  padding: 6px 8px;
+  gap: 6px;
+  overflow-x: auto;
 }
 
 .admin-shell .admin-controls-title {
-  width: 100%;
+  flex: 0 0 30%;
+  width: auto;
+  align-self: center;
+  margin: 0;
+  text-align: left;
+}
+
+.admin-shell .admin-panel-chrono,
+.admin-shell .admin-stats-bar {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  border-top: none;
+  padding-top: 0;
+}
+
+.admin-shell .admin-panel-chrono {
+  min-width: 118px;
+}
+
+.admin-shell .admin-stats-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-shell .admin-stat {
+  min-width: 92px;
+}
+
+.admin-shell .stat-label {
+  font-size: 10px;
+}
+
+.admin-shell .stat-value {
+  font-size: 22px;
 }
 
 .admin-shell .admin-control-panel .btn {
   width: auto;
-  flex: 1 1 180px;
-  min-height: 40px;
-  padding: 8px 10px;
-  font-size: 13px;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.player-shell .choice-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @media (max-width: 900px) {

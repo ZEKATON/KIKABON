@@ -933,7 +933,7 @@ const PlayerGame = (function() {
     if (!Number.isInteger(choiceIndex) || choiceIndex < 0 || choiceIndex >= question.choices.length) return;
     if (clickedBtn && (!clickedBtn.classList || !clickedBtn.classList.contains('choice-btn'))) return;
 
-    const isSingleChoice = !(question.multipleAnswers || false);
+    const isSingleChoice = !(question.multipleAnswers || (Array.isArray(question.correctIndices) && question.correctIndices.length > 1));
     const pos = selectedIndices.indexOf(choiceIndex);
     if (pos >= 0) {
       // Reclick on the same answer toggles it off.

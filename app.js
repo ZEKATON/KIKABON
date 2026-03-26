@@ -77,8 +77,8 @@ const App = (() => {
             qrContainer.innerHTML = '';
             new QRCode(qrContainer, {
               text: joinUrl,
-              width: 160,
-              height: 160,
+              width: 240,
+              height: 240,
               colorDark: '#1a1a2e',
               colorLight: '#ffffff',
               correctLevel: QRCode.CorrectLevel.M
