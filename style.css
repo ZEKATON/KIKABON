@@ -988,6 +988,7 @@ html, body {
   max-height: 80vh;
   border-right: none;
   border-top: 1px solid var(--border);
+  margin-top: 10px;
   overflow-y: auto;
 }
 
