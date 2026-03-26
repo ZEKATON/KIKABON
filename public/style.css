@@ -609,8 +609,8 @@ html, body {
 }
 .lobby-qr-wrap #lobby-qrcode img,
 .lobby-qr-wrap #lobby-qrcode canvas {
-  width: 240px !important;
-  height: 240px !important;
+  width: 340px !important;
+  height: 340px !important;
   display: block;
 }
 .lobby-qr-hint { font-size: 15px; color: var(--text); font-weight: 700; margin: 0; }
@@ -985,8 +985,8 @@ html, body {
 
 .admin-shell .question-zone {
   order: 1;
-  padding-bottom: 2px;
-  padding-top: 2px;
+  padding-bottom: 4px;
+  padding-top: 4px;
   flex: 0 0 12vh;
   max-height: 12vh;
   gap: 4px;
@@ -1002,9 +1002,14 @@ html, body {
   max-height: none;
   border-right: none;
   border-top: 1px solid var(--border);
-  margin-top: 4px;
+  margin-top: 14px;
   position: relative;
   overflow-y: auto;
+  padding-bottom: 10px;
+}
+
+.admin-shell .race-track {
+  min-height: 0;
 }
 
 .admin-shell .track-header {
@@ -1127,7 +1132,7 @@ html, body {
 .admin-shell .track-lanes {
   padding: 8px;
   gap: 3px;
-  padding-bottom: 34px;
+  padding-bottom: 44px;
   min-height: 0;
 }
 
@@ -1237,14 +1242,14 @@ html, body {
 
 @media (min-width: 960px) {
   #screen-lobby .lobby-content {
-    padding-right: 360px;
+    padding-right: 450px;
   }
 
   #screen-lobby .lobby-qr-wrap {
     position: absolute;
-    top: 22px;
+    top: 12px;
     right: 18px;
-    width: 320px;
+    width: 420px;
     z-index: 6;
   }
 
@@ -1256,7 +1261,7 @@ html, body {
 .admin-shell .admin-control-panel {
   flex-direction: row;
   flex-wrap: nowrap;
-  align-items: stretch;
+  align-items: center;
   position: sticky;
   top: 4px;
   z-index: 10;
@@ -1266,7 +1271,7 @@ html, body {
 }
 
 .admin-shell .admin-controls-title {
-  flex: 0 0 30%;
+  flex: 1 1 auto;
   width: auto;
   align-self: center;
   margin: 0;
@@ -1284,6 +1289,23 @@ html, body {
 
 .admin-shell .admin-panel-chrono {
   min-width: 118px;
+}
+
+.admin-shell .admin-right-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.admin-shell .admin-right-controls .admin-panel-chrono {
+  margin: 0;
+}
+
+.admin-shell .admin-right-controls .btn {
+  white-space: nowrap;
 }
 
 .admin-shell .admin-stats-bar {

@@ -300,22 +300,8 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
       <!-- Panneau de contrôle admin -->
       <div class="admin-control-panel" id="admin-control-panel">
         <div class="admin-controls-title" id="admin-controls-title">En attente du lancement</div>
-        <div class="admin-panel-chrono" id="admin-panel-chrono" style="display:none">
-          <span class="admin-panel-chrono-icon">⏱️</span>
-          <span class="admin-panel-chrono-value" id="admin-panel-chrono-value">30</span>
-          <span class="admin-panel-chrono-unit">sec</span>
-        </div>
         <button class="btn btn-primary" id="btn-launch-question" onclick="Game.launchQuestion()" style="display:block">
           ▶️ Afficher la question
-        </button>
-        <button class="btn btn-warning" id="btn-stop-timer" onclick="Game.stopTimerManually()" style="display:none">
-          ⏹️ Arrêter le chrono
-        </button>
-        <button class="btn btn-add-time" id="btn-add-time" onclick="Game.addTime()" style="display:none">
-          ⏰ +10 sec
-        </button>
-        <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
-          ← Arrêter la course
         </button>
         <div class="admin-stats-bar" id="admin-stats-bar" style="display:none">
           <div class="admin-stat">
@@ -326,6 +312,22 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
             <span class="stat-label">Global partie</span>
             <span class="stat-value" id="stat-overall">—</span>
           </div>
+        </div>
+        <div class="admin-right-controls">
+          <div class="admin-panel-chrono" id="admin-panel-chrono" style="display:none">
+            <span class="admin-panel-chrono-icon">⏱️</span>
+            <span class="admin-panel-chrono-value" id="admin-panel-chrono-value">30</span>
+            <span class="admin-panel-chrono-unit">sec</span>
+          </div>
+          <button class="btn btn-add-time" id="btn-add-time" onclick="Game.addTime()" style="display:none">
+            ⏰ +10 sec
+          </button>
+          <button class="btn btn-warning" id="btn-stop-timer" onclick="Game.stopTimerManually()" style="display:none">
+            ⏹️ Arrêter le chrono
+          </button>
+          <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
+            ← Arrêter la course
+          </button>
         </div>
       </div>
 
