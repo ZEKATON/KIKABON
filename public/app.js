@@ -607,7 +607,7 @@ const App = (() => {
 
   // ---- Mettre à jour la longueur de la piste selon le nombre de questions ----
   function updateTrackLength() {
-    state.settings.trackLength = Math.max(state.questions.length, 5);
+    state.settings.trackLength = Math.max(state.questions.length, 1);
   }
 
   // ---- Afficher la page de sélection de quiz ----
