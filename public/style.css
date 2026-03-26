@@ -1190,7 +1190,11 @@ html, body {
 }
 
 .admin-shell #screen-game.is-summary-view .race-track-container {
-  margin-top: 8px;
+  margin-top: 20px;
+}
+
+.admin-shell #screen-game.is-summary-view .track-lanes {
+  padding-top: 10px;
 }
 
 .admin-shell #screen-game.is-summary-view #question-result {
