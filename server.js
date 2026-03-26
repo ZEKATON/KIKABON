@@ -284,6 +284,23 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // Reconnexion prioritaire par sessionId client (plus robuste qu'un simple pseudo)
+    if (requestedSessionId) {
+      const sameSessionPlayer = game.players.find(p => String(p.sessionId || '') === requestedSessionId);
+      if (sameSessionPlayer) {
+        if (body.avatar) sameSessionPlayer.avatar = body.avatar;
+        if (body.color) sameSessionPlayer.color = body.color;
+        return json(200, {
+          player: sameSessionPlayer,
+          rejoined: true,
+          score: Number.isFinite(Number(sameSessionPlayer.score)) ? Number(sameSessionPlayer.score) : 0,
+          currentQuestionIndex: Number.isInteger(game.currentQuestionIndex) ? game.currentQuestionIndex : 0,
+          gamePhase: game.gamePhase,
+          currentQuestion: currentQuestionPayload,
+        });
+      }
+    }
+
     // Reconnexion de secours: meme nom => recuperer le profil (score/position) existant.
     if (normalizedRequestedName) {
       const sameNamePlayer = game.players.find(p => normalizePlayerName(p.name) === normalizedRequestedName);

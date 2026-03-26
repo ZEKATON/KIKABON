@@ -883,7 +883,10 @@ const PlayerGame = (function() {
         btn.addEventListener('click', function(event) {
           event.preventDefault();
           event.stopPropagation();
-          toggleChoiceSelection(i);
+          const clickedBtn = event.currentTarget && event.currentTarget.classList && event.currentTarget.classList.contains('choice-btn')
+            ? event.currentTarget
+            : null;
+          toggleChoiceSelection(i, clickedBtn);
         });
         grid.appendChild(btn);
       });
@@ -923,16 +926,25 @@ const PlayerGame = (function() {
     startPlayerTimer(time, playerTimerTotal);
   }
 
-  function toggleChoiceSelection(choiceIndex) {
+  function toggleChoiceSelection(choiceIndex, clickedBtn) {
     if (answered) return;
     const question = playerState.currentQuestion;
     if (!question || !Array.isArray(question.choices)) return;
     if (!Number.isInteger(choiceIndex) || choiceIndex < 0 || choiceIndex >= question.choices.length) return;
+    if (clickedBtn && (!clickedBtn.classList || !clickedBtn.classList.contains('choice-btn'))) return;
+
+    const isSingleChoice = !(question.multipleAnswers || false);
     const pos = selectedIndices.indexOf(choiceIndex);
     if (pos >= 0) {
-      selectedIndices.splice(pos, 1);
+      // Reclick on the same answer toggles it off.
+      selectedIndices = [];
     } else {
-      selectedIndices.push(choiceIndex);
+      if (isSingleChoice) {
+        // In single-choice mode, selecting one answer unselects previous one.
+        selectedIndices = [choiceIndex];
+      } else {
+        selectedIndices.push(choiceIndex);
+      }
     }
 
     const grid = document.getElementById('choices-grid');

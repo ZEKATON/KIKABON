@@ -304,51 +304,40 @@ const Game = (() => {
     const listEl = document.getElementById('admin-results-list');
     if (!modal || !correctEl || !listEl) return;
 
+    if (!question || question.type !== 'qcm' || !Array.isArray(question.choices)) {
+      closeAdminResultsModal();
+      return;
+    }
+
     correctEl.textContent = formatCorrectAnswerLabel(question, correctAnswerText);
     listEl.innerHTML = '';
 
-    if (question && question.type === 'qcm' && Array.isArray(question.choices)) {
-      const counts = question.choices.map(() => 0);
-      App.state.players.forEach(player => {
-        const answers = normalizeIndexArray(
-          Array.isArray(player.lastAnswerIndices)
-            ? player.lastAnswerIndices
-            : (typeof player.lastAnswerIndex === 'number' ? [player.lastAnswerIndex] : [])
-        );
-        answers.forEach(idx => {
-          if (idx >= 0 && idx < counts.length) counts[idx] += 1;
-        });
+    const counts = question.choices.map(() => 0);
+    App.state.players.forEach(player => {
+      const answers = normalizeIndexArray(
+        Array.isArray(player.lastAnswerIndices)
+          ? player.lastAnswerIndices
+          : (typeof player.lastAnswerIndex === 'number' ? [player.lastAnswerIndex] : [])
+      );
+      answers.forEach(idx => {
+        if (idx >= 0 && idx < counts.length) counts[idx] += 1;
       });
-      const totalPlayers = Math.max(App.state.players.length, 1);
-      const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
-      const safeCorrect = normalizeIndexArray(correctIndices || []);
-      question.choices.forEach((choice, idx) => {
-        const votes = counts[idx] || 0;
-        const pct = Math.round((votes / totalPlayers) * 100);
-        const row = document.createElement('div');
-        row.className = 'admin-results-row' + (safeCorrect.includes(idx) ? ' is-correct' : '');
-        row.innerHTML = `
-          <div class="admin-results-label">${letters[idx] || idx + 1}. ${choice}</div>
-          <div class="admin-results-value">${votes} vote(s) - ${pct}%</div>
-          <span class="admin-results-pill ${safeCorrect.includes(idx) ? '' : 'bad'}">${safeCorrect.includes(idx) ? 'Correct' : 'Choix'}</span>
-        `;
-        listEl.appendChild(row);
-      });
-    } else {
-      const outcomeById = new Map((results || []).map(r => [r.playerId, !!r.isCorrect]));
-      App.state.players.forEach(player => {
-        const answerText = String(player.lastAnswer || '—').trim() || '—';
-        const isCorrect = outcomeById.get(player.id) === true;
-        const row = document.createElement('div');
-        row.className = 'admin-results-row' + (isCorrect ? ' is-correct' : '');
-        row.innerHTML = `
-          <div class="admin-results-label">${player.avatar} ${player.name}</div>
-          <div class="admin-results-value">${answerText}</div>
-          <span class="admin-results-pill ${isCorrect ? '' : 'bad'}">${isCorrect ? 'Valide' : 'A verifier'}</span>
-        `;
-        listEl.appendChild(row);
-      });
-    }
+    });
+    const totalPlayers = Math.max(App.state.players.length, 1);
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const safeCorrect = normalizeIndexArray(correctIndices || []);
+    question.choices.forEach((choice, idx) => {
+      const votes = counts[idx] || 0;
+      const pct = Math.round((votes / totalPlayers) * 100);
+      const row = document.createElement('div');
+      row.className = 'admin-results-row' + (safeCorrect.includes(idx) ? ' is-correct' : '');
+      row.innerHTML = `
+        <div class="admin-results-label">${letters[idx] || idx + 1}. ${choice}</div>
+        <div class="admin-results-value">${votes} vote(s) - ${pct}%</div>
+        <span class="admin-results-pill ${safeCorrect.includes(idx) ? '' : 'bad'}">${safeCorrect.includes(idx) ? 'Correct' : 'Choix'}</span>
+      `;
+      listEl.appendChild(row);
+    });
 
     modal.style.display = 'flex';
   }
