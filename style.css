@@ -1002,7 +1002,7 @@ html, body {
   max-height: none;
   border-right: none;
   border-top: 1px solid var(--border);
-  margin-top: 14px;
+  margin-top: 20px;
   position: relative;
   overflow-y: auto;
   padding-bottom: 10px;
