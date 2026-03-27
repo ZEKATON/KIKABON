@@ -206,7 +206,7 @@ const Admin = (() => {
     App.state.questions = [];
     renderQuestions();
     App.showScreen('screen-admin');
-      showTab('tab-saved');
+    showTab('tab-questions');
   }
 
   // ---- Navigation tabs ----
