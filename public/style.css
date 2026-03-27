@@ -2323,6 +2323,7 @@ html, body {
 .fill-saved-card {
   border: 2px solid #7c3aed;
   background: linear-gradient(180deg, rgba(124,58,237,.18), rgba(124,58,237,.06));
+  box-shadow: 0 10px 28px rgba(124,58,237,.2);
 }
 
 .fill-saved-card .quiz-card-title {
@@ -2332,10 +2333,45 @@ html, body {
 .saved-fill-activity {
   border: 2px solid #7c3aed;
   background: linear-gradient(180deg, rgba(124,58,237,.18), rgba(124,58,237,.05));
+  box-shadow: 0 10px 28px rgba(124,58,237,.2);
 }
 
 .saved-fill-activity .quiz-card-title {
   color: #c4b5fd;
+}
+
+.fill-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fill-level-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ede9fe;
+  background: rgba(109,40,217,.36);
+  border: 1px solid rgba(196,181,253,.55);
+  white-space: nowrap;
+}
+
+.fill-card-preview {
+  margin: 6px 0 2px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e6ddff;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(196,181,253,.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.saved-fill-activity .quiz-card-actions,
+.fill-saved-card .quiz-card-actions {
+  flex-wrap: wrap;
 }
 
 .fill-level-selector {

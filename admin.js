@@ -1411,16 +1411,19 @@ const FillActivity = (() => {
     }
     list.innerHTML = fills.slice().reverse().map(f => `
       <div class="quiz-card fill-saved-card">
-        <div class="quiz-card-header">
-          <div>
-            <div class="quiz-card-title">${escHtml(f.name)}</div>
-            <div class="quiz-card-meta">${f.holes.length} trou(s) • Niveau ${f.level} • ${f.date}</div>
-          </div>
-          <div class="quiz-card-actions">
-            <button class="btn btn-primary btn-sm" onclick="FillActivity.launchFillActivity(${f.id})">▶ Lancer</button>
-            <button class="btn btn-ghost btn-sm" onclick="FillActivity.editFillActivity(${f.id})">✏️ Modifier</button>
-            <button class="btn btn-ghost btn-sm" onclick="FillActivity.deleteFillActivity(${f.id})">🗑</button>
-          </div>
+        <div class="fill-card-top">
+          <div class="quiz-card-title">📝 ${escHtml(f.name)}</div>
+          <span class="fill-level-pill">Niveau ${f.level || 1}</span>
+        </div>
+        <div class="quiz-card-stats">
+          <div class="quiz-card-stat">🧩 ${f.holes.length} trou${f.holes.length > 1 ? 's' : ''}</div>
+          <div class="quiz-card-stat">📅 ${escHtml(f.date || '-')}</div>
+        </div>
+        <p class="fill-card-preview">${escHtml(_buildFillPreviewText(f))}</p>
+        <div class="quiz-card-actions">
+          <button class="quiz-card-btn" onclick="FillActivity.launchFillActivity(${f.id})">▶️ Lancer</button>
+          <button class="quiz-card-btn secondary" onclick="FillActivity.editFillActivity(${f.id})">✏️ Modifier</button>
+          <button class="quiz-card-btn secondary" onclick="FillActivity.deleteFillActivity(${f.id})">🗑️ Supprimer</button>
         </div>
       </div>
     `).join('');
@@ -1428,6 +1431,23 @@ const FillActivity = (() => {
 
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function _buildFillPreviewText(activity, maxLen = 180) {
+    const segments = Array.isArray(activity && activity.segments) ? activity.segments : [];
+    const holes = Array.isArray(activity && activity.holes) ? activity.holes : [];
+    let text = '';
+    segments.forEach((seg, i) => {
+      text += String(seg || '');
+      if (i < holes.length) text += ' ____ ';
+    });
+    const compact = text.replace(/\s+/g, ' ').trim();
+    return compact.length > maxLen ? compact.slice(0, maxLen - 1) + '…' : compact;
+  }
+
+  function goToActivities() {
+    App.renderQuizList();
+    App.showScreen('screen-quiz-list');
   }
 
   function deleteFillActivity(id) {
@@ -1781,7 +1801,7 @@ const FillActivity = (() => {
     App.state.adminToken = null;
     _currentActivity = null;
     _fillPlayerAnswers = {};
-    App.showScreen('screen-home');
+    goToActivities();
   }
 
   return {
@@ -1791,6 +1811,7 @@ const FillActivity = (() => {
     saveFillActivity,
     editFillActivity,
     renderSavedFills,
+    goToActivities,
     deleteFillActivity,
     launchFillActivity,
     startFillGame,
