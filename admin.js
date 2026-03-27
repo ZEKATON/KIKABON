@@ -17,6 +17,7 @@ const Admin = (() => {
   const fillBuilderState = {
     tokens: [],
     selectedWordIndexes: new Set(),
+    bindingsReady: false,
   };
 
   function getQuestionTypeDisplay(type, question) {
@@ -222,6 +223,7 @@ const Admin = (() => {
     const navEl = document.getElementById(navId);
     if (navEl) navEl.classList.add('active');
     if (tabId === 'tab-fill-builder') {
+      ensureFillBuilderBindings();
       renderFillBuilderPreview();
     }
   }
@@ -524,6 +526,20 @@ const Admin = (() => {
     selectedInfo.textContent = `${count} mot${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`;
   }
 
+  function ensureFillBuilderBindings() {
+    if (fillBuilderState.bindingsReady) return;
+    const textarea = document.getElementById('fill-builder-text');
+    if (!textarea) return;
+
+    const rerender = () => renderFillBuilderPreview();
+    textarea.addEventListener('input', rerender);
+    textarea.addEventListener('keyup', rerender);
+    textarea.addEventListener('click', rerender);
+    textarea.addEventListener('select', rerender);
+
+    fillBuilderState.bindingsReady = true;
+  }
+
   function toggleFillBuilderWord(wordIndex) {
     if (fillBuilderState.selectedWordIndexes.has(wordIndex)) {
       fillBuilderState.selectedWordIndexes.delete(wordIndex);
@@ -531,6 +547,45 @@ const Admin = (() => {
       fillBuilderState.selectedWordIndexes.add(wordIndex);
     }
     renderFillBuilderPreview();
+  }
+
+  function addFillSelectionFromSource() {
+    const textarea = document.getElementById('fill-builder-text');
+    if (!textarea) return;
+
+    const start = Number(textarea.selectionStart);
+    const end = Number(textarea.selectionEnd);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || end <= start) {
+      App.showToast('Sélectionnez un ou plusieurs mots dans le texte source', 'error');
+      return;
+    }
+
+    const sourceText = String(textarea.value || '');
+    const tokens = tokenizeFillSourceText(sourceText);
+    let added = 0;
+    tokens.forEach(token => {
+      if (token.type !== 'word') return;
+      // Add words that overlap the selected range.
+      const overlaps = token.start < end && token.end > start;
+      if (!overlaps) return;
+      if (!fillBuilderState.selectedWordIndexes.has(token.wordIndex)) {
+        fillBuilderState.selectedWordIndexes.add(token.wordIndex);
+        added += 1;
+      }
+    });
+
+    renderFillBuilderPreview();
+    if (added > 0) {
+      App.showToast(`${added} mot(s) ajouté(s) aux trous`, 'success');
+    } else {
+      App.showToast('Aucun mot valide trouvé dans la sélection', 'error');
+    }
+  }
+
+  function clearFillSelection() {
+    fillBuilderState.selectedWordIndexes.clear();
+    renderFillBuilderPreview();
+    App.showToast('Sélection des trous réinitialisée', 'success');
   }
 
   function buildBracketedFillSourceText() {
@@ -1325,7 +1380,7 @@ const Admin = (() => {
     showTab, renderQuestions, renderSaved,
     addQuestion, editQuestion, deleteQuestion, moveQuestion,
     saveQuestion, closeModal, updateModalType, setCorrect, toggleCorrectFromRow,
-    renderFillBuilderPreview, toggleFillBuilderWord, exportFillActivityJson, useFillActivity,
+    renderFillBuilderPreview, toggleFillBuilderWord, addFillSelectionFromSource, clearFillSelection, exportFillActivityJson, useFillActivity,
     importFromText, importFromFile, importFromFileObj,
     saveQuiz, loadSavedQuiz, loadAndLaunchQuiz, downloadSavedQuiz, deleteSavedQuiz,
     createModule, renameModule, deleteModule, renameSavedQuiz, changeQuizModule,

@@ -162,8 +162,12 @@
         <div class="import-zone">
           <div class="import-card">
             <h3>📄 Texte source</h3>
-            <p>Collez le texte complet puis cliquez sur les mots à transformer en trous.</p>
+            <p>Collez le texte complet puis sélectionnez des mots dans ce champ ou cliquez-les dans l'aperçu.</p>
             <textarea id="fill-builder-text" rows="12" placeholder="Collez votre texte ici..."></textarea>
+            <div class="header-actions" style="margin-top:10px">
+              <button class="btn btn-secondary sm" onclick="Admin.addFillSelectionFromSource()">➕ Ajouter la sélection</button>
+              <button class="btn btn-ghost sm" onclick="Admin.clearFillSelection()">🧹 Réinitialiser les trous</button>
+            </div>
             <div class="form-group" style="margin-top:10px">
               <label>Niveau de difficulté</label>
               <select id="fill-builder-difficulty">
