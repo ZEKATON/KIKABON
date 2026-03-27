@@ -1107,12 +1107,20 @@ const PlayerGame = (function() {
     if (counter) counter.textContent = 'Q' + (idx + 1) + '/' + total;
     playPlayerSound('question');
     if (qCat) {
-      qCat.textContent = formatQuestionMeta(q);
-      qCat.style.display = q.type === 'fill' ? 'none' : '';
+      if (q.type !== 'fill') {
+        qCat.textContent = formatQuestionMeta(q);
+        qCat.style.display = '';
+      } else {
+        qCat.style.display = 'none';
+      }
     }
     if (qText) {
-      qText.textContent = q.text;
-      qText.style.display = q.type === 'fill' ? 'none' : '';
+      if (q.type !== 'fill') {
+        qText.textContent = q.text;
+        qText.style.display = '';
+      } else {
+        qText.style.display = 'none';
+      }
     }
     if (qCard) qCard.style.display = 'flex';
     if (qResult) qResult.style.display = 'none';
