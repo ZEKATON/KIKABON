@@ -1150,6 +1150,7 @@ const FillActivity = (() => {
   let _lastFillScores = null;
   let _fillCorrectionValidated = false;
   let _fillGameStarted = false;
+  let _savedFillSort = 'newest';
 
   function _refreshFillProgressCounter() {
     const counter = document.getElementById('fill-progress-counter');
@@ -1404,12 +1405,41 @@ const FillActivity = (() => {
     App.loadSavedFillActivities();
     const list = document.getElementById('fill-saved-list');
     if (!list) return;
-    const fills = App.state.savedFillActivities || [];
+    const sortEl = document.getElementById('fill-sort-select');
+    if (sortEl) sortEl.value = _savedFillSort;
+
+    const fills = (App.state.savedFillActivities || []).slice();
+    fills.sort((a, b) => {
+      const holesA = Array.isArray(a.holes) ? a.holes.length : 0;
+      const holesB = Array.isArray(b.holes) ? b.holes.length : 0;
+      const levelA = Number(a.level || 1);
+      const levelB = Number(b.level || 1);
+      const nameA = String(a.name || '');
+      const nameB = String(b.name || '');
+
+      switch (_savedFillSort) {
+        case 'oldest':
+          return (a.id || 0) - (b.id || 0);
+        case 'holes-desc':
+          return holesB - holesA;
+        case 'holes-asc':
+          return holesA - holesB;
+        case 'level-asc':
+          return levelA - levelB;
+        case 'level-desc':
+          return levelB - levelA;
+        case 'name-asc':
+          return nameA.localeCompare(nameB, 'fr');
+        case 'newest':
+        default:
+          return (b.id || 0) - (a.id || 0);
+      }
+    });
     if (fills.length === 0) {
       list.innerHTML = '<p class="empty-state">Aucune activité sauvegardée.</p>';
       return;
     }
-    list.innerHTML = fills.slice().reverse().map(f => `
+    list.innerHTML = fills.map(f => `
       <div class="quiz-card fill-saved-card">
         <div class="fill-card-top">
           <div class="quiz-card-title">📝 ${escHtml(f.name)}</div>
@@ -1427,6 +1457,11 @@ const FillActivity = (() => {
         </div>
       </div>
     `).join('');
+  }
+
+  function setSavedFillSort(sortKey) {
+    _savedFillSort = String(sortKey || 'newest');
+    renderSavedFills();
   }
 
   function escHtml(s) {
@@ -1810,6 +1845,7 @@ const FillActivity = (() => {
     parseText,
     saveFillActivity,
     editFillActivity,
+    setSavedFillSort,
     renderSavedFills,
     goToActivities,
     deleteFillActivity,

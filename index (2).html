@@ -539,7 +539,19 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
       <div id="tab-fill-saved" class="admin-tab">
         <div class="quiz-list-header" style="margin-bottom:16px">
           <h2>📂 Mes activités "Textes à Trous"</h2>
-          <button class="btn btn-secondary" onclick="FillActivity.showBuilderTab('tab-fill-create')">✏️ Créer une nouvelle</button>
+          <div class="fill-saved-header-actions">
+            <label for="fill-sort-select" class="fill-sort-label">Trier :</label>
+            <select id="fill-sort-select" class="fill-sort-select" onchange="FillActivity.setSavedFillSort(this.value)">
+              <option value="newest">Plus récent</option>
+              <option value="oldest">Plus ancien</option>
+              <option value="holes-desc">Plus de trous</option>
+              <option value="holes-asc">Moins de trous</option>
+              <option value="level-asc">Niveau croissant</option>
+              <option value="level-desc">Niveau décroissant</option>
+              <option value="name-asc">Nom A → Z</option>
+            </select>
+            <button class="btn btn-secondary" onclick="FillActivity.showBuilderTab('tab-fill-create')">✏️ Créer une nouvelle</button>
+          </div>
         </div>
         <div id="fill-saved-list" class="quiz-list-grid">
           <p class="empty-state">Aucune activité sauvegardée.</p>

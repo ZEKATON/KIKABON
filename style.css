@@ -2374,6 +2374,33 @@ html, body {
   flex-wrap: wrap;
 }
 
+.fill-saved-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fill-sort-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text2);
+}
+
+.fill-sort-select {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  outline: none;
+}
+
+.fill-sort-select:focus {
+  border-color: #a78bfa;
+}
+
 .fill-level-selector {
   display: flex; gap: 8px;
 }
