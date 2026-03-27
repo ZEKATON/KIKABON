@@ -1411,7 +1411,9 @@ const FillActivity = (() => {
     const queryEl = document.getElementById('fill-search-input');
     if (queryEl && queryEl.value !== _savedFillQuery) queryEl.value = _savedFillQuery;
 
-    const fills = (App.state.savedFillActivities || []).slice();
+    const fills = (App.state.savedFillActivities || [])
+      .filter(f => Array.isArray(f && f.segments) && Array.isArray(f && f.holes))
+      .slice();
     fills.sort((a, b) => {
       const holesA = Array.isArray(a.holes) ? a.holes.length : 0;
       const holesB = Array.isArray(b.holes) ? b.holes.length : 0;

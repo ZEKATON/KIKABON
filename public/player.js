@@ -34,6 +34,8 @@ let reconnectTimeout = null;
 let playerAudioCtx = null;
 let heartbeatTimer = null;
 let heartbeatFailureCount = 0;
+let _lastScoreShownAt = 0;
+let _pendingScoreRedirectTimer = null;
 
 function getOrCreateClientSessionId() {
   const key = 'kikabon_client_session';
@@ -787,17 +789,30 @@ function connectSSE(code) {
     sse.addEventListener('gameEnd', function(e) {
       const data = JSON.parse(e.data);
       PlayerGame.showPodium(data.players);
+      _lastScoreShownAt = Date.now();
     });
 
     sse.addEventListener('game_reset_force', function(e) {
       const data = JSON.parse(e.data || '{}');
       const targetCode = String(data.redirectCode || playerState.gameCode || '').trim();
-      clearPlayerIdentityStorage();
-      resetPlayerStateOnly();
-      if (/^\d{4}$/.test(targetCode)) {
-        window.location.href = '/join-new-game?code=' + targetCode;
+      const doRedirect = function() {
+        clearPlayerIdentityStorage();
+        resetPlayerStateOnly();
+        if (/^\d{4}$/.test(targetCode)) {
+          window.location.href = '/join-new-game?code=' + targetCode;
+        } else {
+          window.location.href = '/play';
+        }
+      };
+
+      const activeScreen = getActiveScreenId();
+      const justSawScores = (Date.now() - _lastScoreShownAt) < 7000;
+      if (justSawScores || activeScreen === 'screen-fill-results' || activeScreen === 'screen-podium') {
+        clearTimeout(_pendingScoreRedirectTimer);
+        showToast('Bravo ! Regardez votre score quelques secondes…', 'success');
+        _pendingScoreRedirectTimer = setTimeout(doRedirect, 7000);
       } else {
-        window.location.href = '/play';
+        doRedirect();
       }
     });
 
@@ -832,6 +847,7 @@ function connectSSE(code) {
     sse.addEventListener('fillCorrectionEnd', function(e) {
       const data = JSON.parse(e.data);
       _showFillResults(data);
+      _lastScoreShownAt = Date.now();
     });
 
     sse.onerror = function() {
@@ -1539,9 +1555,16 @@ function _showFillResults(data) {
 
   var scoreEl = document.getElementById('fill-results-score');
   var iconEl  = document.getElementById('fill-results-icon');
+  var msgEl = document.getElementById('fill-results-message');
   var totalHoles = holes.length || 1;
   var correctCount = results.filter(function(r) { return r.correct; }).length;
-  if (scoreEl) scoreEl.textContent = Math.round(correctCount / totalHoles * 100) + '% correct';
+  var pct = Math.round(correctCount / totalHoles * 100);
+  if (scoreEl) scoreEl.textContent = pct + '% correct';
+  if (msgEl) {
+    if (pct >= 90) msgEl.textContent = 'Excellent travail, bravo !';
+    else if (pct >= 60) msgEl.textContent = 'Très bien, continue comme ça !';
+    else msgEl.textContent = 'Ne lâche rien, tu vas progresser !';
+  }
   if (iconEl) {
     if (correctCount === totalHoles) iconEl.textContent = '🏆';
     else if (correctCount >= totalHoles / 2) iconEl.textContent = '⭐';

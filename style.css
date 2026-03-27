@@ -2872,6 +2872,13 @@ html, body {
   color: var(--accent);
   font-family: var(--font-display);
 }
+.fill-results-message {
+  margin: -6px 0 2px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+}
 .btn-warning {
   background: linear-gradient(135deg,#f59e0b,#ef4444);
   color: #fff; border: none;
