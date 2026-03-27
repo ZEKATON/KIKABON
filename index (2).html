@@ -406,20 +406,27 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
         </div>
       </div>
 
-      <div class="fill-correction-panel" id="fill-correction-panel" style="display:none">
-        <div class="fill-correction-head">
-          <h3>Correction interactive: texte a trous</h3>
-          <p>Glissez les mots dans les trous pour corriger. Les scores sont mis a jour en direct.</p>
-        </div>
-        <div class="fill-correction-layout">
-          <div class="fill-correction-text" id="fill-correction-text"></div>
-          <div class="fill-correction-bank-wrap">
-            <h4>Mots a glisser</h4>
-            <div class="fill-correction-bank" id="fill-correction-bank"></div>
+      <div class="fill-correction-overlay" id="fill-correction-overlay" style="display:none">
+        <div class="fill-correction-panel" id="fill-correction-panel" style="display:none">
+          <div class="fill-correction-head">
+            <div class="fill-correction-head-top">
+              <h3>Correction interactive: texte a trous</h3>
+              <button class="btn btn-primary fill-correction-close" id="fill-correction-close-btn" type="button" onclick="Game.closeFillCorrectionModal()" disabled>
+                Fermer et voir le classement
+              </button>
+            </div>
+            <p>Glissez les mots dans les trous. Les scores des joueurs s'actualisent automatiquement sur leur ecran.</p>
           </div>
+          <div class="fill-correction-layout">
+            <div class="fill-correction-text" id="fill-correction-text"></div>
+            <div class="fill-correction-bank-wrap">
+              <h4>Mots a glisser</h4>
+              <div class="fill-correction-bank" id="fill-correction-bank"></div>
+            </div>
+          </div>
+          <div class="fill-correction-feedback" id="fill-correction-feedback">En attente d'un mot...</div>
+          <div class="fill-correction-scores" id="fill-correction-scores" style="display:none"></div>
         </div>
-        <div class="fill-correction-feedback" id="fill-correction-feedback">En attente d'un mot...</div>
-        <div class="fill-correction-scores" id="fill-correction-scores" style="display:none"></div>
       </div>
     </div>
   </div>

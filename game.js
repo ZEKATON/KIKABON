@@ -157,7 +157,9 @@ const Game = (() => {
     document.getElementById('btn-stop-timer').style.display = 'none';
     document.getElementById('btn-add-time').style.display = 'none';
     const fillPanel = document.getElementById('fill-correction-panel');
+    const fillOverlay = document.getElementById('fill-correction-overlay');
     if (fillPanel) fillPanel.style.display = 'none';
+    if (fillOverlay) fillOverlay.style.display = 'none';
     document.getElementById('btn-launch-question').textContent = '▶️ Lancer la question';
     document.getElementById('question-card').style.display = 'none';
     document.getElementById('question-result').style.display = 'none';
@@ -216,6 +218,10 @@ const Game = (() => {
       recap.innerHTML = '';
     }
     closeAdminResultsModal();
+    const fillOverlay = document.getElementById('fill-correction-overlay');
+    const fillPanel = document.getElementById('fill-correction-panel');
+    if (fillOverlay) fillOverlay.style.display = 'none';
+    if (fillPanel) fillPanel.style.display = 'none';
     document.getElementById('question-card').style.display = 'flex';
     document.getElementById('game-status').textContent = '';
 
@@ -335,11 +341,13 @@ const Game = (() => {
     if (!q || q.type !== 'fill') return;
 
     const panel = document.getElementById('fill-correction-panel');
+    const overlay = document.getElementById('fill-correction-overlay');
     const textWrap = document.getElementById('fill-correction-text');
     const bankWrap = document.getElementById('fill-correction-bank');
     const feedback = document.getElementById('fill-correction-feedback');
     const scorePanel = document.getElementById('fill-correction-scores');
-    if (!panel || !textWrap || !bankWrap || !feedback) return;
+    const closeBtn = document.getElementById('fill-correction-close-btn');
+    if (!panel || !overlay || !textWrap || !bankWrap || !feedback) return;
 
     fillCorrectionState = {
       question: q,
@@ -356,6 +364,7 @@ const Game = (() => {
       scorePanel.style.display = 'none';
       scorePanel.innerHTML = '';
     }
+    if (closeBtn) closeBtn.disabled = true;
 
     (q.holes || []).forEach((hole, idx) => {
       const chip = document.createElement('span');
@@ -385,6 +394,7 @@ const Game = (() => {
       });
     });
 
+    overlay.style.display = 'flex';
     panel.style.display = 'flex';
     document.getElementById('question-result').style.display = 'none';
     document.getElementById('btn-stop-timer').style.display = 'none';
@@ -476,7 +486,10 @@ const Game = (() => {
     if (!fillCorrectionState) return;
     const q = fillCorrectionState.question;
     const panel = document.getElementById('fill-correction-panel');
+    const overlay = document.getElementById('fill-correction-overlay');
     const scorePanel = document.getElementById('fill-correction-scores');
+    const closeBtn = document.getElementById('fill-correction-close-btn');
+    if (overlay) overlay.style.display = 'flex';
     if (panel) panel.style.display = 'flex';
 
     const finalResults = App.state.players.map(player => {
@@ -524,10 +537,42 @@ const Game = (() => {
     const feedback = document.getElementById('fill-correction-feedback');
     if (feedback) {
       feedback.className = 'fill-correction-feedback ok';
-      feedback.textContent = 'Tous les mots sont places. Classement affiche ci-dessous.';
+      feedback.textContent = 'Tous les mots sont places. Cliquez sur "Fermer et voir le classement".';
     }
+    if (closeBtn) closeBtn.disabled = false;
     waitingForNextLaunch = true;
     fillCorrectionState = null;
+  }
+
+  function closeFillCorrectionModal() {
+    if (fillCorrectionState) {
+      App.showToast('Terminez la correction avant de fermer la fenetre.', 'error');
+      return;
+    }
+    const panel = document.getElementById('fill-correction-panel');
+    const overlay = document.getElementById('fill-correction-overlay');
+    if (panel) panel.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+    showFillAdminRanking();
+  }
+
+  function showFillAdminRanking() {
+    const resultBox = document.getElementById('question-result');
+    const iconEl = document.getElementById('result-icon');
+    const textEl = document.getElementById('result-text');
+    const answerEl = document.getElementById('result-answer');
+    if (!resultBox || !iconEl || !textEl || !answerEl) return;
+
+    const sorted = [...App.state.players].sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+    iconEl.textContent = '🏆';
+    textEl.textContent = 'Classement des joueurs';
+    answerEl.innerHTML = `<div class="fill-admin-ranking">${sorted.map((player, idx) => {
+      const safeName = String(player.name || 'Joueur');
+      const safeScore = Number(player.score) || 0;
+      return `<div class="fill-admin-ranking-row"><span>${idx + 1}. ${safeName}</span><strong>${safeScore} pts</strong></div>`;
+    }).join('')}</div>`;
+    setAdminSummaryMode(true);
+    resultBox.style.display = 'flex';
   }
 
   function _finishCompleteQuestion(statusText, correctAnswerText, correctIndices, validatedPlayerIds) {
@@ -1163,5 +1208,5 @@ const Game = (() => {
     App.showToast('Modifiez les questions et relancez !', '');
   }
 
-  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, addTime, validateOpenAnswers, closeAdminResultsModal, goToNextFromResultsModal };
+  return { start, submitOpenAnswer, playAgain, launchQuestion, stopTimerManually, addTime, validateOpenAnswers, closeAdminResultsModal, goToNextFromResultsModal, closeFillCorrectionModal };
 })();
