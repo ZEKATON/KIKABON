@@ -88,8 +88,11 @@
     <div class="quiz-list-header">
       <h1 class="quiz-list-title">📚 Mes Quiz</h1>
       <div class="quiz-list-actions-left">
-        <button class="btn btn-fill-home" onclick="App.showScreen('screen-fill-builder'); FillActivity.renderSavedFills();">
-          📝 Textes à Trous
+        <button class="btn btn-fill-home" onclick="App.showScreen('screen-fill-builder'); FillActivity.showBuilderTab('tab-fill-create');">
+          ✏️ Créer Texte à Trous
+        </button>
+        <button class="btn btn-secondary" onclick="App.showScreen('screen-fill-builder'); FillActivity.showBuilderTab('tab-fill-saved');">
+          📂 Textes à trous
         </button>
         <button class="btn btn-primary" onclick="App.showScreen('screen-admin'); Admin.showTab('tab-import');">
           <span class="btn-icon">📤</span> Exporter
@@ -118,6 +121,9 @@
       <nav class="sidebar-nav">
         <button class="nav-item" onclick="App.showScreen('screen-fill-builder'); FillActivity.showBuilderTab('tab-fill-create');" id="nav-fill-create">
           📝 Créer Texte à Trous
+        </button>
+        <button class="nav-item" onclick="App.showScreen('screen-fill-builder'); FillActivity.showBuilderTab('tab-fill-saved');" id="nav-fill-list">
+          📂 Textes à trous
         </button>
         <button class="nav-item active" onclick="Admin.showTab('tab-import')" id="nav-import">
           📤 Exporter
@@ -485,7 +491,7 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
       <div class="sidebar-logo">📝 Textes à Trous</div>
       <nav class="sidebar-nav">
         <button class="sidebar-btn active" onclick="FillActivity.showBuilderTab('tab-fill-create')" id="sidebar-fill-create">✏️ Créer</button>
-        <button class="sidebar-btn" onclick="FillActivity.showBuilderTab('tab-fill-saved')" id="sidebar-fill-saved">📂 Mes activités</button>
+        <button class="sidebar-btn" onclick="FillActivity.showBuilderTab('tab-fill-saved')" id="sidebar-fill-saved">📂 Textes à trous</button>
       </nav>
       <div class="sidebar-actions" id="fill-sidebar-actions">
         <button class="btn btn-primary full" id="btn-save-fill" onclick="FillActivity.saveFillActivity()" style="display:none">💾 Sauvegarder</button>

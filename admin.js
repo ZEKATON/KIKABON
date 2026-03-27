@@ -1443,7 +1443,9 @@ const FillActivity = (() => {
       ? fills.filter(f => _buildFillSearchText(f).includes(query))
       : fills;
     if (visibleFills.length === 0) {
-      list.innerHTML = '<p class="empty-state">Aucune activité sauvegardée.</p>';
+      list.innerHTML = query
+        ? '<p class="empty-state">Aucun texte à trous ne correspond à votre recherche.</p>'
+        : '<p class="empty-state">Aucun texte à trous sauvegardé.</p>';
       return;
     }
     list.innerHTML = visibleFills.map(f => `
