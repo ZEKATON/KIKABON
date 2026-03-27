@@ -153,6 +153,27 @@ function playPlayerSound(type) {
       g.gain.setValueAtTime(0.08, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
       o.start(now); o.stop(now + 0.14);
+    } else if (type === 'fill-super') {
+      [784, 988].forEach((f, i) => {
+        const o = playerAudioCtx.createOscillator();
+        const g = playerAudioCtx.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(f, now + i * 0.06);
+        o.connect(g); g.connect(playerAudioCtx.destination);
+        g.gain.setValueAtTime(0.09, now + i * 0.06);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.18);
+        o.start(now + i * 0.06); o.stop(now + i * 0.22);
+      });
+    } else if (type === 'fill-wrong') {
+      const o = playerAudioCtx.createOscillator();
+      const g = playerAudioCtx.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(280, now);
+      o.frequency.exponentialRampToValueAtTime(180, now + 0.2);
+      o.connect(g); g.connect(playerAudioCtx.destination);
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      o.start(now); o.stop(now + 0.24);
     }
   } catch (e) {}
 }
@@ -1334,12 +1355,22 @@ function _applyLiveFillFeedback(data) {
     msg.textContent = isCorrect ? 'SUPER ✅' : 'INCORRECT ❌';
     msg.classList.toggle('fill-live-super', !!isCorrect);
     msg.classList.toggle('fill-live-wrong', !isCorrect);
+    msg.classList.remove('fill-live-pulse');
+    void msg.offsetWidth;
+    msg.classList.add('fill-live-pulse');
   }
+
+  playPlayerSound(isCorrect ? 'fill-super' : 'fill-wrong');
 
   const correctCount = Object.values(playerState.fillLiveCorrectMap).filter(Boolean).length;
   const liveScore = Number(playerState.fillLiveScoreBase || 0) + (correctCount * 100);
   const liveScoreEl = document.getElementById('fill-live-score');
-  if (liveScoreEl) liveScoreEl.textContent = 'Score: ' + liveScore;
+  if (liveScoreEl) {
+    liveScoreEl.textContent = 'Score: ' + liveScore;
+    liveScoreEl.classList.remove('fill-live-score-pop');
+    void liveScoreEl.offsetWidth;
+    liveScoreEl.classList.add('fill-live-score-pop');
+  }
 }
 
 var _fillPlayerTimerInterval = null;

@@ -2650,6 +2650,22 @@ html, body {
   color: #ef4444;
   font-weight: 800;
 }
+.fill-status-msg.fill-live-pulse {
+  animation: fill-live-pulse .35s ease-out;
+}
+.fill-live-score.fill-live-score-pop {
+  animation: fill-score-pop .35s ease-out;
+}
+@keyframes fill-live-pulse {
+  0% { transform: scale(0.96); opacity: 0.7; }
+  60% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes fill-score-pop {
+  0% { transform: translateY(2px) scale(0.96); }
+  60% { transform: translateY(-1px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
+}
 .fill-player-body {
   flex: 1; overflow-y: auto;
   padding: 20px;
