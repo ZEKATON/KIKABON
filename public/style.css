@@ -2313,6 +2313,22 @@ html, body {
 }
 .btn-fill-home:hover { opacity: .88; }
 
+.quiz-list-actions-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.fill-saved-card {
+  border: 2px solid #ef4444;
+  background: linear-gradient(180deg, rgba(239,68,68,.14), rgba(239,68,68,.06));
+}
+
+.fill-saved-card .quiz-card-title {
+  color: #b91c1c;
+}
+
 .fill-level-selector {
   display: flex; gap: 8px;
 }
@@ -2398,6 +2414,15 @@ html, body {
   flex-wrap: wrap;
 }
 .fill-game-header h2 { flex: 1; font-size: 20px; font-weight: 700; }
+.fill-progress-counter {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #ef4444;
+  color: #b91c1c;
+  background: rgba(239,68,68,.12);
+  font-size: 13px;
+  font-weight: 700;
+}
 .fill-timer-wrap { display: flex; align-items: center; gap: 10px; }
 .fill-timer-bar-track {
   width: 160px; height: 10px;

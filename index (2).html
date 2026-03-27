@@ -90,7 +90,7 @@
     
     <div class="quiz-list-header">
       <h1 class="quiz-list-title">📚 Mes Quiz</h1>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="quiz-list-actions-left">
         <button class="btn btn-fill-home" onclick="App.showScreen('screen-fill-builder'); FillActivity.renderSavedFills();">
           📝 Textes à Trous
         </button>
@@ -555,6 +555,7 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
     <div class="fill-game-header">
       <button class="back-btn" onclick="FillActivity.endFillGame()">← Terminer</button>
       <h2 id="fill-game-title">Texte à Trous</h2>
+      <div id="fill-progress-counter" class="fill-progress-counter">0 / 0 terminé(s)</div>
       <div class="fill-timer-wrap">
         <div class="fill-timer-bar-track">
           <div id="fill-timer-bar" class="fill-timer-bar-fill"></div>

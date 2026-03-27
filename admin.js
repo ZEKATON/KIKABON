@@ -1147,6 +1147,15 @@ const FillActivity = (() => {
   let _fillPlayerAnswers = {}; // { playerId: [{holeId, word}] }
   let _currentActivity = null; // activité en cours de jeu
 
+  function _refreshFillProgressCounter() {
+    const counter = document.getElementById('fill-progress-counter');
+    if (!counter) return;
+    const rows = Array.from(document.querySelectorAll('#fill-player-list .fill-player-row'));
+    const total = rows.length;
+    const done = rows.filter(r => r.classList.contains('submitted')).length;
+    counter.textContent = `${done} / ${total} terminé(s)`;
+  }
+
   // ---- Onglets du constructeur ----
   function showBuilderTab(tabId) {
     document.querySelectorAll('#screen-fill-builder .admin-tab').forEach(t => t.classList.remove('active'));
@@ -1292,7 +1301,7 @@ const FillActivity = (() => {
       return;
     }
     list.innerHTML = fills.slice().reverse().map(f => `
-      <div class="quiz-card">
+      <div class="quiz-card fill-saved-card">
         <div class="quiz-card-header">
           <div>
             <div class="quiz-card-title">${escHtml(f.name)}</div>
@@ -1342,6 +1351,7 @@ const FillActivity = (() => {
       if (titleEl) titleEl.textContent = activity.name;
       App.showScreen('screen-fill-game');
       renderFillPlayerList([]);
+      _refreshFillProgressCounter();
       // Broadcaster fillStart aux joueurs
       _broadcastFill('fillStart', {
         activityId: activity.id,
@@ -1402,6 +1412,7 @@ const FillActivity = (() => {
       <span class="fill-player-name">${escHtml(name)}</span>
       <span class="fill-player-status">${submitted ? '✅ Validé' : '⏳ En cours…'}</span>`;
     container.appendChild(row);
+    _refreshFillProgressCounter();
   }
 
   function _updatePlayerSubmitted(playerId, name, avatar) {
@@ -1415,6 +1426,7 @@ const FillActivity = (() => {
     } else {
       _addPlayerRow(playerId, name, avatar, true);
     }
+    _refreshFillProgressCounter();
   }
 
   function renderFillPlayerList(players) {
@@ -1422,6 +1434,7 @@ const FillActivity = (() => {
     if (!container) return;
     container.innerHTML = '<p class="empty-state">En attente des joueurs…</p>';
     players.forEach(p => _addPlayerRow(p.id, p.name, p.avatar, p.fillSubmitted));
+    _refreshFillProgressCounter();
   }
 
   // ---- Chrono ----
