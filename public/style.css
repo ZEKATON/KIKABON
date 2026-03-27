@@ -455,6 +455,41 @@ html, body {
 .file-drop:hover { border-color: var(--accent); background: rgba(247,201,72,0.05); }
 .file-drop span { font-size: 36px; }
 
+.fill-builder-preview {
+  min-height: 220px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  line-height: 1.9;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.fill-builder-word {
+  background: transparent;
+  border: 1px dashed transparent;
+  color: inherit;
+  border-radius: 6px;
+  padding: 1px 6px;
+  margin: 0 1px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.fill-builder-word:hover {
+  border-color: var(--accent);
+  background: rgba(247,201,72,0.12);
+}
+
+.fill-builder-word.is-selected {
+  border-color: var(--green);
+  background: rgba(78,203,113,0.18);
+  font-weight: 800;
+}
+
 /* Saved */
 .saved-list { display: flex; flex-direction: column; gap: 10px; }
 .saved-module {

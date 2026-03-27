@@ -14,6 +14,10 @@ const Admin = (() => {
   let adminSSE = null;
   let dragQuizId = null;
   let dragModuleId = null;
+  const fillBuilderState = {
+    tokens: [],
+    selectedWordIndexes: new Set(),
+  };
 
   function getQuestionTypeDisplay(type, question) {
     if (type === 'qcm') return 'QCM';
@@ -206,7 +210,7 @@ const Admin = (() => {
     App.state.questions = [];
     renderQuestions();
     App.showScreen('screen-admin');
-    showTab('tab-questions');
+    showTab('tab-saved');
   }
 
   // ---- Navigation tabs ----
@@ -217,6 +221,9 @@ const Admin = (() => {
     const navId = 'nav-' + tabId.replace('tab-', '');
     const navEl = document.getElementById(navId);
     if (navEl) navEl.classList.add('active');
+    if (tabId === 'tab-fill-builder') {
+      renderFillBuilderPreview();
+    }
   }
 
   // ---- Render questions list ----
@@ -265,7 +272,7 @@ const Admin = (() => {
     resetModal(type);
     document.getElementById('modal-title').textContent = type === 'open'
       ? 'Nouvelle question ouverte'
-      : (type === 'fill' ? 'Nouveau texte a trous' : 'Nouvelle question QCM');
+      : 'Nouvelle question QCM';
     openModal();
   }
 
@@ -286,7 +293,7 @@ const Admin = (() => {
     document.getElementById('modal-title').textContent = 'Modifier la question';
     document.getElementById('modal-type').value = q.type === 'open'
       ? 'open'
-      : (q.type === 'fill' ? 'fill' : (q.multipleAnswers ? 'multiple' : 'single'));
+      : (q.multipleAnswers ? 'multiple' : 'single');
     document.getElementById('modal-question-text').value = q.text;
     document.getElementById('modal-category').value = q.category || '';
     updateModalType();
@@ -295,11 +302,6 @@ const Admin = (() => {
     if (q.type === 'qcm') {
       const inputs = document.querySelectorAll('.choice-input');
       q.choices.forEach((c, i) => { if (inputs[i]) inputs[i].value = c; });
-    } else if (q.type === 'fill') {
-      const fillTextInput = document.getElementById('modal-fill-text');
-      const fillLevelInput = document.getElementById('modal-fill-difficulty');
-      if (fillTextInput) fillTextInput.value = q.sourceText || '';
-      if (fillLevelInput) fillLevelInput.value = String(Number(q.difficulty) === 2 ? 2 : 1);
     } else {
       document.getElementById('modal-open-answer').value = q.answer || '';
     }
@@ -309,10 +311,10 @@ const Admin = (() => {
   // ---- Save question from modal ----
   function saveQuestion() {
     const mode = document.getElementById('modal-type').value;
-    const type = mode === 'open' ? 'open' : (mode === 'fill' ? 'fill' : 'qcm');
+    const type = mode === 'open' ? 'open' : 'qcm';
     const text = document.getElementById('modal-question-text').value.trim();
     const category = document.getElementById('modal-category').value.trim();
-    if (!text && type !== 'fill') { App.showToast('Saisissez la question !', 'error'); return; }
+    if (!text) { App.showToast('Saisissez la question !', 'error'); return; }
 
     let qData = { type, text, category };
 
@@ -342,23 +344,10 @@ const Admin = (() => {
         qData.correct = correctIdx;
         qData.correctIndices = [correctIdx];
       }
-    } else if (type === 'open') {
+    } else {
       const ans = document.getElementById('modal-open-answer').value.trim();
       if (!ans) { App.showToast('Saisissez la réponse attendue !', 'error'); return; }
       qData.answer = ans;
-    } else if (type === 'fill') {
-      const fillRaw = document.getElementById('modal-fill-text').value;
-      const fillDifficulty = Number(document.getElementById('modal-fill-difficulty').value || 1);
-      const parsed = parseFillQuestion(fillRaw, fillDifficulty);
-      if (!parsed) {
-        App.showToast('Ajoutez au moins un trou avec [mot]', 'error');
-        return;
-      }
-      qData = {
-        ...qData,
-        ...parsed,
-        category,
-      };
     }
 
     if (editingId) {
@@ -399,15 +388,11 @@ const Admin = (() => {
     document.getElementById('modal-question').style.display = 'none';
   }
   function resetModal(type) {
-    document.getElementById('modal-type').value = type === 'open' ? 'open' : (type === 'fill' ? 'fill' : 'single');
+    document.getElementById('modal-type').value = type === 'open' ? 'open' : 'single';
     document.getElementById('modal-question-text').value = '';
     document.getElementById('modal-category').value = '';
     document.querySelectorAll('.choice-input').forEach(i => i.value = '');
     document.getElementById('modal-open-answer').value = '';
-    const fillTextInput = document.getElementById('modal-fill-text');
-    const fillLevelInput = document.getElementById('modal-fill-difficulty');
-    if (fillTextInput) fillTextInput.value = '';
-    if (fillLevelInput) fillLevelInput.value = '1';
     
     isMultipleChoice = false;
     correctIdx = 0;
@@ -419,11 +404,9 @@ const Admin = (() => {
   function updateModalType() {
     const mode = document.getElementById('modal-type').value;
     const isOpen = mode === 'open';
-    const isFill = mode === 'fill';
     isMultipleChoice = mode === 'multiple';
-    document.getElementById('modal-qcm-section').style.display = (!isOpen && !isFill) ? 'block' : 'none';
+    document.getElementById('modal-qcm-section').style.display = !isOpen ? 'block' : 'none';
     document.getElementById('modal-open-section').style.display = isOpen ? 'block' : 'none';
-    document.getElementById('modal-fill-section').style.display = isFill ? 'block' : 'none';
     
     // Si on passe en choix uniques et il y a plusieurs réponses, garder seulement la première
     if (!isMultipleChoice && correctIndices.length > 1) {
@@ -475,6 +458,146 @@ const Admin = (() => {
     correctIndices = [idx];
     isMultipleChoice = false;
     updateCorrectDisplay();
+  }
+
+  function tokenizeFillSourceText(rawText) {
+    const text = String(rawText || '');
+    const regex = /[A-Za-zÀ-ÖØ-öø-ÿ0-9'-]+/g;
+    const tokens = [];
+    let cursor = 0;
+    let wordIndex = 0;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > cursor) {
+        tokens.push({ type: 'text', value: text.slice(cursor, match.index) });
+      }
+      tokens.push({
+        type: 'word',
+        value: match[0],
+        start: match.index,
+        end: regex.lastIndex,
+        wordIndex,
+      });
+      wordIndex += 1;
+      cursor = regex.lastIndex;
+    }
+    if (cursor < text.length) {
+      tokens.push({ type: 'text', value: text.slice(cursor) });
+    }
+    return tokens;
+  }
+
+  function renderFillBuilderPreview() {
+    const textarea = document.getElementById('fill-builder-text');
+    const preview = document.getElementById('fill-builder-preview');
+    const selectedInfo = document.getElementById('fill-builder-selected');
+    if (!textarea || !preview || !selectedInfo) return;
+
+    const tokens = tokenizeFillSourceText(textarea.value);
+    fillBuilderState.tokens = tokens;
+
+    const validIndexes = new Set(tokens.filter(t => t.type === 'word').map(t => t.wordIndex));
+    fillBuilderState.selectedWordIndexes = new Set(
+      [...fillBuilderState.selectedWordIndexes].filter(idx => validIndexes.has(idx))
+    );
+
+    preview.innerHTML = '';
+    if (tokens.length === 0) {
+      preview.textContent = 'Aucun aperçu pour le moment.';
+    } else {
+      tokens.forEach(token => {
+        if (token.type === 'text') {
+          preview.appendChild(document.createTextNode(token.value));
+          return;
+        }
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'fill-builder-word';
+        btn.classList.toggle('is-selected', fillBuilderState.selectedWordIndexes.has(token.wordIndex));
+        btn.textContent = token.value;
+        btn.onclick = () => toggleFillBuilderWord(token.wordIndex);
+        preview.appendChild(btn);
+      });
+    }
+
+    const count = fillBuilderState.selectedWordIndexes.size;
+    selectedInfo.textContent = `${count} mot${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`;
+  }
+
+  function toggleFillBuilderWord(wordIndex) {
+    if (fillBuilderState.selectedWordIndexes.has(wordIndex)) {
+      fillBuilderState.selectedWordIndexes.delete(wordIndex);
+    } else {
+      fillBuilderState.selectedWordIndexes.add(wordIndex);
+    }
+    renderFillBuilderPreview();
+  }
+
+  function buildBracketedFillSourceText() {
+    const sourceText = String((document.getElementById('fill-builder-text') || {}).value || '');
+    const tokens = tokenizeFillSourceText(sourceText);
+    const selected = fillBuilderState.selectedWordIndexes;
+    return tokens.map(token => {
+      if (token.type !== 'word') return token.value;
+      return selected.has(token.wordIndex) ? `[${token.value}]` : token.value;
+    }).join('');
+  }
+
+  function buildFillActivityQuestionFromBuilder() {
+    const bracketed = buildBracketedFillSourceText();
+    const difficultyEl = document.getElementById('fill-builder-difficulty');
+    const difficulty = Number(difficultyEl ? difficultyEl.value : 1);
+    const parsed = parseFillQuestion(bracketed, difficulty);
+    if (!parsed) return null;
+    return {
+      id: Date.now(),
+      ...parsed,
+      category: 'Texte a trous',
+    };
+  }
+
+  function exportFillActivityJson() {
+    const q = buildFillActivityQuestionFromBuilder();
+    if (!q) {
+      App.showToast('Ajoutez du texte puis selectionnez des mots', 'error');
+      return;
+    }
+    const payload = {
+      type: 'fill-activity',
+      name: `Texte a trous ${new Date().toLocaleDateString('fr-FR')}`,
+      createdAt: new Date().toISOString(),
+      question: q,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `texte_a_trous_${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    App.showToast('Activite exportee en JSON', 'success');
+  }
+
+  function useFillActivity() {
+    const q = buildFillActivityQuestionFromBuilder();
+    if (!q) {
+      App.showToast('Ajoutez du texte puis selectionnez des mots', 'error');
+      return;
+    }
+    App.state.questions = [q];
+    App.state.currentQuiz = {
+      id: Date.now(),
+      name: `Activite Texte a trous ${new Date().toLocaleDateString('fr-FR')}`,
+      questions: [q],
+      date: new Date().toLocaleDateString('fr-FR'),
+      count: 1,
+      gameCode: generateUniqueSavedQuizCode(null),
+      moduleId: UNCLASSIFIED_MODULE_ID,
+      activityType: 'fill',
+    };
+    App.updateTrackLength();
+    renderQuestions();
+    App.showToast('Activite prête. Vous pouvez lancer le jeu.', 'success');
   }
 
   function createQuizFromImportedQuestions(importedQuestions, suggestedName) {
@@ -1202,6 +1325,7 @@ const Admin = (() => {
     showTab, renderQuestions, renderSaved,
     addQuestion, editQuestion, deleteQuestion, moveQuestion,
     saveQuestion, closeModal, updateModalType, setCorrect, toggleCorrectFromRow,
+    renderFillBuilderPreview, toggleFillBuilderWord, exportFillActivityJson, useFillActivity,
     importFromText, importFromFile, importFromFileObj,
     saveQuiz, loadSavedQuiz, loadAndLaunchQuiz, downloadSavedQuiz, deleteSavedQuiz,
     createModule, renameModule, deleteModule, renameSavedQuiz, changeQuizModule,

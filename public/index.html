@@ -111,8 +111,8 @@
         <span>🏎️</span> KIKABON
       </div>
       <nav class="sidebar-nav">
-        <button class="nav-item" onclick="Admin.showTab('tab-questions')" id="nav-questions">
-          ❓ Questions
+        <button class="nav-item" onclick="Admin.showTab('tab-fill-builder')" id="nav-fill-builder">
+          🧩 Créer Texte à trous
         </button>
         <button class="nav-item" onclick="Admin.showTab('tab-import')" id="nav-import">
           📤 Exporter
@@ -140,13 +140,44 @@
           <div class="header-actions">
             <button class="btn btn-secondary sm" onclick="Admin.addQuestion('qcm')">+ QCM</button>
             <button class="btn btn-secondary sm" onclick="Admin.addQuestion('open')">+ Question ouverte</button>
-            <button class="btn btn-secondary sm" onclick="Admin.addQuestion('fill')">+ Texte a trous</button>
           </div>
         </div>
         <div id="questions-list" class="questions-list"></div>
         <div class="empty-state" id="questions-empty">
           <p>📋 Aucune question pour l'instant</p>
           <p>Ajoutez des questions ou importez-les via l'onglet Importer</p>
+        </div>
+      </div>
+
+      <!-- TAB: Texte a trous (activite dediee) -->
+      <div class="admin-tab" id="tab-fill-builder">
+        <div class="admin-header">
+          <h2>🧩 Créer Texte à trous</h2>
+          <div class="header-actions">
+            <button class="btn btn-secondary sm" onclick="Admin.renderFillBuilderPreview()">Aperçu</button>
+            <button class="btn btn-ghost sm" onclick="Admin.exportFillActivityJson()">⬇️ Exporter JSON</button>
+            <button class="btn btn-primary sm" onclick="Admin.useFillActivity()">Utiliser cette activité</button>
+          </div>
+        </div>
+        <div class="import-zone">
+          <div class="import-card">
+            <h3>📄 Texte source</h3>
+            <p>Collez le texte complet puis cliquez sur les mots à transformer en trous.</p>
+            <textarea id="fill-builder-text" rows="12" placeholder="Collez votre texte ici..."></textarea>
+            <div class="form-group" style="margin-top:10px">
+              <label>Niveau de difficulté</label>
+              <select id="fill-builder-difficulty">
+                <option value="1">Niveau 1 - Drag & Drop</option>
+                <option value="2">Niveau 2 - Saisie manuelle</option>
+              </select>
+            </div>
+          </div>
+          <div class="import-card">
+            <h3>🎯 Sélection des mots</h3>
+            <p>Cliquez sur les mots pour les marquer comme trous.</p>
+            <div id="fill-builder-preview" class="fill-builder-preview">Aucun aperçu pour le moment.</div>
+            <p id="fill-builder-selected" class="form-hint">0 mot sélectionné</p>
+          </div>
         </div>
       </div>
 
@@ -445,7 +476,6 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
           <option value="single">Question à choix unique</option>
           <option value="multiple">Question à choix multiples</option>
           <option value="open">Question ouverte</option>
-          <option value="fill">Texte a trous</option>
         </select>
       </div>
       <div class="form-group">
@@ -478,20 +508,6 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
           <label>Réponse attendue (mots-clés séparés par virgule ou "ou")</label>
           <input type="text" id="modal-open-answer" placeholder="Ex: chlorophylle ou photosynthèse">
         </div>
-      </div>
-      <div id="modal-fill-section" style="display:none">
-        <div class="form-group">
-          <label>Texte avec trous (entourez les mots a masquer avec [crochets])</label>
-          <textarea id="modal-fill-text" rows="6" placeholder="Le [soleil] est une [etoile] au centre du systeme solaire."></textarea>
-        </div>
-        <div class="form-group">
-          <label>Niveau de difficulte</label>
-          <select id="modal-fill-difficulty">
-            <option value="1">Niveau 1 - Drag & Drop (liste de mots)</option>
-            <option value="2">Niveau 2 - Saisie manuelle</option>
-          </select>
-        </div>
-        <p class="form-hint">Le chrono par defaut est de 5 minutes pour ce mode.</p>
       </div>
       <div class="form-group">
         <label>Catégorie (optionnel)</label>
