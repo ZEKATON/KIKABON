@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  PLAYER.JS - Script autonome pour la page joueur (/play)
 //  Utilise SSE (EventSource) + fetch pour communication cross-device
 // ============================================================
@@ -27,40 +27,11 @@ const playerState = {
   score: 0,
   correctCount: 0,
   totalQuestions: 0,
-  knownPlayers: [],
-  answeredPlayers: {},
 };
 let reconnectTimeout = null;
 let playerAudioCtx = null;
 let heartbeatTimer = null;
 let heartbeatFailureCount = 0;
-function apiPath(path) {
-  if (window.App && typeof App.apiUrl === 'function') return App.apiUrl(path);
-  return path;
-}
-
-function ssePath(path) {
-  if (window.App && typeof App.sseUrl === 'function') return App.sseUrl(path);
-  return path;
-}
-
-function routePath(path) {
-  const raw = String(path || '');
-  const host = String(window.location.hostname || '').toLowerCase();
-  if (!host.endsWith('github.io')) return raw;
-  const qIdx = raw.indexOf('?');
-  const pathname = qIdx >= 0 ? raw.slice(0, qIdx) : raw;
-  const query = qIdx >= 0 ? raw.slice(qIdx) : '';
-  const segs = window.location.pathname.split('/').filter(Boolean);
-  const base = segs.length > 0 ? '/' + segs[0] : '';
-  if (pathname === '/play' || pathname === '/join-new-game') {
-    return base + '/player.html' + query;
-  }
-  if (pathname === '/admin' || pathname === '/') {
-    return base + '/index.html' + query;
-  }
-  return base + pathname + query;
-}
 
 function getOrCreateClientSessionId() {
   const key = 'kikabon_client_session';
@@ -78,9 +49,6 @@ function getOrCreateClientSessionId() {
 
 function getQuestionTypeLabel(question) {
   if (!question || question.type === 'open') return 'Question ouverte';
-  if (question.type === 'fill') {
-    return Number(question.difficulty) === 2 ? 'Texte a trous - Saisie' : 'Texte a trous - Glisser deposer';
-  }
   const correctIndices = Array.isArray(question.correctIndices)
     ? question.correctIndices.filter(i => Number.isInteger(i) && i >= 0)
     : (typeof question.correct === 'number' ? [question.correct] : []);
@@ -91,7 +59,7 @@ function getQuestionTypeLabel(question) {
 function formatQuestionMeta(question) {
   const typeLabel = getQuestionTypeLabel(question);
   const categoryLabel = String(question && question.category ? question.category : '').trim();
-  return categoryLabel ? `${typeLabel} â€¢ ${categoryLabel}` : typeLabel;
+  return categoryLabel ? `${typeLabel} • ${categoryLabel}` : typeLabel;
 }
 
 function updateLobbyPlayerCount(countOverride) {
@@ -101,21 +69,18 @@ function updateLobbyPlayerCount(countOverride) {
     ? countOverride
     : document.querySelectorAll('#players-list .lobby-player-card').length;
   if (count === 0) {
-    counter.textContent = 'Aucun joueur connectÃ©';
+    counter.textContent = 'Aucun joueur connecté';
     return;
   }
-  counter.textContent = `${count} joueur${count > 1 ? 's' : ''} connectÃ©${count > 1 ? 's' : ''}`;
+  counter.textContent = `${count} joueur${count > 1 ? 's' : ''} connecté${count > 1 ? 's' : ''}`;
 }
 
 function formatCorrectAnswerText(question, correctAnswer) {
   if (!correctAnswer) return '';
   const answerText = String(correctAnswer).trim();
-  if (question && question.type === 'fill') {
-    return '';
-  }
   if (!question || question.type === 'qcm') {
-    const hasMultiple = /^r[eÃ©]ponses\s+correctes\s*:/i.test(answerText);
-    const cleanAnswer = answerText.replace(/^r[eÃ©]ponses\s+correctes\s*:\s*/i, '');
+    const hasMultiple = /^r[eé]ponses\s+correctes\s*:/i.test(answerText);
+    const cleanAnswer = answerText.replace(/^r[eé]ponses\s+correctes\s*:\s*/i, '');
     return hasMultiple
       ? 'Les bonnes reponses sont : ' + cleanAnswer
       : 'La bonne reponse est : ' + cleanAnswer;
@@ -141,8 +106,6 @@ function resetPlayerStateOnly() {
   playerState.score = 0;
   playerState.correctCount = 0;
   playerState.totalQuestions = 0;
-  playerState.knownPlayers = [];
-  playerState.answeredPlayers = {};
   playerState.selectedAvatar = null;
   playerState.currentQuestion = null;
 }
@@ -156,79 +119,7 @@ function redirectToJoinNewGame(redirectCode, message) {
   const target = hasValidCode
     ? ('/join-new-game?code=' + String(redirectCode))
     : '/join-new-game';
-  window.location.assign(routePath(target));
-}
-
-function mergeKnownPlayer(player) {
-  if (!player || !player.id) return;
-  const idx = playerState.knownPlayers.findIndex(p => p.id === player.id);
-  const merged = {
-    id: player.id,
-    name: String(player.name || ''),
-    avatar: String(player.avatar || 'ðŸ™‚'),
-    color: String(player.color || '#ffffff'),
-    score: Number(player.score) || 0,
-  };
-  if (idx >= 0) {
-    playerState.knownPlayers[idx] = { ...playerState.knownPlayers[idx], ...merged };
-  } else {
-    playerState.knownPlayers.push(merged);
-  }
-}
-
-function resetAnsweredPlayers() {
-  playerState.answeredPlayers = {};
-  playerState.knownPlayers.forEach(player => {
-    playerState.answeredPlayers[player.id] = false;
-  });
-}
-
-function markPlayerAnswered(playerId) {
-  if (!playerId) return;
-  playerState.answeredPlayers[playerId] = true;
-}
-
-function renderGamePlayersStrip() {
-  const strip = document.getElementById('game-players-strip');
-  if (!strip) return;
-  if (getActiveScreenId() !== 'screen-game' || playerState.knownPlayers.length === 0) {
-    strip.style.display = 'none';
-    strip.innerHTML = '';
-    return;
-  }
-
-  const sorted = [...playerState.knownPlayers].sort((a, b) => {
-    const myId = playerState.currentPlayer && playerState.currentPlayer.id;
-    const aIsMe = a.id === myId;
-    const bIsMe = b.id === myId;
-    const aAnswered = !!playerState.answeredPlayers[a.id];
-    const bAnswered = !!playerState.answeredPlayers[b.id];
-    
-    if (aIsMe) return -1;
-    if (bIsMe) return 1;
-    if (aAnswered && !bAnswered) return -1;
-    if (!aAnswered && bAnswered) return 1;
-    return String(a.name || '').localeCompare(String(b.name || ''), 'fr');
-  });
-
-  strip.innerHTML = sorted.map(player => {
-    const isMe = playerState.currentPlayer && player.id === playerState.currentPlayer.id;
-    const answered = !!playerState.answeredPlayers[player.id];
-    const statusText = answered ? 'Valide' : 'En cours';
-    return '<div class="gps-chip' + (answered ? ' answered' : '') + (isMe ? ' is-me' : '') + '">' +
-      '<span class="gps-avatar">' + player.avatar + '</span>' +
-      '<span class="gps-name" style="color:' + player.color + '">' + player.name + (isMe ? ' (toi)' : '') + '</span>' +
-      '<span class="gps-status">' + statusText + '</span>' +
-      '</div>';
-  }).join('');
-
-  strip.style.display = 'grid';
-}
-
-function setGamePlayersStripVisible(visible) {
-  const strip = document.getElementById('game-players-strip');
-  if (!strip) return;
-  strip.style.display = visible ? 'grid' : 'none';
+  window.location.assign(target);
 }
 
 function playPlayerSound(type) {
@@ -260,20 +151,6 @@ function playPlayerSound(type) {
       g.gain.setValueAtTime(0.08, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
       o.start(now); o.stop(now + 0.14);
-    } else if (type === 'score') {
-      [1046, 1318].forEach((f, i) => {
-        const o = playerAudioCtx.createOscillator();
-        const g = playerAudioCtx.createGain();
-        o.type = 'triangle';
-        o.frequency.setValueAtTime(f, now + i * 0.04);
-        o.connect(g); g.connect(playerAudioCtx.destination);
-        const t0 = now + i * 0.04;
-        g.gain.setValueAtTime(0.001, t0);
-        g.gain.exponentialRampToValueAtTime(0.08, t0 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
-        o.start(t0);
-        o.stop(t0 + 0.2);
-      });
     }
   } catch (e) {}
 }
@@ -341,7 +218,7 @@ async function tryRestoreSession() {
   try { saved = JSON.parse(localStorage.getItem('kikabon_session') || 'null'); } catch (e) { saved = null; }
   if (!saved || !saved.playerId || !saved.gameCode) return false;
   try {
-    const activeRes = await fetch(apiPath('/api/game-active')).catch(() => null);
+    const activeRes = await fetch('/api/game-active').catch(() => null);
     if (activeRes && activeRes.ok) {
       const activeData = await activeRes.json().catch(() => ({}));
       const activeCode = String(activeData.code || '').trim();
@@ -351,7 +228,7 @@ async function tryRestoreSession() {
       }
     }
 
-    const res = await fetch(apiPath('/api/game/' + saved.gameCode));
+    const res = await fetch('/api/game/' + saved.gameCode);
     if (!res.ok) {
       const gameErr = await res.json().catch(() => ({}));
       if (res.status === 409 && /^\d{4}$/.test(String(gameErr.redirectCode || ''))) {
@@ -364,7 +241,7 @@ async function tryRestoreSession() {
 
     const gameMeta = await res.json().catch(() => ({}));
     if (gameMeta && gameMeta.gamePhase === 'ended') {
-      const activeRes = await fetch(apiPath('/api/game-active')).catch(() => null);
+      const activeRes = await fetch('/api/game-active').catch(() => null);
       if (activeRes && activeRes.ok) {
         const activeData = await activeRes.json().catch(() => ({}));
         const redirectCode = String(activeData.code || '').trim();
@@ -377,7 +254,7 @@ async function tryRestoreSession() {
       return false;
     }
 
-    const joinRes = await fetch(apiPath('/api/join/' + saved.gameCode), {
+    const joinRes = await fetch('/api/join/' + saved.gameCode, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -448,19 +325,19 @@ async function tryAutoJoinByStoredName() {
   if (!storedName) return false;
 
   try {
-    const activeRes = await fetch(apiPath('/api/game-active'));
+    const activeRes = await fetch('/api/game-active');
     if (!activeRes.ok) return false;
     const activeData = await activeRes.json().catch(() => ({}));
     const code = String(activeData.code || '').trim();
     if (!/^\d{4}$/.test(code)) return false;
 
-    const joinRes = await fetch(apiPath('/api/join/' + code), {
+    const joinRes = await fetch('/api/join/' + code, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sessionId: getOrCreateClientSessionId(),
         name: storedName,
-        avatar: storedAvatar || 'ðŸ¼',
+        avatar: storedAvatar || '🐼',
         color: PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)],
       }),
     });
@@ -491,7 +368,7 @@ async function tryAutoJoinByStoredName() {
     } else if (data.gamePhase === 'game') {
       showScreen('screen-game');
       const status = document.getElementById('game-status');
-      if (status) status.textContent = 'â³ Prochaine question...';
+      if (status) status.textContent = '⏳ Prochaine question...';
     }
 
     connectSSE(code);
@@ -525,33 +402,6 @@ function showToast(msg, type) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
 }
 
-function flashScoreDisplay() {
-  const scoreEl = document.getElementById('score-display');
-  if (!scoreEl) return;
-  scoreEl.classList.remove('score-bump');
-  void scoreEl.offsetWidth;
-  scoreEl.classList.add('score-bump');
-  clearTimeout(scoreEl._bumpTimer);
-  scoreEl._bumpTimer = setTimeout(() => scoreEl.classList.remove('score-bump'), 750);
-}
-
-function triggerScoreConfetti() {
-  const colors = ['#f7c948', '#4fa3ff', '#4ecb71', '#ff9f43', '#ff6b6b'];
-  const layer = document.createElement('div');
-  layer.className = 'score-confetti-layer';
-  for (let i = 0; i < 18; i++) {
-    const piece = document.createElement('span');
-    piece.className = 'score-confetti-piece';
-    piece.style.left = `${12 + Math.random() * 76}%`;
-    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
-    piece.style.animationDelay = `${Math.random() * 120}ms`;
-    piece.style.animationDuration = `${650 + Math.random() * 420}ms`;
-    layer.appendChild(piece);
-  }
-  document.body.appendChild(layer);
-  setTimeout(() => layer.remove(), 1300);
-}
-
 function stopHeartbeat() {
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer);
@@ -563,7 +413,7 @@ async function pingServerWithTimeout(timeoutMs) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(apiPath('/api/ping'), { cache: 'no-store', signal: controller.signal });
+    const response = await fetch('/api/ping', { cache: 'no-store', signal: controller.signal });
     if (!response.ok) return null;
     return await response.json().catch(() => null);
   } catch (e) {
@@ -642,7 +492,7 @@ function initAvatarGrid() {
     grid.appendChild(btn);
   });
   playerState.selectedAvatar = null;
-  if (preview) preview.textContent = 'â”';
+  if (preview) preview.textContent = '❔';
 }
 
 // ---- Etapes du formulaire rejoindre ----
@@ -665,7 +515,7 @@ async function goToJoinStep(step) {
       return;
     }
     try {
-      const res = await fetch(apiPath('/api/game/' + code));
+      const res = await fetch('/api/game/' + code);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (res.status === 409 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
@@ -697,7 +547,7 @@ async function joinGameWithCode() {
   const avatar = playerState.selectedAvatar;
 
   if (!name) {
-    showToast('Entrez votre prÃ©nom', 'error');
+    showToast('Entrez votre prénom', 'error');
     return;
   }
 
@@ -708,7 +558,7 @@ async function joinGameWithCode() {
 
   if (!code) {
     try {
-      const activeRes = await fetch(apiPath('/api/game-active'));
+      const activeRes = await fetch('/api/game-active');
       if (!activeRes.ok) {
         showToast('Aucune partie en cours. Attends que le professeur lance le jeu.', 'error');
         return;
@@ -735,7 +585,7 @@ async function joinGameWithCode() {
   );
 
   const performJoin = async (targetCode, canResumeForCode) => {
-    return fetch(apiPath('/api/join/' + targetCode), {
+    return fetch('/api/join/' + targetCode, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -791,7 +641,7 @@ async function joinGameWithCode() {
     addPlayerToLobby(player);
     showScreen('screen-lobby');
     const footerMsg = document.querySelector('#screen-lobby .lobby-footer p');
-    if (footerMsg) footerMsg.textContent = 'En attente du professeur pour dÃ©marrer le quiz...';
+    if (footerMsg) footerMsg.textContent = 'En attente du professeur pour démarrer le quiz...';
     updatePlayerHeader();
     updatePlayerStats();
     try { localStorage.setItem('playerName', name); } catch (e) {}
@@ -821,7 +671,7 @@ function connectSSE(code) {
   clearTimeout(reconnectTimeout);
 
   try {
-    const sse = new EventSource(ssePath('/api/events/' + code));
+    const sse = new EventSource('/api/events/' + code);
     playerState.sse = sse;
     startHeartbeat();
 
@@ -832,19 +682,12 @@ function connectSSE(code) {
         return;
       }
       const players = data.players || [];
-      playerState.knownPlayers = [];
-      playerState.answeredPlayers = {};
       const container = document.getElementById('players-list');
       if (container) container.innerHTML = '';
-      players.forEach(p => {
-        mergeKnownPlayer(p);
-        playerState.answeredPlayers[p.id] = !!p.answeredCurrentQuestion;
-        addPlayerToLobby(p);
-      });
-      renderGamePlayersStrip();
+      players.forEach(p => addPlayerToLobby(p));
       updateLobbyPlayerCount(players.length);
 
-      // Reconnexion : restaurer Ã©tat depuis serveur
+      // Reconnexion : restaurer état depuis serveur
       if (playerState.currentPlayer) {
         const serverPlayer = players.find(p => p.id === playerState.currentPlayer.id);
         if (serverPlayer) {
@@ -857,11 +700,6 @@ function connectSSE(code) {
           showScreen('screen-game');
           if (data.currentQuestion) {
             PlayerGame.showQuestion(data.currentQuestion.question, data.currentQuestion.idx, data.currentQuestion.total, data.currentQuestion.timeLeft);
-            if (data.fillCorrectionState && data.fillCorrectionState.active) {
-              PlayerGame.lockFillInputs();
-              const stCorrection = document.getElementById('game-status');
-              if (stCorrection) stCorrection.textContent = 'ðŸ§  Correction en cours par le professeur...';
-            }
           } else {
             const st = document.getElementById('game-status');
             if (st) st.textContent = '\u23f3 Prochaine question...';
@@ -876,12 +714,7 @@ function connectSSE(code) {
 
     sse.addEventListener('playerJoin', function(e) {
       const player = JSON.parse(e.data);
-      mergeKnownPlayer(player);
-      if (!(player.id in playerState.answeredPlayers)) {
-        playerState.answeredPlayers[player.id] = false;
-      }
       addPlayerToLobby(player);
-      renderGamePlayersStrip();
     });
 
     sse.addEventListener('gameStart', function() {
@@ -893,28 +726,11 @@ function connectSSE(code) {
     sse.addEventListener('question', function(e) {
       const data = JSON.parse(e.data);
       const idx = Number.isInteger(data.currentQuestionIndex) ? data.currentQuestionIndex : data.idx;
-      resetAnsweredPlayers();
       PlayerGame.showQuestion(data.question, idx, data.total, data.timeLeft);
-      renderGamePlayersStrip();
-    });
-
-    sse.addEventListener('playerAnswer', function(e) {
-      const data = JSON.parse(e.data || '{}');
-      if (data && data.playerId) {
-        markPlayerAnswered(data.playerId);
-        renderGamePlayersStrip();
-      }
     });
 
     sse.addEventListener('update_state', function(e) {
       const data = JSON.parse(e.data);
-      if (data.phase === 'correction_fill') {
-        PlayerGame.lockFillInputs();
-        setGamePlayersStripVisible(false);
-        const status = document.getElementById('game-status');
-        if (status) status.textContent = 'ðŸ§  Correction en cours par le professeur...';
-        return;
-      }
       if (data.phase !== 'question') return;
       const incomingIdx = Number.isInteger(data.currentQuestionIndex) ? data.currentQuestionIndex : null;
       if (incomingIdx === null || !data.question) return;
@@ -942,94 +758,12 @@ function connectSSE(code) {
         updatePlayerHeader();
         updatePlayerStats();
       }
-      if (!playerState.currentQuestion || playerState.currentQuestion.type !== 'fill') {
-        PlayerGame.showAnswer(data.correctIndices, data.correctAnswer, myResult);
-      }
-    });
-
-    sse.addEventListener('fillCorrectionStart', function(e) {
-      PlayerGame.lockFillInputs();
-      setGamePlayersStripVisible(false);
-      const data = JSON.parse((e && e.data) || '{}');
-      playerState.fillHolesCorrect = 0;
-      playerState.fillHolesTotal = Number(data.total) || 0;
-      const status = document.getElementById('game-status');
-      if (status) status.textContent = 'ðŸ§  Correction en cours...';
-    });
-
-    sse.addEventListener('fillCorrectionStep', function(e) {
-      const data = JSON.parse(e.data || '{}');
-      const updates = Array.isArray(data.scoreUpdates) ? data.scoreUpdates : [];
-      const winners = Array.isArray(data.correctPlayers) ? data.correctPlayers : [];
-      const myName = playerState.currentPlayer ? String(playerState.currentPlayer.name || '') : '';
-      const iWon = myName ? winners.some(name => String(name || '').toLowerCase() === myName.toLowerCase()) : false;
-      const pointsPerHole = Number(data.pointsPerHole) || 0;
-      if (iWon) playerState.fillHolesCorrect = (playerState.fillHolesCorrect || 0) + 1;
-      if (playerState.currentPlayer) {
-        const me = updates.find(item => item.playerId === playerState.currentPlayer.id);
-        if (me && Number.isFinite(Number(me.score))) {
-          playerState.score = Number(me.score);
-          playerState.currentPlayer.score = playerState.score;
-          updatePlayerHeader();
-          flashScoreDisplay();
-          saveSession();
-        }
-      }
-      const status = document.getElementById('game-status');
-      if (status) {
-        const holeNum = Number.isInteger(Number(data.holeIndex)) ? Number(data.holeIndex) + 1 : '?';
-        status.classList.remove('score-good', 'score-neutral');
-        status.classList.add(iWon ? 'score-good' : 'score-neutral');
-        status.textContent = iWon
-          ? `ðŸŽ‰ Trou ${holeNum} valide ! +${pointsPerHole} pts â€¢ Total: ${playerState.score} pts`
-          : `âŒ FAUX â€¢ Trou ${holeNum} corrige. Total actuel: ${playerState.score} pts`;
-      }
-      showToast(
-        iWon
-          ? `ðŸ”¥ Excellent ! +${pointsPerHole} pts â€¢ ${playerState.score} pts`
-          : `âŒ FAUX â€¢ Score en direct: ${playerState.score} pts`,
-        iWon ? 'success score-pop' : 'score-pop'
-      );
-      if (iWon) {
-        playPlayerSound('score');
-        triggerScoreConfetti();
-      }
-    });
-
-    sse.addEventListener('fillCorrectionEnd', function(e) {
-      const data = JSON.parse(e.data || '{}');
-      const results = Array.isArray(data.results) ? data.results : [];
-      PlayerGame.showFillScores(results);
-      const status = document.getElementById('game-status');
-      if (status) {
-        const holesCorrect = playerState.fillHolesCorrect || 0;
-        const holesTotal = playerState.fillHolesTotal || 0;
-        const myId = playerState.currentPlayer && playerState.currentPlayer.id;
-        const myEntry = myId ? results.find(r => r.playerId === myId) : null;
-        if (myEntry && myEntry.isCorrect) {
-          status.className = 'game-status score-good';
-          status.textContent = 'ðŸ† Bravo ! Tu as tout juste !';
-        } else if (holesCorrect > 0) {
-          status.className = 'game-status score-neutral';
-          status.textContent = `âœ… ${holesCorrect}/${holesTotal} trous corrects â€¢ Total: ${playerState.score} pts`;
-        } else {
-          status.className = 'game-status score-neutral';
-          status.textContent = `ðŸ“‹ Correction terminÃ©e â€¢ Total: ${playerState.score} pts`;
-        }
-      }
-    });
-
-    sse.addEventListener('scoreboard', function(e) {
-      const data = JSON.parse((e && e.data) || '{}');
-      const players = Array.isArray(data.players) ? data.players : [];
-      if (players.length > 0) {
-        PlayerGame.showPodium(players, { final: false });
-      }
+      PlayerGame.showAnswer(data.correctIndices, data.correctAnswer, myResult);
     });
 
     sse.addEventListener('gameEnd', function(e) {
       const data = JSON.parse(e.data);
-      PlayerGame.showPodium(data.players, { final: true });
+      PlayerGame.showPodium(data.players);
     });
 
     sse.addEventListener('game_reset_force', function(e) {
@@ -1038,9 +772,9 @@ function connectSSE(code) {
       clearPlayerIdentityStorage();
       resetPlayerStateOnly();
       if (/^\d{4}$/.test(targetCode)) {
-        window.location.href = routePath('/join-new-game?code=' + targetCode);
+        window.location.href = '/join-new-game?code=' + targetCode;
       } else {
-        window.location.href = routePath('/play');
+        window.location.href = '/play';
       }
     });
 
@@ -1050,7 +784,7 @@ function connectSSE(code) {
 
       const currentCode = String(playerState.gameCode || '').trim();
       if (currentCode) {
-        fetch(apiPath('/api/game-active'))
+        fetch('/api/game-active')
           .then(r => r.ok ? r.json() : null)
           .then(activeData => {
             const activeCode = String(activeData && activeData.code ? activeData.code : '').trim();
@@ -1101,8 +835,6 @@ function addPlayerToLobby(player) {
 const PlayerGame = (function() {
   let answered = false;
   let selectedIndices = [];
-  let fillAnswers = [];
-  let selectedFillChipId = null;
   let playerTimerInterval = null;
   let playerTimerTotal = 60;
   let playerTimeLeft = 60;
@@ -1113,7 +845,6 @@ const PlayerGame = (function() {
     answered = false;
     answerSubmitting = false;
     selectedIndices = [];
-    fillAnswers = [];
     currentDisplayedQuestionIndex = Number.isInteger(idx) ? idx : currentDisplayedQuestionIndex;
     playerState.currentQuestion = q;
     showScreen('screen-game');
@@ -1126,45 +857,15 @@ const PlayerGame = (function() {
     const qStatus = document.getElementById('game-status');
     const grid = document.getElementById('choices-grid');
     const openAns = document.getElementById('open-answer');
-    const fillSection = document.getElementById('fill-section');
-    const fillText = document.getElementById('fill-text');
-    const fillWordBank = document.getElementById('fill-word-bank');
-    const fillSubmitBtn = document.getElementById('fill-submit-btn');
 
     if (counter) counter.textContent = 'Q' + (idx + 1) + '/' + total;
     playPlayerSound('question');
-    if (qCat) {
-      if (q.type !== 'fill') {
-        qCat.textContent = formatQuestionMeta(q);
-        qCat.style.display = '';
-      } else {
-        qCat.style.display = 'none';
-      }
-    }
-    if (qText) {
-      if (q.type !== 'fill') {
-        qText.textContent = q.text;
-        qText.style.display = '';
-      } else {
-        qText.style.display = 'none';
-      }
-    }
+    if (qCat) qCat.textContent = formatQuestionMeta(q);
+    if (qText) qText.textContent = q.text;
     if (qCard) qCard.style.display = 'flex';
     if (qResult) qResult.style.display = 'none';
-    setGamePlayersStripVisible(true);
-    renderGamePlayersStrip();
     if (qStatus) qStatus.textContent = '';
     updatePlayerHeader();
-
-    if (fillSection) fillSection.style.display = 'none';
-    if (fillText) fillText.innerHTML = '';
-    if (fillWordBank) fillWordBank.innerHTML = '';
-    if (fillSubmitBtn) {
-      fillSubmitBtn.style.display = 'none';
-      fillSubmitBtn.disabled = true;
-      fillSubmitBtn.textContent = 'Valider mes reponses';
-      fillSubmitBtn.onclick = submitFillAnswers;
-    }
 
     if (q.type === 'qcm' && grid) {
       grid.style.display = 'grid';
@@ -1220,195 +921,9 @@ const PlayerGame = (function() {
           input.onkeydown = function(e) { if (e.key === 'Enter') submitOpenAnswer(); };
         }
       }
-    } else if (q.type === 'fill') {
-      if (grid) grid.style.display = 'none';
-      if (openAns) openAns.style.display = 'none';
-      const submitBtn = document.getElementById('qcm-submit-btn');
-      if (submitBtn) {
-        submitBtn.style.display = 'none';
-        submitBtn.disabled = true;
-      }
-      renderFillQuestion(q);
     }
     playerTimerTotal = time || 60;
     startPlayerTimer(time, playerTimerTotal);
-  }
-
-  function lockFillInputs() {
-    const fillText = document.getElementById('fill-text');
-    const fillWordBank = document.getElementById('fill-word-bank');
-    if (fillText) {
-      fillText.querySelectorAll('.fill-gap-input').forEach(input => {
-        input.disabled = true;
-      });
-      fillText.querySelectorAll('.fill-gap').forEach(gap => {
-        gap.classList.remove('drag-over');
-      });
-    }
-    if (fillWordBank) {
-      fillWordBank.querySelectorAll('.fill-word-chip').forEach(chip => {
-        chip.draggable = false;
-      });
-    }
-    const fillSubmitBtn = document.getElementById('fill-submit-btn');
-    if (fillSubmitBtn) {
-      fillSubmitBtn.disabled = true;
-    }
-  }
-
-  function parseFillTemplate(question, onGapCreate) {
-    const source = String(question && question.sourceText ? question.sourceText : '');
-    const regex = /\[[^\]]+\]/g;
-    let last = 0;
-    let holeIndex = 0;
-    const parts = [];
-    let match;
-    while ((match = regex.exec(source)) !== null) {
-      parts.push(document.createTextNode(source.slice(last, match.index)));
-      const gap = document.createElement('span');
-      gap.className = 'fill-gap';
-      gap.dataset.holeIndex = String(holeIndex);
-      if (onGapCreate) onGapCreate(gap, holeIndex);
-      parts.push(gap);
-      holeIndex += 1;
-      last = regex.lastIndex;
-    }
-    parts.push(document.createTextNode(source.slice(last)));
-    return parts;
-  }
-
-  function renderFillQuestion(question) {
-    const fillSection = document.getElementById('fill-section');
-    const fillText = document.getElementById('fill-text');
-    const fillWordBank = document.getElementById('fill-word-bank');
-    const fillSubmitBtn = document.getElementById('fill-submit-btn');
-    if (!fillSection || !fillText || !fillWordBank || !fillSubmitBtn) return;
-
-    const holes = Array.isArray(question.holes) ? question.holes : [];
-    fillAnswers = new Array(holes.length).fill('');
-    selectedFillChipId = null;
-    fillSection.style.display = 'flex';
-    fillText.innerHTML = '';
-
-    const isLevel2 = Number(question.difficulty) === 2;
-    const nodes = parseFillTemplate(question, (gap, holeIndex) => {
-      if (isLevel2) {
-        const input = document.createElement('input');
-        input.className = 'fill-gap-input';
-        input.placeholder = '...';
-        input.addEventListener('input', () => {
-          fillAnswers[holeIndex] = String(input.value || '').trim();
-          gap.classList.toggle('filled', !!fillAnswers[holeIndex]);
-          updateFillSubmitState();
-        });
-        gap.appendChild(input);
-      } else {
-        gap.textContent = '_____';
-        gap.addEventListener('dragover', event => {
-          if (answered) return;
-          event.preventDefault();
-          gap.classList.add('drag-over');
-        });
-        gap.addEventListener('dragleave', () => gap.classList.remove('drag-over'));
-        gap.addEventListener('drop', event => {
-          if (answered) return;
-          event.preventDefault();
-          gap.classList.remove('drag-over');
-          const chipId =
-            event.dataTransfer.getData('text/fill-chip-id')
-            || event.dataTransfer.getData('text/plain');
-          const chip = chipId ? fillWordBank.querySelector(`.fill-word-chip[data-chip-id="${chipId}"]`) : null;
-          if (!chip || chip.classList.contains('used')) return;
-          assignFillChipToGap(chip, gap, holeIndex, fillWordBank);
-        });
-        gap.addEventListener('click', () => {
-          if (answered || !selectedFillChipId) return;
-          const chip = fillWordBank.querySelector(`.fill-word-chip[data-chip-id="${selectedFillChipId}"]`);
-          if (!chip || chip.classList.contains('used')) return;
-          assignFillChipToGap(chip, gap, holeIndex, fillWordBank);
-        });
-      }
-    });
-    nodes.forEach(node => fillText.appendChild(node));
-
-    fillWordBank.innerHTML = '';
-    if (!isLevel2) {
-      holes
-        .map((hole, idx) => ({ idx, word: String(hole.word || '') }))
-        .sort(() => Math.random() - 0.5)
-        .forEach((hole, orderIdx) => {
-          const chip = document.createElement('span');
-          chip.className = 'fill-word-chip';
-          chip.draggable = true;
-          chip.dataset.word = hole.word;
-          chip.dataset.chipId = String(orderIdx + '_' + hole.idx);
-          chip.textContent = hole.word;
-          chip.addEventListener('dragstart', event => {
-            const chipId = chip.dataset.chipId;
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/fill-chip-id', chipId);
-            // Firefox/Safari fallback: some browsers only keep text/plain payloads.
-            event.dataTransfer.setData('text/plain', chipId);
-          });
-          chip.addEventListener('click', () => {
-            if (answered || chip.classList.contains('used')) return;
-            selectedFillChipId = chip.dataset.chipId;
-            fillWordBank.querySelectorAll('.fill-word-chip').forEach(c => c.classList.remove('selected'));
-            chip.classList.add('selected');
-          });
-          fillWordBank.appendChild(chip);
-        });
-    }
-
-    fillSubmitBtn.style.display = 'block';
-    fillSubmitBtn.disabled = true;
-    fillSubmitBtn.textContent = 'Valider mes reponses';
-  }
-
-  function assignFillChipToGap(chip, gap, holeIndex, fillWordBank) {
-    if (!chip || !gap || !fillWordBank) return;
-    const chipId = chip.dataset.chipId;
-
-    const previousChipId = gap.dataset.chipId;
-    if (previousChipId) {
-      const previousChip = fillWordBank.querySelector(`.fill-word-chip[data-chip-id="${previousChipId}"]`);
-      if (previousChip) {
-        previousChip.classList.remove('used');
-        if (previousChip.dataset.chipId === selectedFillChipId) {
-          previousChip.classList.add('selected');
-        }
-      }
-    }
-
-    const droppedWord = String(chip.dataset.word || chip.textContent || '').trim();
-    fillAnswers[holeIndex] = droppedWord;
-    gap.dataset.chipId = chipId;
-    gap.textContent = droppedWord;
-    gap.classList.add('filled');
-    chip.classList.add('used');
-    chip.classList.remove('selected');
-    if (selectedFillChipId === chipId) selectedFillChipId = null;
-    updateFillSubmitState();
-  }
-
-  function updateFillSubmitState() {
-    const fillSubmitBtn = document.getElementById('fill-submit-btn');
-    if (!fillSubmitBtn) return;
-    if (answered) {
-      fillSubmitBtn.disabled = true;
-      return;
-    }
-    const hasAll = Array.isArray(fillAnswers) && fillAnswers.length > 0 && fillAnswers.every(value => String(value || '').trim().length > 0);
-    fillSubmitBtn.disabled = !hasAll;
-  }
-
-  function submitFillAnswers() {
-    if (!Array.isArray(fillAnswers) || fillAnswers.length === 0) return;
-    if (fillAnswers.some(value => !String(value || '').trim())) {
-      showToast('Complete tous les trous', 'error');
-      return;
-    }
-    submitAnswer(null, null, fillAnswers.slice());
   }
 
   function toggleChoiceSelection(choiceIndex, clickedBtn) {
@@ -1451,7 +966,7 @@ const PlayerGame = (function() {
     submitAnswer(selectedIndices.slice(), null);
   }
 
-  async function submitAnswer(answerIndices, answerText, fillAnswerValues) {
+  async function submitAnswer(answerIndices, answerText) {
     if (answered || answerSubmitting) return;
     answerSubmitting = true;
 
@@ -1474,28 +989,18 @@ const PlayerGame = (function() {
       submitBtn.classList.add('answer-locked');
     }
 
-    const fillSubmitBtn = document.getElementById('fill-submit-btn');
-    if (fillSubmitBtn) {
-      fillSubmitBtn.disabled = true;
-      fillSubmitBtn.textContent = 'Envoi...';
-    }
-    lockFillInputs();
-
     const player = playerState.currentPlayer;
     const code = playerState.gameCode;
     if (player && code) {
       try {
-        const res = await fetch(apiPath('/api/answer/' + code), {
+        const res = await fetch('/api/answer/' + code, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           playerId: player.id,
           answerIndices: normalizedIndices,
           answerIndex: firstIndex,
-          answer: answerText,
-          fillAnswers: Array.isArray(fillAnswerValues)
-            ? fillAnswerValues.map(v => String(v || '').trim())
-            : undefined,
+          answer: answerText
         })
         });
         const ack = await res.json().catch(() => ({ ok: false }));
@@ -1517,19 +1022,11 @@ const PlayerGame = (function() {
         }
         const openInput = document.getElementById('open-input');
         if (openInput) openInput.disabled = false;
-        if (fillSubmitBtn) {
-          fillSubmitBtn.disabled = false;
-          fillSubmitBtn.textContent = 'Valider mes reponses';
-        }
         showToast('Connexion instable: reessaie', 'error');
         return;
       }
     }
     answerSubmitting = false;
-    if (player && player.id) {
-      markPlayerAnswered(player.id);
-      renderGamePlayersStrip();
-    }
     playPlayerSound('submit');
     showToast('Reponse enregistree', 'success');
     if (submitBtn) {
@@ -1537,12 +1034,8 @@ const PlayerGame = (function() {
       submitBtn.disabled = true;
       submitBtn.classList.add('answer-locked');
     }
-    if (fillSubmitBtn) {
-      fillSubmitBtn.textContent = 'Reponse enregistree';
-      fillSubmitBtn.disabled = true;
-    }
     const status = document.getElementById('game-status');
-    if (status) status.textContent = 'âœ… Reponse enregistree';
+    if (status) status.textContent = '✅ Reponse enregistree';
   }
 
   function submitOpenAnswer() {
@@ -1586,7 +1079,6 @@ const PlayerGame = (function() {
 
   function showAnswer(correctIndices, correctAnswer, myResult) {
     stopPlayerTimer();
-    lockFillInputs();
     const grid = document.getElementById('choices-grid');
     if (grid) {
       grid.querySelectorAll('.choice-btn').forEach((btn, i) => {
@@ -1600,8 +1092,6 @@ const PlayerGame = (function() {
     }
     const submitBtn = document.getElementById('qcm-submit-btn');
     if (submitBtn) submitBtn.style.display = 'none';
-    const fillSubmitBtn = document.getElementById('fill-submit-btn');
-    if (fillSubmitBtn) fillSubmitBtn.style.display = 'none';
     const qCard = document.getElementById('question-card');
     const result = document.getElementById('question-result');
     const icon = document.getElementById('result-icon');
@@ -1609,15 +1099,14 @@ const PlayerGame = (function() {
     const ans = document.getElementById('result-answer');
     if (qCard) qCard.style.display = 'none';
     if (result) {
-      setGamePlayersStripVisible(false);
       if (myResult && myResult.isCorrect) {
-        if (icon) icon.textContent = 'âœ…';
+        if (icon) icon.textContent = '✅';
         if (text) text.textContent = 'Bravo ! Bonne reponse';
       } else if (myResult && !myResult.isCorrect) {
-        if (icon) icon.textContent = 'âŒ';
-        if (text) text.textContent = 'FAUX';
+        if (icon) icon.textContent = '❌';
+        if (text) text.textContent = 'Bonne reponse affichee';
       } else {
-        if (icon) icon.textContent = 'â„¹ï¸';
+        if (icon) icon.textContent = 'ℹ️';
         if (text) text.textContent = 'Resultat';
       }
       if (ans) {
@@ -1627,10 +1116,8 @@ const PlayerGame = (function() {
     }
   }
 
-  function showPodium(players, options) {
-    const opts = options || {};
-    const isFinal = opts.final !== false;
-    if (isFinal) clearSession();
+  function showPodium(players) {
+    clearSession();
     const standings = document.getElementById('podium-standings');
     if (!standings) return;
     const sorted = players.slice().sort((a, b) => b.score - a.score);
@@ -1650,92 +1137,7 @@ const PlayerGame = (function() {
               '</div>';
     });
     standings.innerHTML = html;
-
-    // Bloc stats personnel
-    const statEl = document.getElementById('podium-player-stat');
-    if (statEl && me) {
-      const rank = sorted.findIndex(p => p.id === me.id) + 1;
-      const total = playerState.totalQuestions;
-      const correct = playerState.correctCount;
-      const pct = total > 0 ? Math.round(correct / total * 100) : 0;
-      const rankEmoji = rank === 1 ? 'ðŸ¥‡' : rank === 2 ? 'ðŸ¥ˆ' : rank === 3 ? 'ðŸ¥‰' : 'ðŸ…';
-      const pctColor = pct >= 80 ? '#4ecb71' : pct >= 50 ? '#f7c948' : '#ff6b6b';
-      const encouragement = pct >= 80
-        ? 'ðŸŒŸ Excellent travail, continue comme ca !'
-        : pct >= 60
-          ? 'ðŸ‘ Tres bon score, encore un petit effort !'
-          : pct >= 40
-            ? 'ðŸ‘ Bon debut, tu progresses !'
-            : 'ðŸ’ª Courage, la prochaine manche sera meilleure !';
-      statEl.innerHTML =
-        '<div class="pps-main" style="color:' + pctColor + '">' + pct + '%</div>' +
-        '<div class="pps-sub">de bonnes reponses</div>' +
-        '<div class="pps-bar-wrap"><div class="pps-bar" style="width:' + pct + '%;background:' + pctColor + '"></div></div>' +
-        '<div class="pps-row">' +
-          '<span class="pps-icon">' + rankEmoji + '</span>' +
-          '<span class="pps-label">Classement ' + rank + 'e/' + sorted.length + '</span>' +
-          '<span class="pps-value" style="color:' + pctColor + '">' + correct + '/' + total + '</span>' +
-        '</div>' +
-        '<div class="pps-message" style="border-color:' + pctColor + '">' + encouragement + '</div>';
-      statEl.style.display = 'flex';
-    }
-
     showScreen('screen-podium');
-    
-    // Auto-transition aprÃ¨s 30 secondes si final
-    if (isFinal) {
-      if (window.podiumTimeout) clearTimeout(window.podiumTimeout);
-      window.podiumTimeout = setTimeout(() => {
-        const currentScreen = getActiveScreenId();
-        if (currentScreen === 'screen-podium') {
-          returnToJoinScreen();
-        }
-      }, 30000);
-    }
-  }
-
-  function showFillScores(results) {
-    if (!Array.isArray(results) || results.length === 0) return;
-    const result = document.getElementById('question-result');
-    const icon = document.getElementById('result-icon');
-    const text = document.getElementById('result-text');
-    const ans = document.getElementById('result-answer');
-    const qCard = document.getElementById('question-card');
-    if (qCard) qCard.style.display = 'none';
-    if (!result || !ans) return;
-    setGamePlayersStripVisible(false);
-
-    const sorted = [...results].sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
-
-    // Feedback personnalisÃ© pour le joueur courant
-    const myId = playerState.currentPlayer && playerState.currentPlayer.id;
-    const myEntry = myId ? results.find(r => r.playerId === myId) : null;
-    const holesCorrect = playerState.fillHolesCorrect || 0;
-    const holesTotal = playerState.fillHolesTotal || 0;
-    if (myEntry) {
-      if (myEntry.isCorrect) {
-        if (icon) icon.textContent = 'ðŸ†';
-        if (text) text.textContent = 'Parfait ! Tous les trous corrects !';
-      } else if (holesCorrect > 0) {
-        if (icon) icon.textContent = 'ðŸ‘';
-        if (text) text.textContent = holesCorrect + '/' + holesTotal + ' trous corrects';
-      } else {
-        if (icon) icon.textContent = 'ðŸ“';
-        if (text) text.textContent = 'Texte Ã  trous terminÃ©';
-      }
-    } else {
-      if (icon) icon.textContent = 'ðŸ';
-      if (text) text.textContent = 'Scores des joueurs';
-    }
-
-    ans.innerHTML = sorted.map((row, idx) => {
-      const name = String(row.playerName || `Joueur ${idx + 1}`);
-      const score = Number(row.score) || 0;
-      const isMe = myId && row.playerId === myId;
-      return `<span style="${isMe ? 'font-weight:800;color:var(--accent)' : ''}">${idx + 1}. ${name} â€” ${score} pts${isMe ? ' â­' : ''}</span>`;
-    }).join('\n');
-    ans.style.whiteSpace = 'pre-line';
-    result.style.display = 'flex';
   }
 
   return {
@@ -1746,11 +1148,9 @@ const PlayerGame = (function() {
     submitQcmAnswer: submitQcmAnswer,
     submitAnswer: submitAnswer,
     submitOpenAnswer: submitOpenAnswer,
-    lockFillInputs: lockFillInputs,
     updateTimer: updateTimer,
     showAnswer: showAnswer,
-    showPodium: showPodium,
-    showFillScores: showFillScores
+    showPodium: showPodium
   };
 })();
 
@@ -1764,7 +1164,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const params = new URLSearchParams(window.location.search);
   const forcedCode = String(params.get('code') || '').trim();
-  const isForcedJoinRoute = window.location.pathname === '/join-new-game' || window.location.pathname.endsWith('/player.html');
+  const isForcedJoinRoute = window.location.pathname === '/join-new-game';
 
   if (isForcedJoinRoute) {
     clearSession();

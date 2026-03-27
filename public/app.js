@@ -40,30 +40,11 @@ const App = (() => {
   const QUIZ_STORAGE_LEGACY_KEYS = ['quizzes'];
   const QUESTIONS_STORAGE_KEY = 'quizrace_questions';
   const SETTINGS_STORAGE_KEY = 'quizrace_settings';
-  const REMOTE_API_ORIGIN = 'https://kikabon.onrender.com';
 
   // ---- Garde admin ----
   const ADMIN_SCREENS = new Set(['screen-quiz-list', 'screen-admin', 'screen-lobby', 'screen-game']);
   const ADMIN_PASSWORD = 'FORMA974';
   const ADMIN_SESSION_KEY = 'kikabon_admin_ok';
-
-  function shouldUseRemoteApi() {
-    const host = String(window.location.hostname || '').toLowerCase();
-    return host.endsWith('github.io');
-  }
-
-  function getApiOrigin() {
-    if (shouldUseRemoteApi()) return REMOTE_API_ORIGIN;
-    return window.location.origin;
-  }
-
-  function apiUrl(apiPath) {
-    return new URL(apiPath, getApiOrigin()).toString();
-  }
-
-  function sseUrl(apiPath) {
-    return apiUrl(apiPath);
-  }
 
   // ---- Écrans ----
   function showScreen(id) {
@@ -634,13 +615,6 @@ const App = (() => {
     state.settings.trackLength = Math.max(state.questions.length, 1);
   }
 
-  function isSavedFillActivity(quiz) {
-    if (!quiz || typeof quiz !== 'object') return false;
-    if (String(quiz.activityType || '').toLowerCase() === 'fill') return true;
-    const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
-    return questions.length === 1 && questions[0] && questions[0].type === 'fill';
-  }
-
   // ---- Afficher la page de sélection de quiz ----
   function renderQuizList() {
     const grid = document.getElementById('quiz-grid');
@@ -679,8 +653,7 @@ const App = (() => {
     }
     
     // Afficher les quiz sauvegardés
-    const savedStandardQuizzes = (state.savedQuizzes || []).filter(quiz => !isSavedFillActivity(quiz));
-    savedStandardQuizzes.forEach(quiz => {
+    state.savedQuizzes.forEach(quiz => {
       const card = document.createElement('div');
       card.className = 'quiz-card saved-quiz';
       
@@ -705,7 +678,7 @@ const App = (() => {
     });
     
     // Gérer l'état vide
-    const hasContent = state.questions.length > 0 || savedStandardQuizzes.length > 0;
+    const hasContent = state.questions.length > 0 || state.savedQuizzes.length > 0;
     grid.style.display = hasContent ? 'grid' : 'none';
     empty.style.display = hasContent ? 'none' : 'flex';
   }
@@ -715,7 +688,7 @@ const App = (() => {
     renderQuizList();
   }
 
-  return { state, AVATARS, PLAYER_COLORS, showScreen, requestAdminAccess, submitAdminPassword, cancelAdminAccess, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, startLobbyMusic, stopLobbyMusic, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, apiUrl, sseUrl, init };
+  return { state, AVATARS, PLAYER_COLORS, showScreen, requestAdminAccess, submitAdminPassword, cancelAdminAccess, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, startLobbyMusic, stopLobbyMusic, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, init };
 })();
 
 // ============================================================

@@ -80,11 +80,6 @@
       <div class="question-category" id="question-category">Question</div>
       <h2 id="question-text" class="question-text-player"></h2>
       <div class="choices-grid" id="choices-grid"></div>
-      <div class="fill-section" id="fill-section" style="display:none">
-        <div class="fill-text" id="fill-text"></div>
-        <div class="fill-word-bank" id="fill-word-bank"></div>
-        <button class="btn btn-primary" type="button" id="fill-submit-btn" style="display:none">Valider mes reponses</button>
-      </div>
       <div class="open-answer" id="open-answer" style="display:none">
         <input type="text" id="open-input" placeholder="Votre réponse...">
         <button class="btn btn-primary" type="button" onclick="PlayerGame.submitOpenAnswer()">✓ Valider</button>
@@ -98,8 +93,6 @@
     </div>
 
     <div class="game-status" id="game-status">⏳ En attente du professeur...</div>
-
-    <div class="game-players-strip" id="game-players-strip" style="display:none"></div>
 
     <div class="game-footer">
       <div class="player-info">
@@ -121,7 +114,6 @@
     <div class="podium-standings" id="podium-standings">
       <!-- Le classement sera généré ici -->
     </div>
-    <div class="podium-player-stat" id="podium-player-stat" style="display:none"></div>
     <button class="btn btn-primary" onclick="returnToJoinScreen()">🎮 Nouvelle partie</button>
   </div>
 </div>

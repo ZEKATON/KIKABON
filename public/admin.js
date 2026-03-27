@@ -14,70 +14,6 @@ const Admin = (() => {
   let adminSSE = null;
   let dragQuizId = null;
   let dragModuleId = null;
-  const fillBuilderState = {
-    tokens: [],
-    selectedWordIndexes: new Set(),
-    bindingsReady: false,
-  };
-
-  function getQuestionTypeDisplay(type, question) {
-    if (type === 'qcm') return 'QCM';
-    if (type === 'fill') {
-      const level = Number(question && question.difficulty) === 2 ? 'N2' : 'N1';
-      return `Texte a trous ${level}`;
-    }
-    return 'Ouverte';
-  }
-
-  function isFillActivityQuiz(quiz) {
-    if (!quiz || typeof quiz !== 'object') return false;
-    if (String(quiz.activityType || '').toLowerCase() === 'fill') return true;
-    const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
-    return questions.length === 1 && questions[0] && questions[0].type === 'fill';
-  }
-
-  function isStandardSavedQuiz(quiz) {
-    return !!quiz && !isFillActivityQuiz(quiz);
-  }
-
-  function findStandardSavedQuizById(id) {
-    const numericId = Number(id);
-    const quiz = (App.state.savedQuizzes || []).find(q => q && q.id === numericId);
-    return isStandardSavedQuiz(quiz) ? quiz : null;
-  }
-
-  function parseFillQuestion(rawText, difficulty) {
-    const source = String(rawText || '').trim();
-    if (!source) return null;
-    const regex = /\[([^\]]+)\]/g;
-    const segments = [];
-    const holes = [];
-    let cursor = 0;
-    let match;
-    while ((match = regex.exec(source)) !== null) {
-      segments.push(source.slice(cursor, match.index));
-      holes.push(String(match[1] || '').trim());
-      cursor = regex.lastIndex;
-    }
-    segments.push(source.slice(cursor));
-
-    const validHoles = holes.filter(Boolean);
-    if (validHoles.length === 0) return null;
-
-    const maskedText = segments.reduce((acc, part, idx) => {
-      const gap = idx < validHoles.length ? ' _____ ' : '';
-      return acc + part + gap;
-    }, '').replace(/\s+/g, ' ').trim();
-
-    return {
-      type: 'fill',
-      sourceText: source,
-      text: maskedText,
-      segments,
-      holes: validHoles.map((word, index) => ({ id: index, word })),
-      difficulty: Number(difficulty) === 2 ? 2 : 1,
-    };
-  }
 
   function normalizeModuleName(name) {
     return String(name || '').trim();
@@ -228,7 +164,7 @@ const Admin = (() => {
     App.state.questions = [];
     renderQuestions();
     App.showScreen('screen-admin');
-    showTab('tab-saved');
+      showTab('tab-saved');
   }
 
   // ---- Navigation tabs ----
@@ -239,10 +175,6 @@ const Admin = (() => {
     const navId = 'nav-' + tabId.replace('tab-', '');
     const navEl = document.getElementById(navId);
     if (navEl) navEl.classList.add('active');
-    if (tabId === 'tab-fill-builder') {
-      ensureFillBuilderBindings();
-      renderFillBuilderPreview();
-    }
   }
 
   // ---- Render questions list ----
@@ -258,7 +190,7 @@ const Admin = (() => {
       const preview = q.text.length > 80 ? q.text.substring(0, 80) + '…' : q.text;
       item.innerHTML = `
         <span class="q-number">${idx + 1}</span>
-        <span class="q-type-badge">${getQuestionTypeDisplay(q.type, q)}</span>
+        <span class="q-type-badge">${q.type === 'qcm' ? 'QCM' : 'Ouverte'}</span>
         <span class="q-text">${preview}</span>
         <div class="q-actions">
           <button class="q-action-btn" onclick="Admin.editQuestion(${q.id})" title="Modifier">✏️</button>
@@ -289,9 +221,7 @@ const Admin = (() => {
     editingId = null;
     correctIdx = 0;
     resetModal(type);
-    document.getElementById('modal-title').textContent = type === 'open'
-      ? 'Nouvelle question ouverte'
-      : 'Nouvelle question QCM';
+    document.getElementById('modal-title').textContent = type === 'open' ? 'Nouvelle question ouverte' : 'Nouvelle question QCM';
     openModal();
   }
 
@@ -424,7 +354,7 @@ const Admin = (() => {
     const mode = document.getElementById('modal-type').value;
     const isOpen = mode === 'open';
     isMultipleChoice = mode === 'multiple';
-    document.getElementById('modal-qcm-section').style.display = !isOpen ? 'block' : 'none';
+    document.getElementById('modal-qcm-section').style.display = isOpen ? 'none' : 'block';
     document.getElementById('modal-open-section').style.display = isOpen ? 'block' : 'none';
     
     // Si on passe en choix uniques et il y a plusieurs réponses, garder seulement la première
@@ -477,199 +407,6 @@ const Admin = (() => {
     correctIndices = [idx];
     isMultipleChoice = false;
     updateCorrectDisplay();
-  }
-
-  function tokenizeFillSourceText(rawText) {
-    const text = String(rawText || '');
-    const regex = /[A-Za-zÀ-ÖØ-öø-ÿ0-9'-]+/g;
-    const tokens = [];
-    let cursor = 0;
-    let wordIndex = 0;
-    let match;
-    while ((match = regex.exec(text)) !== null) {
-      if (match.index > cursor) {
-        tokens.push({ type: 'text', value: text.slice(cursor, match.index) });
-      }
-      tokens.push({
-        type: 'word',
-        value: match[0],
-        start: match.index,
-        end: regex.lastIndex,
-        wordIndex,
-      });
-      wordIndex += 1;
-      cursor = regex.lastIndex;
-    }
-    if (cursor < text.length) {
-      tokens.push({ type: 'text', value: text.slice(cursor) });
-    }
-    return tokens;
-  }
-
-  function renderFillBuilderPreview() {
-    const textarea = document.getElementById('fill-builder-text');
-    const preview = document.getElementById('fill-builder-preview');
-    const selectedInfo = document.getElementById('fill-builder-selected');
-    if (!textarea || !preview || !selectedInfo) return;
-
-    const tokens = tokenizeFillSourceText(textarea.value);
-    fillBuilderState.tokens = tokens;
-
-    const validIndexes = new Set(tokens.filter(t => t.type === 'word').map(t => t.wordIndex));
-    fillBuilderState.selectedWordIndexes = new Set(
-      [...fillBuilderState.selectedWordIndexes].filter(idx => validIndexes.has(idx))
-    );
-
-    preview.innerHTML = '';
-    if (tokens.length === 0) {
-      preview.textContent = 'Aucun aperçu pour le moment.';
-    } else {
-      tokens.forEach(token => {
-        if (token.type === 'text') {
-          preview.appendChild(document.createTextNode(token.value));
-          return;
-        }
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'fill-builder-word';
-        btn.classList.toggle('is-selected', fillBuilderState.selectedWordIndexes.has(token.wordIndex));
-        btn.textContent = token.value;
-        btn.onclick = () => toggleFillBuilderWord(token.wordIndex);
-        preview.appendChild(btn);
-      });
-    }
-
-    const count = fillBuilderState.selectedWordIndexes.size;
-    selectedInfo.textContent = `${count} mot${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`;
-  }
-
-  function ensureFillBuilderBindings() {
-    if (fillBuilderState.bindingsReady) return;
-    const textarea = document.getElementById('fill-builder-text');
-    if (!textarea) return;
-
-    const rerender = () => renderFillBuilderPreview();
-    textarea.addEventListener('input', rerender);
-    textarea.addEventListener('keyup', rerender);
-    textarea.addEventListener('click', rerender);
-    textarea.addEventListener('select', rerender);
-
-    fillBuilderState.bindingsReady = true;
-  }
-
-  function toggleFillBuilderWord(wordIndex) {
-    if (fillBuilderState.selectedWordIndexes.has(wordIndex)) {
-      fillBuilderState.selectedWordIndexes.delete(wordIndex);
-    } else {
-      fillBuilderState.selectedWordIndexes.add(wordIndex);
-    }
-    renderFillBuilderPreview();
-  }
-
-  function addFillSelectionFromSource() {
-    const textarea = document.getElementById('fill-builder-text');
-    if (!textarea) return;
-
-    const start = Number(textarea.selectionStart);
-    const end = Number(textarea.selectionEnd);
-    if (!Number.isInteger(start) || !Number.isInteger(end) || end <= start) {
-      App.showToast('Sélectionnez un ou plusieurs mots dans le texte source', 'error');
-      return;
-    }
-
-    const sourceText = String(textarea.value || '');
-    const tokens = tokenizeFillSourceText(sourceText);
-    let added = 0;
-    tokens.forEach(token => {
-      if (token.type !== 'word') return;
-      // Add words that overlap the selected range.
-      const overlaps = token.start < end && token.end > start;
-      if (!overlaps) return;
-      if (!fillBuilderState.selectedWordIndexes.has(token.wordIndex)) {
-        fillBuilderState.selectedWordIndexes.add(token.wordIndex);
-        added += 1;
-      }
-    });
-
-    renderFillBuilderPreview();
-    if (added > 0) {
-      App.showToast(`${added} mot(s) ajouté(s) aux trous`, 'success');
-    } else {
-      App.showToast('Aucun mot valide trouvé dans la sélection', 'error');
-    }
-  }
-
-  function clearFillSelection() {
-    fillBuilderState.selectedWordIndexes.clear();
-    renderFillBuilderPreview();
-    App.showToast('Sélection des trous réinitialisée', 'success');
-  }
-
-  function buildBracketedFillSourceText() {
-    const sourceText = String((document.getElementById('fill-builder-text') || {}).value || '');
-    const tokens = tokenizeFillSourceText(sourceText);
-    const selected = fillBuilderState.selectedWordIndexes;
-    return tokens.map(token => {
-      if (token.type !== 'word') return token.value;
-      return selected.has(token.wordIndex) ? `[${token.value}]` : token.value;
-    }).join('');
-  }
-
-  function buildFillActivityQuestionFromBuilder() {
-    const bracketed = buildBracketedFillSourceText();
-    const difficultyEl = document.getElementById('fill-builder-difficulty');
-    const difficulty = Number(difficultyEl ? difficultyEl.value : 1);
-    const parsed = parseFillQuestion(bracketed, difficulty);
-    if (!parsed) return null;
-    return {
-      id: Date.now(),
-      ...parsed,
-      category: 'Texte a trous',
-    };
-  }
-
-  function exportFillActivityJson() {
-    const q = buildFillActivityQuestionFromBuilder();
-    if (!q) {
-      App.showToast('Ajoutez du texte puis selectionnez des mots', 'error');
-      return;
-    }
-    const payload = {
-      type: 'fill-activity',
-      name: `Texte a trous ${new Date().toLocaleDateString('fr-FR')}`,
-      createdAt: new Date().toISOString(),
-      question: q,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `texte_a_trous_${Date.now()}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    App.showToast('Activite exportee en JSON', 'success');
-  }
-
-  function useFillActivity() {
-    const q = buildFillActivityQuestionFromBuilder();
-    if (!q) {
-      App.showToast('Ajoutez du texte puis selectionnez des mots', 'error');
-      return;
-    }
-    App.state.questions = [q];
-    App.state.currentQuiz = {
-      id: Date.now(),
-      name: `Activite Texte a trous ${new Date().toLocaleDateString('fr-FR')}`,
-      questions: [q],
-      date: new Date().toLocaleDateString('fr-FR'),
-      count: 1,
-      gameCode: generateUniqueSavedQuizCode(null),
-      moduleId: UNCLASSIFIED_MODULE_ID,
-      activityType: 'fill',
-    };
-    App.updateTrackLength();
-    renderQuestions();
-    App.showToast('Activite prête. Vous pouvez lancer le jeu.', 'success');
   }
 
   function createQuizFromImportedQuestions(importedQuestions, suggestedName) {
@@ -977,14 +714,9 @@ const Admin = (() => {
     const qs = App.state.questions;
     if (qs.length === 0) { App.showToast('Aucune question à sauvegarder !', 'error'); return; }
 
-    if (qs.some(q => q && q.type === 'fill')) {
-      App.showToast('Le texte a trous est une activite separee, non sauvegardee dans Mes Quiz.', 'error');
-      return;
-    }
-
     App.loadSavedQuizzes();
 
-    const existingQuiz = App.state.currentQuiz && findStandardSavedQuizById(App.state.currentQuiz.id);
+    const existingQuiz = App.state.currentQuiz && App.state.savedQuizzes.find(q => q.id === App.state.currentQuiz.id);
 
     if (existingQuiz) {
       // Mise à jour du quiz existant — pas de prompt, pas de téléchargement
@@ -1037,7 +769,7 @@ const Admin = (() => {
     const list = document.getElementById('saved-quizzes-list');
     const empty = document.getElementById('saved-empty');
     list.innerHTML = '';
-    const saved = (App.state.savedQuizzes || []).filter(isStandardSavedQuiz);
+    const saved = App.state.savedQuizzes || [];
     const modules = ensureQuizModuleAssignments();
     empty.style.display = saved.length === 0 ? 'flex' : 'none';
     modules.forEach(module => {
@@ -1166,7 +898,7 @@ const Admin = (() => {
   }
 
   function renameSavedQuiz(id) {
-    const quiz = findStandardSavedQuizById(id);
+    const quiz = App.state.savedQuizzes.find(q => q.id === id);
     if (!quiz) return;
     const nextName = prompt('Nouveau nom du quiz :', quiz.name);
     const trimmed = normalizeModuleName(nextName);
@@ -1181,7 +913,7 @@ const Admin = (() => {
     const modules = getModules();
     const validIds = getModuleIdSet(modules);
     const targetModuleId = validIds.has(moduleId) ? moduleId : UNCLASSIFIED_MODULE_ID;
-    const quiz = findStandardSavedQuizById(quizId);
+    const quiz = App.state.savedQuizzes.find(q => q.id === quizId);
     if (!quiz) return;
     if ((quiz.moduleId || UNCLASSIFIED_MODULE_ID) === targetModuleId) return;
     quiz.moduleId = targetModuleId;
@@ -1269,7 +1001,7 @@ const Admin = (() => {
   }
 
   function loadSavedQuiz(id) {
-    const quiz = findStandardSavedQuizById(id);
+    const quiz = App.state.savedQuizzes.find(q => q.id === id);
     if (!quiz) return;
     if (!confirm(`Modifier "${quiz.name}" ? (remplace les questions actuelles)`)) return;
     App.state.questions = [...quiz.questions];
@@ -1284,7 +1016,7 @@ const Admin = (() => {
   }
 
   function loadAndLaunchQuiz(id) {
-    const quiz = findStandardSavedQuizById(id);
+    const quiz = App.state.savedQuizzes.find(q => q.id === id);
     if (!quiz) return;
     if (!quiz.gameCode) {
       quiz.gameCode = generateUniqueSavedQuizCode(quiz.id);
@@ -1298,7 +1030,7 @@ const Admin = (() => {
   }
 
   function downloadSavedQuiz(id) {
-    const quiz = findStandardSavedQuizById(id);
+    const quiz = App.state.savedQuizzes.find(q => q.id === id);
     if (!quiz) return;
     const blob = new Blob([JSON.stringify({ name: quiz.name, questions: quiz.questions }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1308,29 +1040,25 @@ const Admin = (() => {
   }
 
   function deleteSavedQuiz(id) {
-    const numericId = Number(id);
-    App.state.savedQuizzes = (App.state.savedQuizzes || []).filter(q => !isStandardSavedQuiz(q) || q.id !== numericId);
+    App.state.savedQuizzes = App.state.savedQuizzes.filter(q => q.id !== id);
     App.persistSavedQuizzes(App.state.savedQuizzes);
     renderSaved();
   }
 
   function connectAdminSSE(code) {
     if (adminSSE) { adminSSE.close(); adminSSE = null; }
-    adminSSE = new EventSource(App.sseUrl(`/api/events/${code}`));
+    adminSSE = new EventSource(`/api/events/${code}`);
 
     adminSSE.addEventListener('playerJoin', e => {
       const player = JSON.parse(e.data);
       if (!App.state.players.find(p => p.id === player.id)) {
         App.state.players.push(player);
         Lobby.addPlayer(player);
-        if (typeof Game !== 'undefined' && typeof Game.refreshAdminDashboard === 'function') {
-          Game.refreshAdminDashboard();
-        }
       }
     });
 
     adminSSE.addEventListener('playerAnswer', e => {
-      const { playerId, answerIndices, answerIndex, answer, fillAnswers } = JSON.parse(e.data);
+      const { playerId, answerIndices, answerIndex, answer } = JSON.parse(e.data);
       const player = App.state.players.find(p => p.id === playerId);
       if (player && !player.answeredCurrentQuestion) {
         player.answeredCurrentQuestion = true;
@@ -1339,13 +1067,9 @@ const Admin = (() => {
           : (typeof answerIndex === 'number' ? [answerIndex] : []);
         player.lastAnswerIndex = player.lastAnswerIndices.length > 0 ? player.lastAnswerIndices[0] : null;
         player.lastAnswer = answer;
-        player.lastFillAnswers = Array.isArray(fillAnswers) ? fillAnswers.map(v => String(v || '')) : [];
         // Indicateur vert : le joueur a répondu
         const ind = document.getElementById(`indicator-${playerId}`);
         if (ind) { ind.className = 'answer-indicator answered'; ind.title = 'A répondu'; }
-        if (typeof Game !== 'undefined' && typeof Game.refreshAdminDashboard === 'function') {
-          Game.refreshAdminDashboard({ phase: 'question' });
-        }
       }
     });
 
@@ -1356,20 +1080,6 @@ const Admin = (() => {
       const reason = data.reason === 'ended' ? 'fin de partie' : 'nouvelle session';
       App.showToast(`Liste des joueurs remise a zero (${reason})`, 'success');
     });
-
-    adminSSE.addEventListener('fillCorrectionStep', e => {
-      const data = JSON.parse(e.data || '{}');
-      const updates = Array.isArray(data.scoreUpdates) ? data.scoreUpdates : [];
-      updates.forEach(update => {
-        const player = App.state.players.find(p => p.id === update.playerId);
-        if (player && Number.isFinite(Number(update.score))) {
-          player.score = Number(update.score);
-        }
-      });
-      if (typeof Game !== 'undefined' && typeof Game.refreshAdminDashboard === 'function') {
-        Game.refreshAdminDashboard({ phase: 'fill' });
-      }
-    });
   }
 
   async function launchGame() {
@@ -1378,7 +1088,7 @@ const Admin = (() => {
       return;
     }
     try {
-      const res = await fetch(App.apiUrl('/api/host'), {
+      const res = await fetch('/api/host', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1412,7 +1122,6 @@ const Admin = (() => {
     showTab, renderQuestions, renderSaved,
     addQuestion, editQuestion, deleteQuestion, moveQuestion,
     saveQuestion, closeModal, updateModalType, setCorrect, toggleCorrectFromRow,
-    renderFillBuilderPreview, toggleFillBuilderWord, addFillSelectionFromSource, clearFillSelection, exportFillActivityJson, useFillActivity,
     importFromText, importFromFile, importFromFileObj,
     saveQuiz, loadSavedQuiz, loadAndLaunchQuiz, downloadSavedQuiz, deleteSavedQuiz,
     createModule, renameModule, deleteModule, renameSavedQuiz, changeQuizModule,
