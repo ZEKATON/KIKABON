@@ -1303,11 +1303,9 @@ function _renderFillScreen(data) {
       if (i < holes.length) {
         const h = holes[i];
         if (level === 1) {
-          // Zone de dépôt
+          // Zone cible — clic pour y déposer le mot sélectionné
           html += `<span class="fill-player-drop" data-hole-id="${h.id}"
-            ondragover="event.preventDefault(); this.classList.add('over')"
-            ondragleave="this.classList.remove('over')"
-            ondrop="_playerDropWord(event,${h.id})">___</span>`;
+            onclick="_playerPlaceInZone(event,${h.id})">___</span>`;
         } else {
           // Champ de saisie
           html += `<input type="text" class="fill-player-input" data-hole-id="${h.id}"
@@ -1327,9 +1325,9 @@ function _renderFillScreen(data) {
     if (chipsContainer) {
       const shuffled = holes.slice().sort(function() { return Math.random() - 0.5; });
       chipsContainer.innerHTML = shuffled.map(function(h) {
-        return `<span class="fill-word-chip player-chip" draggable="true"
+        return `<span class="fill-word-chip player-chip"
           data-word="${_escHtmlPlayer(h.word)}"
-          ondragstart="_playerDragStart(event,'${h.word.replace(/'/g,"\\'")}')">
+          onclick="_playerSelectChip(event,'${h.word.replace(/'/g,"\\'")}')">
           ${_escHtmlPlayer(h.word)}
         </span>`;
       }).join('');
@@ -1374,6 +1372,8 @@ function _applyLiveFillFeedback(data) {
 }
 
 var _fillPlayerTimerInterval = null;
+var _selectedFillWord = null;
+var _selectedFillChipEl = null;
 
 function _startFillPlayerTimer(seconds) {
   clearInterval(_fillPlayerTimerInterval);
@@ -1394,28 +1394,59 @@ function _escHtmlPlayer(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function _playerDragStart(event, word) {
-  event.dataTransfer.setData('text/plain', word);
-  event.dataTransfer.effectAllowed = 'move';
+// ---- Interaction clic pour niveau 1 ----
+function _playerSelectChip(event, word) {
+  if (_selectedFillChipEl) _selectedFillChipEl.classList.remove('chip-selected');
+  if (_selectedFillWord === word && _selectedFillChipEl === event.currentTarget) {
+    _selectedFillWord = null;
+    _selectedFillChipEl = null;
+    return;
+  }
+  _selectedFillWord = word;
+  _selectedFillChipEl = event.currentTarget;
+  _selectedFillChipEl.classList.add('chip-selected');
 }
 
-function _playerDropWord(event, holeId) {
-  event.preventDefault();
-  var word = event.dataTransfer.getData('text/plain');
+function _playerPlaceInZone(event, holeId) {
   var zone = event.currentTarget;
-  if (!zone) return;
-  zone.classList.remove('over');
-  zone.textContent = word;
-  zone.classList.add('filled');
-  zone.setAttribute('data-placed', word);
-  if (!playerState.fillAnswers) playerState.fillAnswers = {};
-  playerState.fillAnswers[holeId] = word;
-  // Retirer le chip
-  var bank = document.getElementById('fill-player-chips');
-  if (bank) {
-    var chip = bank.querySelector('[data-word="' + _escHtmlPlayer(word) + '"]');
-    if (chip) chip.remove();
+  var already = zone.getAttribute('data-placed') || '';
+  if (_selectedFillWord) {
+    if (already) _returnFillWordToBank(already);
+    zone.textContent = _selectedFillWord;
+    zone.classList.add('filled');
+    zone.setAttribute('data-placed', _selectedFillWord);
+    if (!playerState.fillAnswers) playerState.fillAnswers = {};
+    playerState.fillAnswers[holeId] = _selectedFillWord;
+    _removeFillChipFromBank(_selectedFillWord);
+    if (_selectedFillChipEl) _selectedFillChipEl.classList.remove('chip-selected');
+    _selectedFillWord = null;
+    _selectedFillChipEl = null;
+  } else if (already) {
+    _returnFillWordToBank(already);
+    zone.textContent = '___';
+    zone.classList.remove('filled');
+    zone.removeAttribute('data-placed');
+    if (playerState.fillAnswers) delete playerState.fillAnswers[holeId];
   }
+}
+
+function _returnFillWordToBank(word) {
+  var bank = document.getElementById('fill-player-chips');
+  if (!bank) return;
+  if (bank.querySelector('[data-word="' + _escHtmlPlayer(word) + '"]')) return;
+  var chip = document.createElement('span');
+  chip.className = 'fill-word-chip player-chip';
+  chip.setAttribute('data-word', _escHtmlPlayer(word));
+  chip.textContent = word;
+  chip.onclick = function(e) { _playerSelectChip(e, word); };
+  bank.appendChild(chip);
+}
+
+function _removeFillChipFromBank(word) {
+  var bank = document.getElementById('fill-player-chips');
+  if (!bank) return;
+  var chip = bank.querySelector('[data-word="' + _escHtmlPlayer(word) + '"]');
+  if (chip) chip.remove();
 }
 
 function _playerTypeWord(holeId, value) {
