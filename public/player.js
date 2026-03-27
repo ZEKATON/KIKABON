@@ -1363,10 +1363,10 @@ function _applyLiveFillFeedback(data) {
   playPlayerSound(isCorrect ? 'fill-super' : 'fill-wrong');
 
   const correctCount = Object.values(playerState.fillLiveCorrectMap).filter(Boolean).length;
-  const liveScore = Number(playerState.fillLiveScoreBase || 0) + (correctCount * 100);
+  const totalHolesLive = (playerState.fillActivity && playerState.fillActivity.holes) ? playerState.fillActivity.holes.length : Object.keys(playerState.fillLiveCorrectMap).length || 1;
   const liveScoreEl = document.getElementById('fill-live-score');
   if (liveScoreEl) {
-    liveScoreEl.textContent = 'Score: ' + liveScore;
+    liveScoreEl.textContent = correctCount + ' / ' + totalHolesLive + ' ✓';
     liveScoreEl.classList.remove('fill-live-score-pop');
     void liveScoreEl.offsetWidth;
     liveScoreEl.classList.add('fill-live-score-pop');
@@ -1492,10 +1492,10 @@ function _showFillResults(data) {
   }
 
   var scoreEl = document.getElementById('fill-results-score');
-  if (scoreEl) scoreEl.textContent = '+' + delta + ' pts';
   var iconEl  = document.getElementById('fill-results-icon');
   var totalHoles = holes.length || 1;
   var correctCount = results.filter(function(r) { return r.correct; }).length;
+  if (scoreEl) scoreEl.textContent = Math.round(correctCount / totalHoles * 100) + '% correct';
   if (iconEl) {
     if (correctCount === totalHoles) iconEl.textContent = '🏆';
     else if (correctCount >= totalHoles / 2) iconEl.textContent = '⭐';

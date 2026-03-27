@@ -1200,7 +1200,7 @@ const FillActivity = (() => {
         <span class="fill-admin-rank">${idx + 1}</span>
         <span class="fill-admin-avatar">${escHtml(r.avatar)}</span>
         <span class="fill-admin-name">${escHtml(r.name)}</span>
-        <span class="fill-admin-points">${Number(r.delta || 0)} pts</span>
+        <span class="fill-admin-points">${r.totalHoles > 0 ? Math.round((r.correctCount / r.totalHoles) * 100) : (r.delta || 0)}%</span>
       </div>
     `).join('');
     panel.style.display = '';
@@ -1405,7 +1405,8 @@ const FillActivity = (() => {
       _fillGameStarted = false;
       const scoresPanel = document.getElementById('fill-admin-results-panel');
       if (scoresPanel) scoresPanel.style.display = 'none';
-      _renderAdminFillTextPreview();
+      const previewBox = document.getElementById('fill-admin-text-preview');
+      if (previewBox) previewBox.innerHTML = '';
       renderFillPlayerList([]);
       _refreshFillProgressCounter();
       const launchBtn = document.getElementById('btn-fill-launch');
@@ -1434,6 +1435,7 @@ const FillActivity = (() => {
     }
     if (stopBtn) stopBtn.disabled = false;
 
+    _renderAdminFillTextPreview();
     _broadcastFill('fillStart', {
       activityId: _currentActivity.id,
       name: _currentActivity.name,
@@ -1685,8 +1687,9 @@ const FillActivity = (() => {
         return { holeId: hole.id, correct: playerWord === adminWord };
       });
       const correctCount = results.filter(r => r.correct).length;
-      const delta = correctCount * 100;
-      scores.push({ playerId, delta, results });
+      const totalHoles = _currentActivity.holes.length;
+      const delta = correctCount * totalHoles > 0 ? Math.round(correctCount / totalHoles * 100) : 0;
+      scores.push({ playerId, delta, correctCount, totalHoles, results });
     });
     _broadcastFill('fillCorrectionEnd', {
       scores,
