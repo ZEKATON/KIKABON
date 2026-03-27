@@ -1541,6 +1541,8 @@ const FillActivity = (() => {
       _lastFillScores = null;
       _fillCorrectionValidated = false;
       _fillGameStarted = false;
+      const submissionsPanel = document.getElementById('fill-submissions-panel');
+      if (submissionsPanel) submissionsPanel.style.display = '';
       const scoresPanel = document.getElementById('fill-admin-results-panel');
       if (scoresPanel) scoresPanel.style.display = 'none';
       const previewBox = document.getElementById('fill-admin-text-preview');
@@ -1843,6 +1845,10 @@ const FillActivity = (() => {
 
   function _showFillScores() {
     _renderAdminFinalScores();
+    const submissionsPanel = document.getElementById('fill-submissions-panel');
+    if (submissionsPanel) submissionsPanel.style.display = 'none';
+    const scoresPanel = document.getElementById('fill-admin-results-panel');
+    if (scoresPanel) scoresPanel.style.display = '';
     const stopBtn = document.getElementById('btn-fill-stop');
     if (stopBtn) stopBtn.disabled = true;
     if (!_lastFillScores) {
