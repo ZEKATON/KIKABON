@@ -403,10 +403,11 @@ const App = (() => {
   function loadSavedQuizzes() {
     const all = _readAllActivities();
     const quizItems = all.filter(item => item.type !== 'fill');
-    const normalized = normalizeSavedQuizzes(quizItems);
+      const fillItems  = all.filter(item => item.type === 'fill');
+      const normalized = normalizeSavedQuizzes(quizItems);
     state.savedQuizzes = normalized.quizzes;
     if (normalized.changed) {
-      _writeAllActivities(state.savedQuizzes, state.savedFillActivities);
+        _writeAllActivities(state.savedQuizzes, fillItems);
     }
   }
 

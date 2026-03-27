@@ -1371,6 +1371,16 @@ function _applyLiveFillFeedback(data) {
   }
 }
 
+    // Overlay de feedback centré
+    var overlay = document.getElementById('fill-feedback-overlay');
+    if (overlay) {
+      overlay.innerHTML = '<div class="fill-feedback-bubble ' + (isCorrect ? 'super' : 'wrong') + '">' + (isCorrect ? 'SUPER ✅' : 'INCORRECT ❌') + '</div>';
+      overlay.style.display = 'flex';
+      clearTimeout(window._fillFeedbackTimer);
+      window._fillFeedbackTimer = setTimeout(function() { overlay.style.display = 'none'; }, 2500);
+    }
+
+
 var _fillPlayerTimerInterval = null;
 var _selectedFillWord = null;
 var _selectedFillChipEl = null;
