@@ -1452,20 +1452,20 @@ const FillActivity = (() => {
       return;
     }
     list.innerHTML = visibleFills.map(f => `
-      <div class="quiz-card fill-saved-card">
+      <div class="fill-saved-item">
         <div class="fill-card-top">
-          <div class="quiz-card-title">📝 ${escHtml(f.name)}</div>
+          <div class="fill-saved-title">📝 ${escHtml(f.name)}</div>
           <span class="fill-level-pill">Niveau ${f.level || 1}</span>
         </div>
-        <div class="quiz-card-stats">
-          <div class="quiz-card-stat">🧩 ${f.holes.length} trou${f.holes.length > 1 ? 's' : ''}</div>
-          <div class="quiz-card-stat">📅 ${escHtml(f.date || '-')}</div>
+        <div class="fill-saved-meta">
+          <span>🧩 ${f.holes.length} trou${f.holes.length > 1 ? 's' : ''}</span>
+          <span>📅 ${escHtml(f.date || '-')}</span>
         </div>
         <p class="fill-card-preview">${escHtml(_buildFillPreviewText(f))}</p>
-        <div class="quiz-card-actions">
-          <button class="quiz-card-btn" onclick="FillActivity.launchFillActivity(${f.id})">▶️ Lancer</button>
-          <button class="quiz-card-btn secondary" onclick="FillActivity.editFillActivity(${f.id})">✏️ Modifier</button>
-          <button class="quiz-card-btn secondary" onclick="FillActivity.deleteFillActivity(${f.id})">🗑️ Supprimer</button>
+        <div class="fill-saved-actions">
+          <button class="btn btn-primary" onclick="FillActivity.launchFillActivity(${f.id})">▶️ Lancer</button>
+          <button class="btn btn-ghost" onclick="FillActivity.editFillActivity(${f.id})">✏️ Modifier</button>
+          <button class="btn btn-ghost" onclick="FillActivity.deleteFillActivity(${f.id})">🗑️ Supprimer</button>
         </div>
       </div>
     `).join('');

@@ -2320,16 +2320,6 @@ html, body {
   gap: 10px;
 }
 
-.fill-saved-card {
-  border: 1px solid #7c3aed;
-  background: transparent;
-  box-shadow: none;
-}
-
-.fill-saved-card .quiz-card-title {
-  color: var(--text);
-}
-
 .saved-fill-activity {
   border: 1px solid #7c3aed;
   background: transparent;
@@ -2345,6 +2335,30 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.fill-saved-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: transparent;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fill-saved-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.fill-saved-meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  color: var(--text2);
+  font-size: 12px;
 }
 
 .fill-level-pill {
@@ -2369,9 +2383,20 @@ html, body {
   padding: 2px 0;
 }
 
-.saved-fill-activity .quiz-card-actions,
-.fill-saved-card .quiz-card-actions {
+.saved-fill-activity .quiz-card-actions {
   flex-wrap: wrap;
+}
+
+.fill-saved-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fill-saved-actions .btn {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 13px;
 }
 
 .fill-saved-header-actions {
