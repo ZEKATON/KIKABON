@@ -577,6 +577,7 @@ const Game = (() => {
     if (panel) panel.style.display = 'none';
     if (overlay) overlay.style.display = 'none';
     showFillAdminRanking();
+    broadcastLiveScoreboard();
   }
 
   function showFillAdminRanking() {
@@ -699,14 +700,19 @@ const Game = (() => {
     modal.style.display = 'flex';
   }
 
-  function closeAdminResultsModal() {
+  function broadcastLiveScoreboard() {
+    adminBroadcast('scoreboard', { players: App.state.players });
+  }
+
+  function closeAdminResultsModal(showScoreboard = true) {
     const modal = document.getElementById('admin-results-modal');
     if (modal) modal.style.display = 'none';
     setAdminSummaryMode(false);
+    if (showScoreboard) broadcastLiveScoreboard();
   }
 
   function goToNextFromResultsModal() {
-    closeAdminResultsModal();
+    closeAdminResultsModal(false);
     launchQuestion();
   }
 

@@ -27,6 +27,8 @@ const playerState = {
   score: 0,
   correctCount: 0,
   totalQuestions: 0,
+  knownPlayers: [],
+  answeredPlayers: {},
 };
 let reconnectTimeout = null;
 let playerAudioCtx = null;
@@ -112,6 +114,8 @@ function resetPlayerStateOnly() {
   playerState.score = 0;
   playerState.correctCount = 0;
   playerState.totalQuestions = 0;
+  playerState.knownPlayers = [];
+  playerState.answeredPlayers = {};
   playerState.selectedAvatar = null;
   playerState.currentQuestion = null;
 }
@@ -126,6 +130,78 @@ function redirectToJoinNewGame(redirectCode, message) {
     ? ('/join-new-game?code=' + String(redirectCode))
     : '/join-new-game';
   window.location.assign(target);
+}
+
+function mergeKnownPlayer(player) {
+  if (!player || !player.id) return;
+  const idx = playerState.knownPlayers.findIndex(p => p.id === player.id);
+  const merged = {
+    id: player.id,
+    name: String(player.name || ''),
+    avatar: String(player.avatar || '🙂'),
+    color: String(player.color || '#ffffff'),
+    score: Number(player.score) || 0,
+  };
+  if (idx >= 0) {
+    playerState.knownPlayers[idx] = { ...playerState.knownPlayers[idx], ...merged };
+  } else {
+    playerState.knownPlayers.push(merged);
+  }
+}
+
+function resetAnsweredPlayers() {
+  playerState.answeredPlayers = {};
+  playerState.knownPlayers.forEach(player => {
+    playerState.answeredPlayers[player.id] = false;
+  });
+}
+
+function markPlayerAnswered(playerId) {
+  if (!playerId) return;
+  playerState.answeredPlayers[playerId] = true;
+}
+
+function renderGamePlayersStrip() {
+  const strip = document.getElementById('game-players-strip');
+  if (!strip) return;
+  if (getActiveScreenId() !== 'screen-game' || playerState.knownPlayers.length === 0) {
+    strip.style.display = 'none';
+    strip.innerHTML = '';
+    return;
+  }
+
+  const sorted = [...playerState.knownPlayers].sort((a, b) => {
+    const myId = playerState.currentPlayer && playerState.currentPlayer.id;
+    const aIsMe = a.id === myId;
+    const bIsMe = b.id === myId;
+    const aAnswered = !!playerState.answeredPlayers[a.id];
+    const bAnswered = !!playerState.answeredPlayers[b.id];
+    
+    if (aIsMe) return -1;
+    if (bIsMe) return 1;
+    if (aAnswered && !bAnswered) return -1;
+    if (!aAnswered && bAnswered) return 1;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'fr');
+  });
+
+  strip.innerHTML = sorted.map(player => {
+    const isMe = playerState.currentPlayer && player.id === playerState.currentPlayer.id;
+    const answered = !!playerState.answeredPlayers[player.id];
+    const statusText = answered ? 'Valide' : 'En cours';
+    return '<div class="gps-chip' + (answered ? ' answered' : '') + (isMe ? ' is-me' : '') + '">' +
+      '<span class="gps-avatar">' + player.avatar + '</span>' +
+      '<span class="gps-name" style="color:' + player.color + '">' + player.name + (isMe ? ' (toi)' : '') + '</span>' +
+      '<span class="gps-status">' + statusText + '</span>' +
+      '</div>';
+  }).join('');
+
+  strip.style.display = 'grid';
+}
+
+function setGamePlayersStripVisible(visible) {
+  const strip = document.getElementById('game-players-strip');
+  if (!strip) return;
+  strip.style.display = visible ? 'grid' : 'none';
 }
 
 function playPlayerSound(type) {
@@ -729,9 +805,16 @@ function connectSSE(code) {
         return;
       }
       const players = data.players || [];
+      playerState.knownPlayers = [];
+      playerState.answeredPlayers = {};
       const container = document.getElementById('players-list');
       if (container) container.innerHTML = '';
-      players.forEach(p => addPlayerToLobby(p));
+      players.forEach(p => {
+        mergeKnownPlayer(p);
+        playerState.answeredPlayers[p.id] = !!p.answeredCurrentQuestion;
+        addPlayerToLobby(p);
+      });
+      renderGamePlayersStrip();
       updateLobbyPlayerCount(players.length);
 
       // Reconnexion : restaurer état depuis serveur
@@ -766,7 +849,12 @@ function connectSSE(code) {
 
     sse.addEventListener('playerJoin', function(e) {
       const player = JSON.parse(e.data);
+      mergeKnownPlayer(player);
+      if (!(player.id in playerState.answeredPlayers)) {
+        playerState.answeredPlayers[player.id] = false;
+      }
       addPlayerToLobby(player);
+      renderGamePlayersStrip();
     });
 
     sse.addEventListener('gameStart', function() {
@@ -778,13 +866,24 @@ function connectSSE(code) {
     sse.addEventListener('question', function(e) {
       const data = JSON.parse(e.data);
       const idx = Number.isInteger(data.currentQuestionIndex) ? data.currentQuestionIndex : data.idx;
+      resetAnsweredPlayers();
       PlayerGame.showQuestion(data.question, idx, data.total, data.timeLeft);
+      renderGamePlayersStrip();
+    });
+
+    sse.addEventListener('playerAnswer', function(e) {
+      const data = JSON.parse(e.data || '{}');
+      if (data && data.playerId) {
+        markPlayerAnswered(data.playerId);
+        renderGamePlayersStrip();
+      }
     });
 
     sse.addEventListener('update_state', function(e) {
       const data = JSON.parse(e.data);
       if (data.phase === 'correction_fill') {
         PlayerGame.lockFillInputs();
+        setGamePlayersStripVisible(false);
         const status = document.getElementById('game-status');
         if (status) status.textContent = '🧠 Correction en cours par le professeur...';
         return;
@@ -823,6 +922,7 @@ function connectSSE(code) {
 
     sse.addEventListener('fillCorrectionStart', function(e) {
       PlayerGame.lockFillInputs();
+      setGamePlayersStripVisible(false);
       const data = JSON.parse((e && e.data) || '{}');
       playerState.fillHolesCorrect = 0;
       playerState.fillHolesTotal = Number(data.total) || 0;
@@ -855,12 +955,12 @@ function connectSSE(code) {
         status.classList.add(iWon ? 'score-good' : 'score-neutral');
         status.textContent = iWon
           ? `🎉 Trou ${holeNum} valide ! +${pointsPerHole} pts • Total: ${playerState.score} pts`
-          : `✨ Trou ${holeNum} corrige. Total actuel: ${playerState.score} pts`;
+          : `❌ FAUX • Trou ${holeNum} corrige. Total actuel: ${playerState.score} pts`;
       }
       showToast(
         iWon
           ? `🔥 Excellent ! +${pointsPerHole} pts • ${playerState.score} pts`
-          : `📊 Score en direct: ${playerState.score} pts`,
+          : `❌ FAUX • Score en direct: ${playerState.score} pts`,
         iWon ? 'success score-pop' : 'score-pop'
       );
       if (iWon) {
@@ -892,9 +992,17 @@ function connectSSE(code) {
       }
     });
 
+    sse.addEventListener('scoreboard', function(e) {
+      const data = JSON.parse((e && e.data) || '{}');
+      const players = Array.isArray(data.players) ? data.players : [];
+      if (players.length > 0) {
+        PlayerGame.showPodium(players, { final: false });
+      }
+    });
+
     sse.addEventListener('gameEnd', function(e) {
       const data = JSON.parse(e.data);
-      PlayerGame.showPodium(data.players);
+      PlayerGame.showPodium(data.players, { final: true });
     });
 
     sse.addEventListener('game_reset_force', function(e) {
@@ -1008,6 +1116,8 @@ const PlayerGame = (function() {
     }
     if (qCard) qCard.style.display = 'flex';
     if (qResult) qResult.style.display = 'none';
+    setGamePlayersStripVisible(true);
+    renderGamePlayersStrip();
     if (qStatus) qStatus.textContent = '';
     updatePlayerHeader();
 
@@ -1381,6 +1491,10 @@ const PlayerGame = (function() {
       }
     }
     answerSubmitting = false;
+    if (player && player.id) {
+      markPlayerAnswered(player.id);
+      renderGamePlayersStrip();
+    }
     playPlayerSound('submit');
     showToast('Reponse enregistree', 'success');
     if (submitBtn) {
@@ -1460,12 +1574,13 @@ const PlayerGame = (function() {
     const ans = document.getElementById('result-answer');
     if (qCard) qCard.style.display = 'none';
     if (result) {
+      setGamePlayersStripVisible(false);
       if (myResult && myResult.isCorrect) {
         if (icon) icon.textContent = '✅';
         if (text) text.textContent = 'Bravo ! Bonne reponse';
       } else if (myResult && !myResult.isCorrect) {
         if (icon) icon.textContent = '❌';
-        if (text) text.textContent = 'Bonne reponse affichee';
+        if (text) text.textContent = 'FAUX';
       } else {
         if (icon) icon.textContent = 'ℹ️';
         if (text) text.textContent = 'Resultat';
@@ -1477,8 +1592,10 @@ const PlayerGame = (function() {
     }
   }
 
-  function showPodium(players) {
-    clearSession();
+  function showPodium(players, options) {
+    const opts = options || {};
+    const isFinal = opts.final !== false;
+    if (isFinal) clearSession();
     const standings = document.getElementById('podium-standings');
     if (!standings) return;
     const sorted = players.slice().sort((a, b) => b.score - a.score);
@@ -1508,7 +1625,16 @@ const PlayerGame = (function() {
       const pct = total > 0 ? Math.round(correct / total * 100) : 0;
       const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🏅';
       const pctColor = pct >= 80 ? '#4ecb71' : pct >= 50 ? '#f7c948' : '#ff6b6b';
+      const encouragement = pct >= 80
+        ? '🌟 Excellent travail, continue comme ca !'
+        : pct >= 60
+          ? '👏 Tres bon score, encore un petit effort !'
+          : pct >= 40
+            ? '👍 Bon debut, tu progresses !'
+            : '💪 Courage, la prochaine manche sera meilleure !';
       statEl.innerHTML =
+        '<div class="pps-main" style="color:' + pctColor + '">' + pct + '%</div>' +
+        '<div class="pps-sub">de bonnes reponses</div>' +
         '<div class="pps-row">' +
           '<span class="pps-icon">🎯</span>' +
           '<span class="pps-label">Bonnes réponses</span>' +
@@ -1519,6 +1645,12 @@ const PlayerGame = (function() {
           '<span class="pps-icon">' + rankEmoji + '</span>' +
           '<span class="pps-label">Classement</span>' +
           '<span class="pps-value">' + rank + 'e&nbsp;/ ' + sorted.length + '</span>' +
+        '</div>' +
+        '<div class="pps-message" style="border-color:' + pctColor + '">' + encouragement + '</div>' +
+        '<div class="pps-row">' +
+          '<span class="pps-icon">💯</span>' +
+          '<span class="pps-label">Score total</span>' +
+          '<span class="pps-value">' + (me.score || 0) + ' pts</span>' +
         '</div>';
       statEl.style.display = 'flex';
     }
@@ -1535,6 +1667,7 @@ const PlayerGame = (function() {
     const qCard = document.getElementById('question-card');
     if (qCard) qCard.style.display = 'none';
     if (!result || !ans) return;
+    setGamePlayersStripVisible(false);
 
     const sorted = [...results].sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
 
