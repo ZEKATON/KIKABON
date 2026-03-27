@@ -2406,6 +2406,26 @@ html, body {
   flex-wrap: wrap;
 }
 
+#screen-fill-builder {
+  background: var(--bg);
+}
+
+.fill-saved-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.fill-saved-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .fill-sort-label {
   font-size: 13px;
   font-weight: 700;
