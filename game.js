@@ -11,6 +11,7 @@ const Game = (() => {
   let waitingForNextLaunch = false;
   let questionStatsHistory = [];
   let _pendingOpenQuestion = null; // { statusText, correctAnswerText, correctIndices }
+  let fillCorrectionState = null;
 
   function normalizeAnswerText(value) {
     return String(value || '')
@@ -27,6 +28,37 @@ const Game = (() => {
     return unique.sort((a, b) => a - b);
   }
 
+  function normalizeFillWord(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getFillPointsPerHole(question) {
+    const holesCount = Array.isArray(question && question.holes) ? question.holes.length : 0;
+    return holesCount > 0 ? Math.max(10, Math.round(100 / holesCount)) : 20;
+  }
+
+  function buildFillMarkup(question) {
+    const sourceText = String(question && question.sourceText ? question.sourceText : '');
+    const regex = /\[[^\]]+\]/g;
+    let last = 0;
+    let holeIdx = 0;
+    const parts = [];
+    let match;
+    while ((match = regex.exec(sourceText)) !== null) {
+      parts.push(sourceText.slice(last, match.index));
+      parts.push(`<span class="fill-gap" data-hole-index="${holeIdx}">_____</span>`);
+      holeIdx += 1;
+      last = regex.lastIndex;
+    }
+    parts.push(sourceText.slice(last));
+    return parts.join('');
+  }
+
   function areSameIndexSets(a, b) {
     if (a.length !== b.length) return false;
     return a.every((value, idx) => value === b[idx]);
@@ -41,6 +73,10 @@ const Game = (() => {
 
   function getQuestionTypeLabel(question) {
     if (!question || question.type === 'open') return 'Question ouverte';
+    if (question.type === 'fill') {
+      const level = Number(question.difficulty) === 2 ? 'Niveau 2' : 'Niveau 1';
+      return `Texte a trous (${level})`;
+    }
     const correctIndices = normalizeIndexArray(question.correctIndices || [question.correct]);
     const isMultipleChoice = question.multipleAnswers || correctIndices.length > 1;
     return isMultipleChoice ? 'QCM a choix multiples' : 'QCM a choix unique';
@@ -54,6 +90,9 @@ const Game = (() => {
 
   function formatCorrectAnswerLabel(question, correctAnswer) {
     if (!correctAnswer) return '';
+    if (question && question.type === 'fill') {
+      return `Texte complet : ${String(correctAnswer).trim()}`;
+    }
     if (!question || question.type === 'qcm') {
       const answerText = String(correctAnswer).replace(/^R[eé]ponses\s+correctes\s*:\s*/i, '').trim();
       const correctIndices = normalizeIndexArray(question && (question.correctIndices || [question.correct]));
@@ -117,6 +156,8 @@ const Game = (() => {
     document.getElementById('btn-launch-question').style.display = 'block';
     document.getElementById('btn-stop-timer').style.display = 'none';
     document.getElementById('btn-add-time').style.display = 'none';
+    const fillPanel = document.getElementById('fill-correction-panel');
+    if (fillPanel) fillPanel.style.display = 'none';
     document.getElementById('btn-launch-question').textContent = '▶️ Lancer la question';
     document.getElementById('question-card').style.display = 'none';
     document.getElementById('question-result').style.display = 'none';
@@ -182,11 +223,43 @@ const Game = (() => {
     // Choix QCM
     const choicesGrid = document.getElementById('choices-grid');
     const openAnswer = document.getElementById('open-answer');
+    const fillSection = document.getElementById('fill-section');
+    const fillText = document.getElementById('fill-text');
+    const fillWordBank = document.getElementById('fill-word-bank');
     const letters = ['A', 'B', 'C', 'D'];
 
     choicesGrid.style.display = 'none';
     openAnswer.style.display = 'none';
+    if (fillSection) fillSection.style.display = 'none';
     choicesGrid.innerHTML = '';
+    if (fillWordBank) fillWordBank.innerHTML = '';
+
+    if (q.type === 'qcm') {
+      choicesGrid.style.display = 'grid';
+      q.choices.forEach((choice, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.type = 'button';
+        btn.disabled = true;
+        btn.innerHTML = `<span class="choice-letter">${letters[i] || i + 1}</span>${choice}`;
+        choicesGrid.appendChild(btn);
+      });
+    } else if (q.type === 'open') {
+      openAnswer.style.display = 'flex';
+      const input = document.getElementById('open-input');
+      if (input) {
+        input.value = '';
+        input.disabled = true;
+      }
+    } else if (q.type === 'fill' && fillSection && fillText) {
+      fillSection.style.display = 'flex';
+      fillText.innerHTML = buildFillMarkup(q);
+      if (fillWordBank) {
+        fillWordBank.innerHTML = Array.isArray(q.holes)
+          ? q.holes.map(h => `<span class="fill-word-chip">${h.word}</span>`).join('')
+          : '';
+      }
+    }
 
     // Timer
     startTimer();
@@ -222,6 +295,9 @@ const Game = (() => {
         return `Réponses correctes: ${answers}`;
       }
     }
+    if (q.type === 'fill') {
+      return q.sourceText || q.text || '';
+    }
     return q.answer;
   }
 
@@ -235,6 +311,11 @@ const Game = (() => {
     const correctIndices = q.type === 'qcm' ? (q.correctIndices || [q.correct]) : [];
     const correctAnswerText = getCorrectAnswerText();
 
+    if (q.type === 'fill') {
+      startFillCorrection(statusText);
+      return;
+    }
+
     // Pour les questions ouvertes, afficher le panneau de validation admin
     if (q.type === 'open') {
       _pendingOpenQuestion = { statusText, correctAnswerText, correctIndices };
@@ -243,6 +324,185 @@ const Game = (() => {
     }
 
     _finishCompleteQuestion(statusText, correctAnswerText, correctIndices, null);
+  }
+
+  function startFillCorrection(statusText) {
+    const q = App.state.questions[currentQuestionIdx];
+    if (!q || q.type !== 'fill') return;
+
+    const panel = document.getElementById('fill-correction-panel');
+    const textWrap = document.getElementById('fill-correction-text');
+    const bankWrap = document.getElementById('fill-correction-bank');
+    const feedback = document.getElementById('fill-correction-feedback');
+    if (!panel || !textWrap || !bankWrap || !feedback) return;
+
+    fillCorrectionState = {
+      question: q,
+      filled: new Array((q.holes || []).length).fill(null),
+      pointsPerHole: getFillPointsPerHole(q),
+      statusText,
+    };
+
+    textWrap.innerHTML = buildFillMarkup(q);
+    bankWrap.innerHTML = '';
+    feedback.className = 'fill-correction-feedback';
+    feedback.textContent = 'Correction en cours...';
+
+    (q.holes || []).forEach((hole, idx) => {
+      const chip = document.createElement('span');
+      chip.className = 'fill-word-chip admin';
+      chip.draggable = true;
+      chip.dataset.holeIndex = String(idx);
+      chip.textContent = hole.word;
+      chip.addEventListener('dragstart', event => {
+        event.dataTransfer.setData('text/hole-index', String(idx));
+      });
+      bankWrap.appendChild(chip);
+    });
+
+    textWrap.querySelectorAll('.fill-gap').forEach(gap => {
+      gap.addEventListener('dragover', event => {
+        event.preventDefault();
+        if (!gap.classList.contains('filled')) gap.classList.add('drag-over');
+      });
+      gap.addEventListener('dragleave', () => gap.classList.remove('drag-over'));
+      gap.addEventListener('drop', event => {
+        event.preventDefault();
+        gap.classList.remove('drag-over');
+        const wordIndex = Number(event.dataTransfer.getData('text/hole-index'));
+        const holeIndex = Number(gap.dataset.holeIndex);
+        if (!Number.isInteger(wordIndex) || !Number.isInteger(holeIndex)) return;
+        applyFillCorrectionWord(holeIndex, wordIndex, gap);
+      });
+    });
+
+    panel.style.display = 'flex';
+    document.getElementById('question-result').style.display = 'none';
+    document.getElementById('btn-stop-timer').style.display = 'none';
+    document.getElementById('btn-add-time').style.display = 'none';
+    document.getElementById('btn-launch-question').style.display = 'none';
+    waitingForNextLaunch = false;
+
+    adminBroadcast('fillCorrectionStart', {
+      currentQuestionIndex: currentQuestionIdx,
+      total: (q.holes || []).length,
+    });
+    adminBroadcast('update_state', {
+      phase: 'correction_fill',
+      currentQuestionIndex: currentQuestionIdx,
+      total: App.state.questions.length,
+    });
+  }
+
+  function applyFillCorrectionWord(holeIndex, wordIndex, gapEl) {
+    if (!fillCorrectionState) return;
+    if (fillCorrectionState.filled[holeIndex]) return;
+    const question = fillCorrectionState.question;
+    const holes = Array.isArray(question.holes) ? question.holes : [];
+    const hole = holes[holeIndex];
+    const draggedHole = holes[wordIndex];
+    if (!hole || !draggedHole) return;
+
+    const expectedWord = String(hole.word || '');
+    const droppedWord = String(draggedHole.word || '');
+
+    if (normalizeFillWord(droppedWord) !== normalizeFillWord(expectedWord)) {
+      const feedbackWrong = document.getElementById('fill-correction-feedback');
+      if (feedbackWrong) {
+        feedbackWrong.className = 'fill-correction-feedback';
+        feedbackWrong.textContent = `Mot incorrect pour le trou ${holeIndex + 1}. Attendu: ${expectedWord}`;
+      }
+      return;
+    }
+
+    gapEl.classList.add('filled');
+    gapEl.textContent = droppedWord;
+    fillCorrectionState.filled[holeIndex] = droppedWord;
+
+    const chip = document.querySelector(`.fill-correction-bank .fill-word-chip[data-hole-index="${wordIndex}"]`);
+    if (chip) {
+      chip.classList.add('used');
+      chip.draggable = false;
+    }
+
+    const expectedNorm = normalizeFillWord(expectedWord);
+    const winners = [];
+    const scoreUpdates = [];
+    App.state.players.forEach(player => {
+      const answers = Array.isArray(player.lastFillAnswers) ? player.lastFillAnswers : [];
+      const playerWord = normalizeFillWord(answers[holeIndex]);
+      if (playerWord && playerWord === expectedNorm) {
+        player.score = (Number(player.score) || 0) + fillCorrectionState.pointsPerHole;
+        winners.push(player.name);
+        scoreUpdates.push({ playerId: player.id, score: player.score });
+      }
+    });
+
+    const feedback = document.getElementById('fill-correction-feedback');
+    if (feedback) {
+      feedback.className = 'fill-correction-feedback ok';
+      if (winners.length > 0) {
+        feedback.textContent = `Trou ${holeIndex + 1}: ${expectedWord} - Correct: ${winners.join(', ')}`;
+      } else {
+        feedback.textContent = `Trou ${holeIndex + 1}: ${expectedWord} - Aucun joueur juste`;
+      }
+    }
+
+    adminBroadcast('fillCorrectionStep', {
+      holeIndex,
+      expectedWord,
+      droppedWord,
+      pointsPerHole: fillCorrectionState.pointsPerHole,
+      correctPlayers: winners,
+      scoreUpdates,
+    });
+
+    const done = fillCorrectionState.filled.filter(Boolean).length;
+    if (done >= holes.length) {
+      finishFillCorrection();
+    }
+  }
+
+  function finishFillCorrection() {
+    if (!fillCorrectionState) return;
+    const q = fillCorrectionState.question;
+    const panel = document.getElementById('fill-correction-panel');
+    if (panel) panel.style.display = 'none';
+
+    const finalResults = App.state.players.map(player => {
+      const answers = Array.isArray(player.lastFillAnswers) ? player.lastFillAnswers : [];
+      const allCorrect = (q.holes || []).every((hole, idx) => normalizeFillWord(answers[idx]) === normalizeFillWord(hole.word));
+      return {
+        playerId: player.id,
+        isCorrect: allCorrect,
+        score: Number(player.score) || 0,
+        scoreDelta: 0,
+      };
+    });
+
+    adminBroadcast('fillCorrectionEnd', {
+      results: finalResults,
+      correctAnswer: q.sourceText,
+    });
+    adminBroadcast('questionEnd', {
+      correctIndices: [],
+      correctAnswer: q.sourceText,
+      results: finalResults,
+    });
+
+    const totalQuestions = Math.max(App.state.questions.length, 1);
+    const isLastQuestion = currentQuestionIdx >= totalQuestions - 1;
+    adminBroadcast('update_state', {
+      phase: isLastQuestion ? 'finished' : 'between',
+      currentQuestionIndex: isLastQuestion ? totalQuestions : currentQuestionIdx,
+      total: totalQuestions,
+    });
+
+    document.getElementById('btn-launch-question').style.display = 'block';
+    document.getElementById('btn-launch-question').textContent = isLastQuestion ? '🏁 Voir les resultats' : '▶️ Lancer la question suivante';
+    document.getElementById('game-status').textContent = fillCorrectionState.statusText;
+    waitingForNextLaunch = true;
+    fillCorrectionState = null;
   }
 
   function _finishCompleteQuestion(statusText, correctAnswerText, correctIndices, validatedPlayerIds) {
@@ -555,6 +815,8 @@ const Game = (() => {
     
     if (q.type === 'open') {
       return 60; // Questions ouvertes: 60 secondes
+    } else if (q.type === 'fill') {
+      return 300;
     } else if (q.type === 'qcm') {
       // QCM: 45 pour unique, 60 pour multiples
       return (q.multipleAnswers || q.correctIndices?.length > 1) ? 60 : 45;

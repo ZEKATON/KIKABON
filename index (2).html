@@ -137,6 +137,7 @@
           <div class="header-actions">
             <button class="btn btn-secondary sm" onclick="Admin.addQuestion('qcm')">+ QCM</button>
             <button class="btn btn-secondary sm" onclick="Admin.addQuestion('open')">+ Question ouverte</button>
+            <button class="btn btn-secondary sm" onclick="Admin.addQuestion('fill')">+ Texte a trous</button>
           </div>
         </div>
         <div id="questions-list" class="questions-list"></div>
@@ -284,6 +285,12 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
         <!-- QCM -->
         <div class="choices-grid" id="choices-grid"></div>
 
+          <!-- Texte a trous -->
+          <div class="fill-section" id="fill-section" style="display:none">
+            <div class="fill-text" id="fill-text"></div>
+            <div class="fill-word-bank" id="fill-word-bank"></div>
+          </div>
+
         <!-- Réponse ouverte -->
         <div class="open-answer" id="open-answer" style="display:none">
           <input type="text" id="open-input" placeholder="Votre réponse...">
@@ -360,6 +367,16 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
           </div>
         </div>
       </div>
+
+      <div class="fill-correction-panel" id="fill-correction-panel" style="display:none">
+        <div class="fill-correction-head">
+          <h3>Correction interactive: texte a trous</h3>
+          <p>Glissez les mots dans les trous pour corriger. Les scores sont mis a jour en direct.</p>
+        </div>
+        <div class="fill-correction-text" id="fill-correction-text"></div>
+        <div class="fill-correction-bank" id="fill-correction-bank"></div>
+        <div class="fill-correction-feedback" id="fill-correction-feedback">En attente d'un mot...</div>
+      </div>
     </div>
   </div>
 
@@ -425,6 +442,7 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
           <option value="single">Question à choix unique</option>
           <option value="multiple">Question à choix multiples</option>
           <option value="open">Question ouverte</option>
+          <option value="fill">Texte a trous</option>
         </select>
       </div>
       <div class="form-group">
@@ -457,6 +475,20 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
           <label>Réponse attendue (mots-clés séparés par virgule ou "ou")</label>
           <input type="text" id="modal-open-answer" placeholder="Ex: chlorophylle ou photosynthèse">
         </div>
+      </div>
+      <div id="modal-fill-section" style="display:none">
+        <div class="form-group">
+          <label>Texte avec trous (entourez les mots a masquer avec [crochets])</label>
+          <textarea id="modal-fill-text" rows="6" placeholder="Le [soleil] est une [etoile] au centre du systeme solaire."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Niveau de difficulte</label>
+          <select id="modal-fill-difficulty">
+            <option value="1">Niveau 1 - Drag & Drop (liste de mots)</option>
+            <option value="2">Niveau 2 - Saisie manuelle</option>
+          </select>
+        </div>
+        <p class="form-hint">Le chrono par defaut est de 5 minutes pour ce mode.</p>
       </div>
       <div class="form-group">
         <label>Catégorie (optionnel)</label>

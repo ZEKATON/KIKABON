@@ -51,6 +51,15 @@ function normalizePlayerName(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function normalizeFillWord(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function getLatestActiveGame(excludeCode = null) {
   const activeGames = [...games.values()]
     .filter(g => g && g.gamePhase !== 'ended' && g.code !== excludeCode)
@@ -378,6 +387,9 @@ const server = http.createServer(async (req, res) => {
         timeLeft: remaining,
       };
     }
+    if (game.fillCorrectionState) {
+      initPayload.fillCorrectionState = game.fillCorrectionState;
+    }
     res.write(`event: init\ndata: ${JSON.stringify(initPayload)}\n\n`);
 
     game.sseClients.add(res);
@@ -405,21 +417,27 @@ const server = http.createServer(async (req, res) => {
       return json(409, { error: 'Question inactive' });
     }
     const body = await readBody(req);
-    const { playerId, answerIndices, answerIndex, answer } = body;
+    const { playerId, answerIndices, answerIndex, answer, fillAnswers } = body;
     const player = game.players.find(p => p.id === playerId);
     if (player && !player.answeredCurrentQuestion) {
       const normalizedIndices = Array.isArray(answerIndices)
         ? [...new Set(answerIndices.filter(i => Number.isInteger(i) && i >= 0))].sort((a, b) => a - b)
         : (typeof answerIndex === 'number' ? [answerIndex] : []);
+      const normalizedFillAnswers = Array.isArray(fillAnswers)
+        ? fillAnswers.map(word => String(word || '').trim().slice(0, 80))
+        : [];
       player.answeredCurrentQuestion = true;
       player.lastAnswerIndices = normalizedIndices;
       player.lastAnswerIndex = normalizedIndices.length > 0 ? normalizedIndices[0] : null;
       player.lastAnswer = typeof answer === 'string' ? answer.slice(0, 200) : null;
+      player.lastFillAnswers = normalizedFillAnswers;
       broadcast(code, 'playerAnswer', {
         playerId,
         answerIndices: normalizedIndices,
         answerIndex: normalizedIndices.length > 0 ? normalizedIndices[0] : null,
         answer,
+        fillAnswers: normalizedFillAnswers,
+        fillAnswersCount: normalizedFillAnswers.length,
       });
     }
     return json(200, { ok: true });
@@ -471,6 +489,7 @@ const server = http.createServer(async (req, res) => {
       };
       game.currentQuestionIndex = Number.isInteger(body.payload.idx) ? body.payload.idx : game.currentQuestionIndex;
       game.gamePhase = 'game';
+      game.fillCorrectionState = null;
     } else if (body.type === 'update_state') {
       if (!body.payload || typeof body.payload !== 'object') body.payload = {};
       if (!Number.isInteger(body.payload.currentQuestionIndex)) {
@@ -483,6 +502,9 @@ const server = http.createServer(async (req, res) => {
         body.payload.timeLeft = Math.max(0, game.currentQuestion.duration - elapsed);
       }
       game.gamePhase = body.payload.phase === 'question' ? 'game' : game.gamePhase;
+      if (body.payload.phase === 'correction_fill') {
+        game.gamePhase = 'game';
+      }
     } else if (body.type === 'next_question') {
       const payload = body.payload || {};
       const nextIndex = Number.isInteger(payload.currentQuestionIndex)
@@ -494,6 +516,50 @@ const server = http.createServer(async (req, res) => {
       game.gamePhase = 'game';
     } else if (body.type === 'questionEnd') {
       game.currentQuestion = null;
+      game.fillCorrectionState = null;
+    } else if (body.type === 'fillCorrectionStart') {
+      game.fillCorrectionState = {
+        active: true,
+        step: -1,
+        total: Number.isInteger(body.payload?.total) ? body.payload.total : 0,
+      };
+    } else if (body.type === 'fillCorrectionStep') {
+      if (!body.payload || typeof body.payload !== 'object') body.payload = {};
+      const holeIndex = Number.isInteger(body.payload.holeIndex) ? body.payload.holeIndex : -1;
+      const currentFillQuestion = game.currentQuestion && game.currentQuestion.question && game.currentQuestion.question.type === 'fill'
+        ? game.currentQuestion.question
+        : null;
+      const expectedWordFromQuestion = currentFillQuestion && Array.isArray(currentFillQuestion.holes) && currentFillQuestion.holes[holeIndex]
+        ? String(currentFillQuestion.holes[holeIndex].word || '')
+        : '';
+      const expectedWord = String(body.payload.expectedWord || expectedWordFromQuestion || '');
+      const normalizedExpected = normalizeFillWord(expectedWord);
+      const pointsPerHole = Number.isFinite(Number(body.payload.pointsPerHole))
+        ? Math.max(1, Number(body.payload.pointsPerHole))
+        : 20;
+
+      const correctPlayers = [];
+      const scoreUpdates = [];
+      if (holeIndex >= 0 && normalizedExpected) {
+        game.players.forEach(player => {
+          const fillAnswers = Array.isArray(player.lastFillAnswers) ? player.lastFillAnswers : [];
+          const answerForHole = normalizeFillWord(fillAnswers[holeIndex]);
+          if (answerForHole && answerForHole === normalizedExpected) {
+            player.score = (Number(player.score) || 0) + pointsPerHole;
+            correctPlayers.push(player.name);
+            scoreUpdates.push({ playerId: player.id, score: player.score });
+          }
+        });
+      }
+
+      body.payload.expectedWord = expectedWord;
+      body.payload.correctPlayers = correctPlayers;
+      body.payload.scoreUpdates = scoreUpdates;
+      if (game.fillCorrectionState) {
+        game.fillCorrectionState.step = holeIndex >= 0 ? holeIndex : game.fillCorrectionState.step;
+      }
+    } else if (body.type === 'fillCorrectionEnd') {
+      game.fillCorrectionState = null;
     } else if (body.type === 'gameEnd') {
       game.gamePhase = 'ended';
       game.currentQuestion = null;

@@ -15,6 +15,48 @@ const Admin = (() => {
   let dragQuizId = null;
   let dragModuleId = null;
 
+  function getQuestionTypeDisplay(type, question) {
+    if (type === 'qcm') return 'QCM';
+    if (type === 'fill') {
+      const level = Number(question && question.difficulty) === 2 ? 'N2' : 'N1';
+      return `Texte a trous ${level}`;
+    }
+    return 'Ouverte';
+  }
+
+  function parseFillQuestion(rawText, difficulty) {
+    const source = String(rawText || '').trim();
+    if (!source) return null;
+    const regex = /\[([^\]]+)\]/g;
+    const segments = [];
+    const holes = [];
+    let cursor = 0;
+    let match;
+    while ((match = regex.exec(source)) !== null) {
+      segments.push(source.slice(cursor, match.index));
+      holes.push(String(match[1] || '').trim());
+      cursor = regex.lastIndex;
+    }
+    segments.push(source.slice(cursor));
+
+    const validHoles = holes.filter(Boolean);
+    if (validHoles.length === 0) return null;
+
+    const maskedText = segments.reduce((acc, part, idx) => {
+      const gap = idx < validHoles.length ? ' _____ ' : '';
+      return acc + part + gap;
+    }, '').replace(/\s+/g, ' ').trim();
+
+    return {
+      type: 'fill',
+      sourceText: source,
+      text: maskedText,
+      segments,
+      holes: validHoles.map((word, index) => ({ id: index, word })),
+      difficulty: Number(difficulty) === 2 ? 2 : 1,
+    };
+  }
+
   function normalizeModuleName(name) {
     return String(name || '').trim();
   }
@@ -190,7 +232,7 @@ const Admin = (() => {
       const preview = q.text.length > 80 ? q.text.substring(0, 80) + '…' : q.text;
       item.innerHTML = `
         <span class="q-number">${idx + 1}</span>
-        <span class="q-type-badge">${q.type === 'qcm' ? 'QCM' : 'Ouverte'}</span>
+        <span class="q-type-badge">${getQuestionTypeDisplay(q.type, q)}</span>
         <span class="q-text">${preview}</span>
         <div class="q-actions">
           <button class="q-action-btn" onclick="Admin.editQuestion(${q.id})" title="Modifier">✏️</button>
@@ -221,7 +263,9 @@ const Admin = (() => {
     editingId = null;
     correctIdx = 0;
     resetModal(type);
-    document.getElementById('modal-title').textContent = type === 'open' ? 'Nouvelle question ouverte' : 'Nouvelle question QCM';
+    document.getElementById('modal-title').textContent = type === 'open'
+      ? 'Nouvelle question ouverte'
+      : (type === 'fill' ? 'Nouveau texte a trous' : 'Nouvelle question QCM');
     openModal();
   }
 
@@ -242,7 +286,7 @@ const Admin = (() => {
     document.getElementById('modal-title').textContent = 'Modifier la question';
     document.getElementById('modal-type').value = q.type === 'open'
       ? 'open'
-      : (q.multipleAnswers ? 'multiple' : 'single');
+      : (q.type === 'fill' ? 'fill' : (q.multipleAnswers ? 'multiple' : 'single'));
     document.getElementById('modal-question-text').value = q.text;
     document.getElementById('modal-category').value = q.category || '';
     updateModalType();
@@ -251,6 +295,11 @@ const Admin = (() => {
     if (q.type === 'qcm') {
       const inputs = document.querySelectorAll('.choice-input');
       q.choices.forEach((c, i) => { if (inputs[i]) inputs[i].value = c; });
+    } else if (q.type === 'fill') {
+      const fillTextInput = document.getElementById('modal-fill-text');
+      const fillLevelInput = document.getElementById('modal-fill-difficulty');
+      if (fillTextInput) fillTextInput.value = q.sourceText || '';
+      if (fillLevelInput) fillLevelInput.value = String(Number(q.difficulty) === 2 ? 2 : 1);
     } else {
       document.getElementById('modal-open-answer').value = q.answer || '';
     }
@@ -260,10 +309,10 @@ const Admin = (() => {
   // ---- Save question from modal ----
   function saveQuestion() {
     const mode = document.getElementById('modal-type').value;
-    const type = mode === 'open' ? 'open' : 'qcm';
+    const type = mode === 'open' ? 'open' : (mode === 'fill' ? 'fill' : 'qcm');
     const text = document.getElementById('modal-question-text').value.trim();
     const category = document.getElementById('modal-category').value.trim();
-    if (!text) { App.showToast('Saisissez la question !', 'error'); return; }
+    if (!text && type !== 'fill') { App.showToast('Saisissez la question !', 'error'); return; }
 
     let qData = { type, text, category };
 
@@ -293,10 +342,23 @@ const Admin = (() => {
         qData.correct = correctIdx;
         qData.correctIndices = [correctIdx];
       }
-    } else {
+    } else if (type === 'open') {
       const ans = document.getElementById('modal-open-answer').value.trim();
       if (!ans) { App.showToast('Saisissez la réponse attendue !', 'error'); return; }
       qData.answer = ans;
+    } else if (type === 'fill') {
+      const fillRaw = document.getElementById('modal-fill-text').value;
+      const fillDifficulty = Number(document.getElementById('modal-fill-difficulty').value || 1);
+      const parsed = parseFillQuestion(fillRaw, fillDifficulty);
+      if (!parsed) {
+        App.showToast('Ajoutez au moins un trou avec [mot]', 'error');
+        return;
+      }
+      qData = {
+        ...qData,
+        ...parsed,
+        category,
+      };
     }
 
     if (editingId) {
@@ -337,11 +399,15 @@ const Admin = (() => {
     document.getElementById('modal-question').style.display = 'none';
   }
   function resetModal(type) {
-    document.getElementById('modal-type').value = type === 'open' ? 'open' : 'single';
+    document.getElementById('modal-type').value = type === 'open' ? 'open' : (type === 'fill' ? 'fill' : 'single');
     document.getElementById('modal-question-text').value = '';
     document.getElementById('modal-category').value = '';
     document.querySelectorAll('.choice-input').forEach(i => i.value = '');
     document.getElementById('modal-open-answer').value = '';
+    const fillTextInput = document.getElementById('modal-fill-text');
+    const fillLevelInput = document.getElementById('modal-fill-difficulty');
+    if (fillTextInput) fillTextInput.value = '';
+    if (fillLevelInput) fillLevelInput.value = '1';
     
     isMultipleChoice = false;
     correctIdx = 0;
@@ -353,9 +419,11 @@ const Admin = (() => {
   function updateModalType() {
     const mode = document.getElementById('modal-type').value;
     const isOpen = mode === 'open';
+    const isFill = mode === 'fill';
     isMultipleChoice = mode === 'multiple';
-    document.getElementById('modal-qcm-section').style.display = isOpen ? 'none' : 'block';
+    document.getElementById('modal-qcm-section').style.display = (!isOpen && !isFill) ? 'block' : 'none';
     document.getElementById('modal-open-section').style.display = isOpen ? 'block' : 'none';
+    document.getElementById('modal-fill-section').style.display = isFill ? 'block' : 'none';
     
     // Si on passe en choix uniques et il y a plusieurs réponses, garder seulement la première
     if (!isMultipleChoice && correctIndices.length > 1) {
@@ -1058,7 +1126,7 @@ const Admin = (() => {
     });
 
     adminSSE.addEventListener('playerAnswer', e => {
-      const { playerId, answerIndices, answerIndex, answer } = JSON.parse(e.data);
+      const { playerId, answerIndices, answerIndex, answer, fillAnswers } = JSON.parse(e.data);
       const player = App.state.players.find(p => p.id === playerId);
       if (player && !player.answeredCurrentQuestion) {
         player.answeredCurrentQuestion = true;
@@ -1067,6 +1135,7 @@ const Admin = (() => {
           : (typeof answerIndex === 'number' ? [answerIndex] : []);
         player.lastAnswerIndex = player.lastAnswerIndices.length > 0 ? player.lastAnswerIndices[0] : null;
         player.lastAnswer = answer;
+        player.lastFillAnswers = Array.isArray(fillAnswers) ? fillAnswers.map(v => String(v || '')) : [];
         // Indicateur vert : le joueur a répondu
         const ind = document.getElementById(`indicator-${playerId}`);
         if (ind) { ind.className = 'answer-indicator answered'; ind.title = 'A répondu'; }
@@ -1079,6 +1148,17 @@ const Admin = (() => {
       Lobby.clearPlayers();
       const reason = data.reason === 'ended' ? 'fin de partie' : 'nouvelle session';
       App.showToast(`Liste des joueurs remise a zero (${reason})`, 'success');
+    });
+
+    adminSSE.addEventListener('fillCorrectionStep', e => {
+      const data = JSON.parse(e.data || '{}');
+      const updates = Array.isArray(data.scoreUpdates) ? data.scoreUpdates : [];
+      updates.forEach(update => {
+        const player = App.state.players.find(p => p.id === update.playerId);
+        if (player && Number.isFinite(Number(update.score))) {
+          player.score = Number(update.score);
+        }
+      });
     });
   }
 

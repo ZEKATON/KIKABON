@@ -49,6 +49,9 @@ function getOrCreateClientSessionId() {
 
 function getQuestionTypeLabel(question) {
   if (!question || question.type === 'open') return 'Question ouverte';
+  if (question.type === 'fill') {
+    return Number(question.difficulty) === 2 ? 'Texte a trous - Saisie' : 'Texte a trous - Glisser deposer';
+  }
   const correctIndices = Array.isArray(question.correctIndices)
     ? question.correctIndices.filter(i => Number.isInteger(i) && i >= 0)
     : (typeof question.correct === 'number' ? [question.correct] : []);
@@ -78,6 +81,9 @@ function updateLobbyPlayerCount(countOverride) {
 function formatCorrectAnswerText(question, correctAnswer) {
   if (!correctAnswer) return '';
   const answerText = String(correctAnswer).trim();
+  if (question && question.type === 'fill') {
+    return 'Texte complet : ' + answerText;
+  }
   if (!question || question.type === 'qcm') {
     const hasMultiple = /^r[eé]ponses\s+correctes\s*:/i.test(answerText);
     const cleanAnswer = answerText.replace(/^r[eé]ponses\s+correctes\s*:\s*/i, '');
@@ -700,6 +706,11 @@ function connectSSE(code) {
           showScreen('screen-game');
           if (data.currentQuestion) {
             PlayerGame.showQuestion(data.currentQuestion.question, data.currentQuestion.idx, data.currentQuestion.total, data.currentQuestion.timeLeft);
+            if (data.fillCorrectionState && data.fillCorrectionState.active) {
+              PlayerGame.lockFillInputs();
+              const stCorrection = document.getElementById('game-status');
+              if (stCorrection) stCorrection.textContent = '🧠 Correction en cours par le professeur...';
+            }
           } else {
             const st = document.getElementById('game-status');
             if (st) st.textContent = '\u23f3 Prochaine question...';
@@ -731,6 +742,12 @@ function connectSSE(code) {
 
     sse.addEventListener('update_state', function(e) {
       const data = JSON.parse(e.data);
+      if (data.phase === 'correction_fill') {
+        PlayerGame.lockFillInputs();
+        const status = document.getElementById('game-status');
+        if (status) status.textContent = '🧠 Correction en cours par le professeur...';
+        return;
+      }
       if (data.phase !== 'question') return;
       const incomingIdx = Number.isInteger(data.currentQuestionIndex) ? data.currentQuestionIndex : null;
       if (incomingIdx === null || !data.question) return;
@@ -759,6 +776,33 @@ function connectSSE(code) {
         updatePlayerStats();
       }
       PlayerGame.showAnswer(data.correctIndices, data.correctAnswer, myResult);
+    });
+
+    sse.addEventListener('fillCorrectionStart', function() {
+      PlayerGame.lockFillInputs();
+      const status = document.getElementById('game-status');
+      if (status) status.textContent = '🧠 Correction en cours...';
+    });
+
+    sse.addEventListener('fillCorrectionStep', function(e) {
+      const data = JSON.parse(e.data || '{}');
+      const updates = Array.isArray(data.scoreUpdates) ? data.scoreUpdates : [];
+      if (playerState.currentPlayer) {
+        const me = updates.find(item => item.playerId === playerState.currentPlayer.id);
+        if (me && Number.isFinite(Number(me.score))) {
+          playerState.score = Number(me.score);
+          playerState.currentPlayer.score = playerState.score;
+          updatePlayerHeader();
+          saveSession();
+        }
+      }
+      const status = document.getElementById('game-status');
+      const winners = Array.isArray(data.correctPlayers) ? data.correctPlayers : [];
+      if (status) {
+        status.textContent = winners.length > 0
+          ? `✅ Trou ${Number(data.holeIndex) + 1}: ${winners.join(', ')}`
+          : `ℹ️ Trou ${Number(data.holeIndex) + 1}: aucun joueur juste`;
+      }
     });
 
     sse.addEventListener('gameEnd', function(e) {
@@ -835,6 +879,7 @@ function addPlayerToLobby(player) {
 const PlayerGame = (function() {
   let answered = false;
   let selectedIndices = [];
+  let fillAnswers = [];
   let playerTimerInterval = null;
   let playerTimerTotal = 60;
   let playerTimeLeft = 60;
@@ -845,6 +890,7 @@ const PlayerGame = (function() {
     answered = false;
     answerSubmitting = false;
     selectedIndices = [];
+    fillAnswers = [];
     currentDisplayedQuestionIndex = Number.isInteger(idx) ? idx : currentDisplayedQuestionIndex;
     playerState.currentQuestion = q;
     showScreen('screen-game');
@@ -857,6 +903,10 @@ const PlayerGame = (function() {
     const qStatus = document.getElementById('game-status');
     const grid = document.getElementById('choices-grid');
     const openAns = document.getElementById('open-answer');
+    const fillSection = document.getElementById('fill-section');
+    const fillText = document.getElementById('fill-text');
+    const fillWordBank = document.getElementById('fill-word-bank');
+    const fillSubmitBtn = document.getElementById('fill-submit-btn');
 
     if (counter) counter.textContent = 'Q' + (idx + 1) + '/' + total;
     playPlayerSound('question');
@@ -866,6 +916,16 @@ const PlayerGame = (function() {
     if (qResult) qResult.style.display = 'none';
     if (qStatus) qStatus.textContent = '';
     updatePlayerHeader();
+
+    if (fillSection) fillSection.style.display = 'none';
+    if (fillText) fillText.innerHTML = '';
+    if (fillWordBank) fillWordBank.innerHTML = '';
+    if (fillSubmitBtn) {
+      fillSubmitBtn.style.display = 'none';
+      fillSubmitBtn.disabled = true;
+      fillSubmitBtn.textContent = 'Valider mes reponses';
+      fillSubmitBtn.onclick = submitFillAnswers;
+    }
 
     if (q.type === 'qcm' && grid) {
       grid.style.display = 'grid';
@@ -921,9 +981,163 @@ const PlayerGame = (function() {
           input.onkeydown = function(e) { if (e.key === 'Enter') submitOpenAnswer(); };
         }
       }
+    } else if (q.type === 'fill') {
+      if (grid) grid.style.display = 'none';
+      if (openAns) openAns.style.display = 'none';
+      const submitBtn = document.getElementById('qcm-submit-btn');
+      if (submitBtn) {
+        submitBtn.style.display = 'none';
+        submitBtn.disabled = true;
+      }
+      renderFillQuestion(q);
     }
     playerTimerTotal = time || 60;
     startPlayerTimer(time, playerTimerTotal);
+  }
+
+  function lockFillInputs() {
+    const fillText = document.getElementById('fill-text');
+    const fillWordBank = document.getElementById('fill-word-bank');
+    if (fillText) {
+      fillText.querySelectorAll('.fill-gap-input').forEach(input => {
+        input.disabled = true;
+      });
+      fillText.querySelectorAll('.fill-gap').forEach(gap => {
+        gap.classList.remove('drag-over');
+      });
+    }
+    if (fillWordBank) {
+      fillWordBank.querySelectorAll('.fill-word-chip').forEach(chip => {
+        chip.draggable = false;
+      });
+    }
+    const fillSubmitBtn = document.getElementById('fill-submit-btn');
+    if (fillSubmitBtn) {
+      fillSubmitBtn.disabled = true;
+    }
+  }
+
+  function parseFillTemplate(question, onGapCreate) {
+    const source = String(question && question.sourceText ? question.sourceText : '');
+    const regex = /\[[^\]]+\]/g;
+    let last = 0;
+    let holeIndex = 0;
+    const parts = [];
+    let match;
+    while ((match = regex.exec(source)) !== null) {
+      parts.push(document.createTextNode(source.slice(last, match.index)));
+      const gap = document.createElement('span');
+      gap.className = 'fill-gap';
+      gap.dataset.holeIndex = String(holeIndex);
+      if (onGapCreate) onGapCreate(gap, holeIndex);
+      parts.push(gap);
+      holeIndex += 1;
+      last = regex.lastIndex;
+    }
+    parts.push(document.createTextNode(source.slice(last)));
+    return parts;
+  }
+
+  function renderFillQuestion(question) {
+    const fillSection = document.getElementById('fill-section');
+    const fillText = document.getElementById('fill-text');
+    const fillWordBank = document.getElementById('fill-word-bank');
+    const fillSubmitBtn = document.getElementById('fill-submit-btn');
+    if (!fillSection || !fillText || !fillWordBank || !fillSubmitBtn) return;
+
+    const holes = Array.isArray(question.holes) ? question.holes : [];
+    fillAnswers = new Array(holes.length).fill('');
+    fillSection.style.display = 'flex';
+    fillText.innerHTML = '';
+
+    const isLevel2 = Number(question.difficulty) === 2;
+    const nodes = parseFillTemplate(question, (gap, holeIndex) => {
+      if (isLevel2) {
+        const input = document.createElement('input');
+        input.className = 'fill-gap-input';
+        input.placeholder = '...';
+        input.addEventListener('input', () => {
+          fillAnswers[holeIndex] = String(input.value || '').trim();
+          gap.classList.toggle('filled', !!fillAnswers[holeIndex]);
+          updateFillSubmitState();
+        });
+        gap.appendChild(input);
+      } else {
+        gap.textContent = '_____';
+        gap.addEventListener('dragover', event => {
+          if (answered) return;
+          event.preventDefault();
+          gap.classList.add('drag-over');
+        });
+        gap.addEventListener('dragleave', () => gap.classList.remove('drag-over'));
+        gap.addEventListener('drop', event => {
+          if (answered) return;
+          event.preventDefault();
+          gap.classList.remove('drag-over');
+          const chipId = event.dataTransfer.getData('text/fill-chip-id');
+          const chip = chipId ? fillWordBank.querySelector(`.fill-word-chip[data-chip-id="${chipId}"]`) : null;
+          if (!chip || chip.classList.contains('used')) return;
+
+          const previousChipId = gap.dataset.chipId;
+          if (previousChipId) {
+            const previousChip = fillWordBank.querySelector(`.fill-word-chip[data-chip-id="${previousChipId}"]`);
+            if (previousChip) previousChip.classList.remove('used');
+          }
+
+          const droppedWord = String(chip.dataset.word || chip.textContent || '').trim();
+          fillAnswers[holeIndex] = droppedWord;
+          gap.dataset.chipId = chipId;
+          gap.textContent = droppedWord;
+          gap.classList.add('filled');
+          chip.classList.add('used');
+          updateFillSubmitState();
+        });
+      }
+    });
+    nodes.forEach(node => fillText.appendChild(node));
+
+    fillWordBank.innerHTML = '';
+    if (!isLevel2) {
+      holes
+        .map((hole, idx) => ({ idx, word: String(hole.word || '') }))
+        .sort(() => Math.random() - 0.5)
+        .forEach((hole, orderIdx) => {
+          const chip = document.createElement('span');
+          chip.className = 'fill-word-chip';
+          chip.draggable = true;
+          chip.dataset.word = hole.word;
+          chip.dataset.chipId = String(orderIdx + '_' + hole.idx);
+          chip.textContent = hole.word;
+          chip.addEventListener('dragstart', event => {
+            event.dataTransfer.setData('text/fill-chip-id', chip.dataset.chipId);
+          });
+          fillWordBank.appendChild(chip);
+        });
+    }
+
+    fillSubmitBtn.style.display = 'block';
+    fillSubmitBtn.disabled = true;
+    fillSubmitBtn.textContent = 'Valider mes reponses';
+  }
+
+  function updateFillSubmitState() {
+    const fillSubmitBtn = document.getElementById('fill-submit-btn');
+    if (!fillSubmitBtn) return;
+    if (answered) {
+      fillSubmitBtn.disabled = true;
+      return;
+    }
+    const hasAll = Array.isArray(fillAnswers) && fillAnswers.length > 0 && fillAnswers.every(value => String(value || '').trim().length > 0);
+    fillSubmitBtn.disabled = !hasAll;
+  }
+
+  function submitFillAnswers() {
+    if (!Array.isArray(fillAnswers) || fillAnswers.length === 0) return;
+    if (fillAnswers.some(value => !String(value || '').trim())) {
+      showToast('Complete tous les trous', 'error');
+      return;
+    }
+    submitAnswer(null, null, fillAnswers.slice());
   }
 
   function toggleChoiceSelection(choiceIndex, clickedBtn) {
@@ -966,7 +1180,7 @@ const PlayerGame = (function() {
     submitAnswer(selectedIndices.slice(), null);
   }
 
-  async function submitAnswer(answerIndices, answerText) {
+  async function submitAnswer(answerIndices, answerText, fillAnswerValues) {
     if (answered || answerSubmitting) return;
     answerSubmitting = true;
 
@@ -989,6 +1203,13 @@ const PlayerGame = (function() {
       submitBtn.classList.add('answer-locked');
     }
 
+    const fillSubmitBtn = document.getElementById('fill-submit-btn');
+    if (fillSubmitBtn) {
+      fillSubmitBtn.disabled = true;
+      fillSubmitBtn.textContent = 'Envoi...';
+    }
+    lockFillInputs();
+
     const player = playerState.currentPlayer;
     const code = playerState.gameCode;
     if (player && code) {
@@ -1000,7 +1221,10 @@ const PlayerGame = (function() {
           playerId: player.id,
           answerIndices: normalizedIndices,
           answerIndex: firstIndex,
-          answer: answerText
+          answer: answerText,
+          fillAnswers: Array.isArray(fillAnswerValues)
+            ? fillAnswerValues.map(v => String(v || '').trim())
+            : undefined,
         })
         });
         const ack = await res.json().catch(() => ({ ok: false }));
@@ -1022,6 +1246,10 @@ const PlayerGame = (function() {
         }
         const openInput = document.getElementById('open-input');
         if (openInput) openInput.disabled = false;
+        if (fillSubmitBtn) {
+          fillSubmitBtn.disabled = false;
+          fillSubmitBtn.textContent = 'Valider mes reponses';
+        }
         showToast('Connexion instable: reessaie', 'error');
         return;
       }
@@ -1033,6 +1261,10 @@ const PlayerGame = (function() {
       submitBtn.textContent = 'Reponse enregistree';
       submitBtn.disabled = true;
       submitBtn.classList.add('answer-locked');
+    }
+    if (fillSubmitBtn) {
+      fillSubmitBtn.textContent = 'Reponse enregistree';
+      fillSubmitBtn.disabled = true;
     }
     const status = document.getElementById('game-status');
     if (status) status.textContent = '✅ Reponse enregistree';
@@ -1079,6 +1311,7 @@ const PlayerGame = (function() {
 
   function showAnswer(correctIndices, correctAnswer, myResult) {
     stopPlayerTimer();
+    lockFillInputs();
     const grid = document.getElementById('choices-grid');
     if (grid) {
       grid.querySelectorAll('.choice-btn').forEach((btn, i) => {
@@ -1092,6 +1325,8 @@ const PlayerGame = (function() {
     }
     const submitBtn = document.getElementById('qcm-submit-btn');
     if (submitBtn) submitBtn.style.display = 'none';
+    const fillSubmitBtn = document.getElementById('fill-submit-btn');
+    if (fillSubmitBtn) fillSubmitBtn.style.display = 'none';
     const qCard = document.getElementById('question-card');
     const result = document.getElementById('question-result');
     const icon = document.getElementById('result-icon');
@@ -1148,6 +1383,7 @@ const PlayerGame = (function() {
     submitQcmAnswer: submitQcmAnswer,
     submitAnswer: submitAnswer,
     submitOpenAnswer: submitOpenAnswer,
+    lockFillInputs: lockFillInputs,
     updateTimer: updateTimer,
     showAnswer: showAnswer,
     showPodium: showPodium

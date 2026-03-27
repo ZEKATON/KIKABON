@@ -970,6 +970,133 @@ html, body {
 }
 .open-answer input:focus { border-color: var(--accent); }
 
+.fill-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fill-text {
+  font-size: 17px;
+  line-height: 1.9;
+  color: var(--text);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.fill-gap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 88px;
+  min-height: 32px;
+  margin: 0 3px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  border: 2px dashed var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text2);
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.fill-gap.filled {
+  border-style: solid;
+  border-color: var(--green);
+  color: var(--text);
+  background: rgba(78,203,113,0.16);
+}
+
+.fill-gap.drag-over {
+  border-color: var(--accent);
+  background: rgba(247,201,72,0.16);
+}
+
+.fill-gap-input {
+  width: 100%;
+  min-width: 84px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  text-align: center;
+  font-weight: 700;
+  outline: none;
+}
+
+.fill-word-bank {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fill-word-chip {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: grab;
+  user-select: none;
+}
+
+.fill-word-chip.used {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.fill-word-chip.admin {
+  cursor: grab;
+}
+
+.fill-correction-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fill-correction-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+.fill-correction-head p {
+  margin: 4px 0 0;
+  color: var(--text2);
+  font-size: 13px;
+}
+
+.fill-correction-text {
+  font-size: 18px;
+  line-height: 2;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.fill-correction-feedback {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text2);
+}
+
+.fill-correction-feedback.ok {
+  color: var(--green);
+  border-color: rgba(78,203,113,0.5);
+  background: rgba(78,203,113,0.09);
+}
+
 #qcm-submit-btn {
   width: 100%;
   margin-top: 4px;
