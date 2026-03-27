@@ -33,6 +33,9 @@
       <button class="btn btn-secondary" onclick="App.requestAdminAccess()">
         <span class="btn-icon">🎓</span> Espace Professeur
       </button>
+      <button class="btn btn-fill-home" onclick="App.requestAdminAccess('screen-fill-builder')">
+        <span class="btn-icon">📝</span> Texte à Trous
+      </button>
     </div>
     <p class="home-tip">Les étudiants utilisent <strong>l'Accès Joueurs</strong> • Les professeurs utilisent <strong>l'Espace Professeur</strong></p>
   </div>
@@ -87,9 +90,14 @@
     
     <div class="quiz-list-header">
       <h1 class="quiz-list-title">📚 Mes Quiz</h1>
-      <button class="btn btn-primary" onclick="App.showScreen('screen-admin'); Admin.showTab('tab-import');">
-        <span class="btn-icon">📤</span> Exporter
-      </button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-fill-home" onclick="App.showScreen('screen-fill-builder'); FillActivity.renderSavedFills();">
+          📝 Textes à Trous
+        </button>
+        <button class="btn btn-primary" onclick="App.showScreen('screen-admin'); Admin.showTab('tab-import');">
+          <span class="btn-icon">📤</span> Exporter
+        </button>
+      </div>
     </div>
 
     <div class="quiz-grid" id="quiz-grid">
@@ -466,6 +474,126 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="Admin.closeModal()">Annuler</button>
       <button class="btn btn-primary" onclick="Admin.saveQuestion()">Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN CONSTRUCTEUR TEXTE À TROUS ====== -->
+<div id="screen-fill-builder" class="screen">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="sidebar-logo">📝 Textes à Trous</div>
+      <nav class="sidebar-nav">
+        <button class="sidebar-btn active" onclick="FillActivity.showBuilderTab('tab-fill-create')" id="sidebar-fill-create">✏️ Créer</button>
+        <button class="sidebar-btn" onclick="FillActivity.showBuilderTab('tab-fill-saved')" id="sidebar-fill-saved">📂 Mes activités</button>
+      </nav>
+      <div class="sidebar-actions" id="fill-sidebar-actions">
+        <button class="btn btn-primary full" id="btn-save-fill" onclick="FillActivity.saveFillActivity()" style="display:none">💾 Sauvegarder</button>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn btn-ghost full" onclick="App.showScreen('screen-home')">← Accueil</button>
+      </div>
+    </aside>
+    <main class="admin-main">
+      <!-- Onglet Créer -->
+      <div id="tab-fill-create" class="admin-tab active">
+        <div class="fill-builder-form">
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>Nom de l'activité</label>
+              <input type="text" id="fill-name-input" placeholder="Ex: Le système solaire" maxlength="80">
+            </div>
+            <div class="form-group">
+              <label>Niveau</label>
+              <div class="fill-level-selector">
+                <button class="fill-level-btn active" id="fill-level-1" onclick="FillActivity.setLevel(1)">
+                  🖱️ Niveau 1<br><small>Glisser-déposer</small>
+                </button>
+                <button class="fill-level-btn" id="fill-level-2" onclick="FillActivity.setLevel(2)">
+                  ⌨️ Niveau 2<br><small>Saisie libre</small>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Collez votre texte ici</label>
+            <textarea id="fill-text-input" rows="6" placeholder="Collez ou tapez votre texte ici, puis cliquez sur « Analyser »…"></textarea>
+          </div>
+          <button class="btn btn-secondary" onclick="FillActivity.parseText()">🔍 Analyser le texte</button>
+        </div>
+
+        <div id="fill-token-area" style="display:none">
+          <p class="form-hint">Cliquez sur un mot pour le désigner comme <strong>trou</strong> (il sera masqué pour les joueurs).</p>
+          <div id="fill-token-list" class="fill-token-list"></div>
+          <div class="fill-preview-section">
+            <h4>Aperçu du texte à trous :</h4>
+            <div id="fill-preview" class="fill-preview-box"></div>
+          </div>
+          <div style="margin-top:16px">
+            <button class="btn btn-primary" onclick="FillActivity.saveFillActivity()">💾 Sauvegarder l'activité</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Onglet Mes activités -->
+      <div id="tab-fill-saved" class="admin-tab">
+        <div class="quiz-list-header" style="margin-bottom:16px">
+          <h2>📂 Mes activités "Textes à Trous"</h2>
+          <button class="btn btn-secondary" onclick="FillActivity.showBuilderTab('tab-fill-create')">✏️ Créer une nouvelle</button>
+        </div>
+        <div id="fill-saved-list" class="quiz-list-grid">
+          <p class="empty-state">Aucune activité sauvegardée.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ====== ÉCRAN JEU TEXTE À TROUS (admin) ====== -->
+<div id="screen-fill-game" class="screen">
+  <div class="fill-game-layout">
+    <div class="fill-game-header">
+      <button class="back-btn" onclick="FillActivity.endFillGame()">← Terminer</button>
+      <h2 id="fill-game-title">Texte à Trous</h2>
+      <div class="fill-timer-wrap">
+        <div class="fill-timer-bar-track">
+          <div id="fill-timer-bar" class="fill-timer-bar-fill"></div>
+        </div>
+        <span id="fill-timer-text" class="fill-timer-text">5:00</span>
+      </div>
+      <button class="btn btn-warning" onclick="FillActivity.stopTimer()" id="btn-fill-stop">⏹ Arrêter le chrono</button>
+    </div>
+
+    <div class="fill-game-body">
+      <div class="fill-submissions-panel">
+        <h3>Validations des joueurs</h3>
+        <div id="fill-player-list" class="fill-player-list">
+          <p class="empty-state">En attente des joueurs…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== MODALE CORRECTION ====== -->
+  <div id="fill-correction-modal" class="fill-correction-overlay" style="display:none">
+    <div class="fill-correction-dialog">
+      <div class="fill-correction-header">
+        <h3>Correction du texte à trous</h3>
+        <p class="form-hint" id="fill-correction-hint">Faites glisser les mots dans les trous.</p>
+      </div>
+      <div class="fill-correction-body">
+        <div class="fill-correction-text-col">
+          <div id="fill-correction-text" class="fill-correction-text"></div>
+        </div>
+        <div class="fill-correction-words-col">
+          <h4>Mots à placer</h4>
+          <div id="fill-word-bank" class="fill-word-bank"></div>
+        </div>
+      </div>
+      <div class="fill-correction-footer">
+        <button class="btn btn-primary" id="btn-fill-validate" onclick="FillActivity.validateCorrection()">✅ Valider la correction</button>
+        <button class="btn btn-ghost" onclick="FillActivity.closeCorrectionModal()">Fermer (afficher scores)</button>
+      </div>
     </div>
   </div>
 </div>

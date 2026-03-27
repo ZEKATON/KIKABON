@@ -15,6 +15,7 @@ const App = (() => {
       soundEnabled: true,
     },
     savedQuizzes: [],
+    savedFillActivities: [],
     // Pour la gestion des jeux
     gameCode: null,     // Code à 4 chiffres pour la session actuelle
     adminToken: null,   // Token d'authentification admin (retourné par /api/host)
@@ -40,9 +41,10 @@ const App = (() => {
   const QUIZ_STORAGE_LEGACY_KEYS = ['quizzes'];
   const QUESTIONS_STORAGE_KEY = 'quizrace_questions';
   const SETTINGS_STORAGE_KEY = 'quizrace_settings';
+  const FILL_STORAGE_KEY = 'quizrace_fill_activities';
 
   // ---- Garde admin ----
-  const ADMIN_SCREENS = new Set(['screen-quiz-list', 'screen-admin', 'screen-lobby', 'screen-game']);
+  const ADMIN_SCREENS = new Set(['screen-quiz-list', 'screen-admin', 'screen-lobby', 'screen-game', 'screen-fill-builder', 'screen-fill-game']);
   const ADMIN_PASSWORD = 'FORMA974';
   const ADMIN_SESSION_KEY = 'kikabon_admin_ok';
 
@@ -398,6 +400,28 @@ const App = (() => {
     }
   }
 
+  function loadSavedFillActivities() {
+    try {
+      const raw = localStorage.getItem(FILL_STORAGE_KEY);
+      if (!raw) { state.savedFillActivities = []; return; }
+      const parsed = JSON.parse(raw);
+      state.savedFillActivities = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      state.savedFillActivities = [];
+    }
+  }
+
+  function persistSavedFillActivities(list) {
+    const source = Array.isArray(list) ? list : state.savedFillActivities;
+    try {
+      localStorage.setItem(FILL_STORAGE_KEY, JSON.stringify(source));
+      state.savedFillActivities = source;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ---- Sons ----
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   let audioCtx = null;
@@ -486,6 +510,7 @@ const App = (() => {
     initAvatarGrid();
     loadSettings();
     loadSavedQuizzes();
+    loadSavedFillActivities();
 
     // Sauvegarde auto des paramètres (admin seulement)
     ['setting-time','setting-advance','setting-track','setting-sound'].forEach(id => {
@@ -688,7 +713,7 @@ const App = (() => {
     renderQuizList();
   }
 
-  return { state, AVATARS, PLAYER_COLORS, showScreen, requestAdminAccess, submitAdminPassword, cancelAdminAccess, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, startLobbyMusic, stopLobbyMusic, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, init };
+  return { state, AVATARS, PLAYER_COLORS, showScreen, requestAdminAccess, submitAdminPassword, cancelAdminAccess, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, startLobbyMusic, stopLobbyMusic, loadSavedQuizzes, persistSavedQuizzes, loadSavedFillActivities, persistSavedFillActivities, updateTrackLength, updateAdminCurrentCodeBadge, init };
 })();
 
 // ============================================================

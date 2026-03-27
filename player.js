@@ -778,6 +778,37 @@ function connectSSE(code) {
       }
     });
 
+    // ---- Fill activity SSE events ----
+    sse.addEventListener('fillStart', function(e) {
+      const data = JSON.parse(e.data);
+      playerState.fillActivity = data;
+      playerState.fillAnswers = {};
+      playerState.fillSubmitted = false;
+      _renderFillScreen(data);
+      showScreen('screen-fill');
+    });
+
+    sse.addEventListener('fillTimerEnd', function() {
+      const msg = document.getElementById('fill-player-status-msg');
+      if (msg) msg.textContent = '⏰ Temps écoulé !';
+      const btn = document.getElementById('btn-fill-player-submit');
+      if (btn && !playerState.fillSubmitted) btn.click();
+    });
+
+    sse.addEventListener('fillWordPlaced', function(e) {
+      // Admin a placé un mot : mettre en évidence (optionnel, feedback subtil)
+      // Pas d'action nécessaire ici pour le joueur
+    });
+
+    sse.addEventListener('fillWordTyped', function() {
+      // Pas d'action nécessaire ici pour le joueur
+    });
+
+    sse.addEventListener('fillCorrectionEnd', function(e) {
+      const data = JSON.parse(e.data);
+      _showFillResults(data);
+    });
+
     sse.onerror = function() {
       if (playerState.sse === sse) playerState.sse = null;
       clearTimeout(reconnectTimeout);
@@ -1212,3 +1243,202 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
+
+// ============================================================
+//  FILL ACTIVITY — Côté joueur
+// ============================================================
+
+function _renderFillScreen(data) {
+  const { segments, holes, level, name } = data;
+
+  // Mettre à jour l'avatar/nom du joueur dans l'en-tête fill
+  const avatarEl = document.getElementById('fill-player-avatar');
+  const nameEl   = document.getElementById('fill-player-name');
+  if (avatarEl && playerState.currentPlayer) avatarEl.textContent = playerState.currentPlayer.avatar;
+  if (nameEl   && playerState.currentPlayer) nameEl.textContent   = playerState.currentPlayer.name;
+
+  // Démarrer le chrono côté joueur
+  _startFillPlayerTimer(300);
+
+  // Réinitialiser UI
+  const submitBtn = document.getElementById('btn-fill-player-submit');
+  const submittedMsg = document.getElementById('fill-submitted-msg');
+  if (submitBtn)    { submitBtn.style.display = ''; submitBtn.disabled = false; }
+  if (submittedMsg) submittedMsg.style.display = 'none';
+
+  // Construire le texte
+  const textContainer = document.getElementById('fill-player-text');
+  if (textContainer) {
+    let html = '';
+    segments.forEach(function(seg, i) {
+      html += seg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      if (i < holes.length) {
+        const h = holes[i];
+        if (level === 1) {
+          // Zone de dépôt
+          html += `<span class="fill-player-drop" data-hole-id="${h.id}"
+            ondragover="event.preventDefault(); this.classList.add('over')"
+            ondragleave="this.classList.remove('over')"
+            ondrop="_playerDropWord(event,${h.id})">___</span>`;
+        } else {
+          // Champ de saisie
+          html += `<input type="text" class="fill-player-input" data-hole-id="${h.id}"
+            placeholder="________"
+            oninput="_playerTypeWord(${h.id}, this.value)">`;
+        }
+      }
+    });
+    textContainer.innerHTML = html;
+  }
+
+  // Banque de mots (niveau 1)
+  const bankContainer = document.getElementById('fill-player-word-bank');
+  const chipsContainer = document.getElementById('fill-player-chips');
+  if (level === 1 && holes.length > 0) {
+    if (bankContainer) bankContainer.style.display = '';
+    if (chipsContainer) {
+      const shuffled = holes.slice().sort(function() { return Math.random() - 0.5; });
+      chipsContainer.innerHTML = shuffled.map(function(h) {
+        return `<span class="fill-word-chip player-chip" draggable="true"
+          data-word="${_escHtmlPlayer(h.word)}"
+          ondragstart="_playerDragStart(event,'${h.word.replace(/'/g,"\\'")}')">
+          ${_escHtmlPlayer(h.word)}
+        </span>`;
+      }).join('');
+    }
+  } else {
+    if (bankContainer) bankContainer.style.display = 'none';
+  }
+}
+
+var _fillPlayerTimerInterval = null;
+
+function _startFillPlayerTimer(seconds) {
+  clearInterval(_fillPlayerTimerInterval);
+  var remaining = seconds;
+  function update() {
+    var m = Math.floor(remaining / 60);
+    var s = remaining % 60;
+    var el = document.getElementById('fill-player-timer');
+    if (el) el.textContent = m + ':' + String(s).padStart(2,'0');
+    if (remaining <= 0) clearInterval(_fillPlayerTimerInterval);
+    remaining--;
+  }
+  update();
+  _fillPlayerTimerInterval = setInterval(update, 1000);
+}
+
+function _escHtmlPlayer(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _playerDragStart(event, word) {
+  event.dataTransfer.setData('text/plain', word);
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function _playerDropWord(event, holeId) {
+  event.preventDefault();
+  var word = event.dataTransfer.getData('text/plain');
+  var zone = event.currentTarget;
+  if (!zone) return;
+  zone.classList.remove('over');
+  zone.textContent = word;
+  zone.classList.add('filled');
+  zone.setAttribute('data-placed', word);
+  if (!playerState.fillAnswers) playerState.fillAnswers = {};
+  playerState.fillAnswers[holeId] = word;
+  // Retirer le chip
+  var bank = document.getElementById('fill-player-chips');
+  if (bank) {
+    var chip = bank.querySelector('[data-word="' + _escHtmlPlayer(word) + '"]');
+    if (chip) chip.remove();
+  }
+}
+
+function _playerTypeWord(holeId, value) {
+  if (!playerState.fillAnswers) playerState.fillAnswers = {};
+  playerState.fillAnswers[holeId] = value;
+}
+
+function submitFillAnswers() {
+  if (playerState.fillSubmitted) return;
+  var activity = playerState.fillActivity;
+  if (!activity) return;
+  var answers = [];
+  if (activity.level === 1) {
+    document.querySelectorAll('#fill-player-text .fill-player-drop').forEach(function(zone) {
+      var holeId = Number(zone.getAttribute('data-hole-id'));
+      var word   = zone.getAttribute('data-placed') || '';
+      answers.push({ holeId: holeId, word: word });
+    });
+  } else {
+    document.querySelectorAll('#fill-player-text .fill-player-input').forEach(function(inp) {
+      var holeId = Number(inp.getAttribute('data-hole-id'));
+      answers.push({ holeId: holeId, word: inp.value.trim() });
+    });
+  }
+  playerState.fillSubmitted = true;
+  var submitBtn = document.getElementById('btn-fill-player-submit');
+  var submittedMsg = document.getElementById('fill-submitted-msg');
+  if (submitBtn) submitBtn.style.display = 'none';
+  if (submittedMsg) submittedMsg.style.display = '';
+  clearInterval(_fillPlayerTimerInterval);
+  fetch('/api/fill-answer/' + playerState.gameCode, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      playerId: playerState.currentPlayer && playerState.currentPlayer.id,
+      answers: answers,
+    }),
+  }).catch(function() {});
+}
+
+function _showFillResults(data) {
+  clearInterval(_fillPlayerTimerInterval);
+  if (!playerState.currentPlayer) return;
+  var myResult = data.scores && data.scores.find(function(s) { return s.playerId === playerState.currentPlayer.id; });
+  var delta = myResult ? myResult.delta || 0 : 0;
+  var results = myResult ? myResult.results || [] : [];
+  var holes  = data.holes  || (playerState.fillActivity && playerState.fillActivity.holes) || [];
+  var segments = playerState.fillActivity ? playerState.fillActivity.segments : [];
+  // Mettre à jour le score
+  playerState.score = (playerState.score || 0) + delta;
+  if (playerState.currentPlayer) playerState.currentPlayer.score = playerState.score;
+  saveSession();
+
+  // Construire le texte avec couleurs correct/faux
+  var textContainer = document.getElementById('fill-results-text');
+  if (textContainer) {
+    var html = '';
+    segments.forEach(function(seg, i) {
+      html += seg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      if (i < holes.length) {
+        var h = holes[i];
+        var r = results.find(function(x) { return x.holeId === h.id; });
+        var cls = r ? (r.correct ? 'fill-result-correct' : 'fill-result-wrong') : '';
+        var playerAns = (playerState.fillAnswers && playerState.fillAnswers[h.id]) || '';
+        var correctWord = data.correctAnswers ? data.correctAnswers[h.id] : h.word;
+        if (r && r.correct) {
+          html += `<span class="fill-result-blank ${cls}">${_escHtmlPlayer(h.word)}</span>`;
+        } else {
+          html += `<span class="fill-result-blank ${cls}" title="Réponse : ${_escHtmlPlayer(correctWord)}">${_escHtmlPlayer(playerAns) || '___'} <small>(${_escHtmlPlayer(correctWord)})</small></span>`;
+        }
+      }
+    });
+    textContainer.innerHTML = html;
+  }
+
+  var scoreEl = document.getElementById('fill-results-score');
+  if (scoreEl) scoreEl.textContent = '+' + delta + ' pts';
+  var iconEl  = document.getElementById('fill-results-icon');
+  var totalHoles = holes.length || 1;
+  var correctCount = results.filter(function(r) { return r.correct; }).length;
+  if (iconEl) {
+    if (correctCount === totalHoles) iconEl.textContent = '🏆';
+    else if (correctCount >= totalHoles / 2) iconEl.textContent = '⭐';
+    else iconEl.textContent = '💪';
+  }
+
+  showScreen('screen-fill-results');
+}

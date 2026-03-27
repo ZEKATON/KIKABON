@@ -118,6 +118,49 @@
   </div>
 </div>
 
+<!-- ====== ÉCRAN TEXTE À TROUS (joueur) ====== -->
+<div id="screen-fill" class="screen">
+  <div class="fill-player-container">
+    <div class="fill-player-header">
+      <div class="fill-player-meta">
+        <span class="player-avatar" id="fill-player-avatar">🐼</span>
+        <span class="player-name" id="fill-player-name">Joueur</span>
+        <span class="fill-player-timer" id="fill-player-timer">5:00</span>
+      </div>
+      <div id="fill-player-status-msg" class="fill-status-msg">Remplissez les trous puis validez !</div>
+    </div>
+
+    <div class="fill-player-body">
+      <!-- Zone de texte avec les trous -->
+      <div id="fill-player-text" class="fill-player-text"></div>
+
+      <!-- Banque de mots (niveau 1 seulement) -->
+      <div id="fill-player-word-bank" class="fill-player-word-bank" style="display:none">
+        <h4>Mots disponibles :</h4>
+        <div id="fill-player-chips" class="fill-player-chips"></div>
+      </div>
+    </div>
+
+    <div class="fill-player-footer">
+      <button class="btn btn-primary" id="btn-fill-player-submit" onclick="submitFillAnswers()">✅ Valider mes réponses</button>
+      <div id="fill-submitted-msg" style="display:none" class="fill-submitted-banner">✅ Réponses envoyées ! Attendez la correction…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== FIN TEXTE À TROUS (résultats) ====== -->
+<div id="screen-fill-results" class="screen">
+  <div class="fill-results-container">
+    <h2 id="fill-results-title">Résultats</h2>
+    <div id="fill-results-text" class="fill-results-text"></div>
+    <div class="fill-results-score-wrap">
+      <div class="result-icon" id="fill-results-icon">⭐</div>
+      <div class="fill-results-score" id="fill-results-score">+0 pts</div>
+    </div>
+    <button class="btn btn-primary" onclick="returnToJoinScreen()">🎮 Fin</button>
+  </div>
+</div>
+
 <!-- Toast pour les notifications -->
 <div id="toast" class="toast"></div>
 

@@ -425,6 +425,28 @@ const server = http.createServer(async (req, res) => {
     return json(200, { ok: true });
   }
 
+  // ── POST /api/fill-answer/:code ───────────────────────────
+  // Un joueur soumet ses réponses au texte à trous
+  if (pathname.startsWith('/api/fill-answer/') && method === 'POST') {
+    const code = pathname.split('/')[3];
+    const game = games.get(code);
+    if (!game) return json(404, { error: 'Partie introuvable' });
+    const body = await readBody(req);
+    const { playerId, answers } = body; // answers = [{holeId, word}]
+    const player = game.players.find(p => p.id === playerId);
+    if (player && !player.fillSubmitted) {
+      player.fillSubmitted = true;
+      player.fillAnswers = Array.isArray(answers) ? answers : [];
+      broadcast(code, 'fillPlayerSubmit', {
+        playerId,
+        playerName: player.name,
+        playerAvatar: player.avatar,
+        answers: player.fillAnswers,
+      });
+    }
+    return json(200, { ok: true });
+  }
+
   // ── POST /api/admin/:code/broadcast ───────────────────────
   // L'admin diffuse un événement à tous les clients SSE
   if (pathname.startsWith('/api/admin/') && pathname.endsWith('/broadcast') && method === 'POST') {
@@ -461,6 +483,22 @@ const server = http.createServer(async (req, res) => {
         game.resetTimer = null;
       }
       game.gamePhase = 'game';
+    } else if (body.type === 'fillStart') {
+      if (game.resetTimer) { clearTimeout(game.resetTimer); game.resetTimer = null; }
+      game.gamePhase = 'fill';
+      game.players.forEach(p => { p.fillSubmitted = false; p.fillAnswers = []; });
+    } else if (body.type === 'fillCorrectionEnd') {
+      // Mise à jour des scores depuis le payload
+      if (Array.isArray(body.payload && body.payload.scores)) {
+        body.payload.scores.forEach(({ playerId, score }) => {
+          const p = game.players.find(p => p.id === playerId);
+          if (p) p.score = Number.isFinite(Number(score)) ? Number(score) : 0;
+        });
+      }
+      game.gamePhase = 'ended';
+      game.resetTimer = setTimeout(() => {
+        forceResetGameSession(code, { reason: 'ended' });
+      }, 1500);
     } else if (body.type === 'question') {
       game.currentQuestion = {
         question:  body.payload.question,

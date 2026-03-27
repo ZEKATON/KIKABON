@@ -1129,3 +1129,512 @@ const Admin = (() => {
     launchGame,
   };
 })();
+
+// ============================================================
+//  FILL ACTIVITY — Textes à Trous (système séparé des quiz)
+// ============================================================
+const FillActivity = (() => {
+  // ---- État du constructeur ----
+  let _builderState = {
+    tokens: [],      // [{word, isPunct, isBlank}]
+    level: 1,
+    name: '',
+  };
+  let _fillAdminSSE = null;
+  let _fillTimerInterval = null;
+  let _fillTimerSeconds = 300; // 5 minutes
+  let _fillTimerTotal = 300;
+  let _fillPlayerAnswers = {}; // { playerId: [{holeId, word}] }
+  let _currentActivity = null; // activité en cours de jeu
+
+  // ---- Onglets du constructeur ----
+  function showBuilderTab(tabId) {
+    document.querySelectorAll('#screen-fill-builder .admin-tab').forEach(t => t.classList.remove('active'));
+    const target = document.getElementById(tabId);
+    if (target) target.classList.add('active');
+    document.querySelectorAll('#screen-fill-builder .sidebar-btn').forEach(b => b.classList.remove('active'));
+    const map = { 'tab-fill-create': 'sidebar-fill-create', 'tab-fill-saved': 'sidebar-fill-saved' };
+    const sideBtn = document.getElementById(map[tabId]);
+    if (sideBtn) sideBtn.classList.add('active');
+    if (tabId === 'tab-fill-saved') renderSavedFills();
+  }
+
+  // ---- Niveau ----
+  function setLevel(n) {
+    _builderState.level = n;
+    const b1 = document.getElementById('fill-level-1');
+    const b2 = document.getElementById('fill-level-2');
+    if (b1) b1.classList.toggle('active', n === 1);
+    if (b2) b2.classList.toggle('active', n === 2);
+  }
+
+  // ---- Parser le texte ----
+  function parseText() {
+    const nameInput = document.getElementById('fill-name-input');
+    const textInput = document.getElementById('fill-text-input');
+    const name = (nameInput ? nameInput.value.trim() : '') || 'Texte sans titre';
+    const raw = textInput ? textInput.value.trim() : '';
+    if (!raw) { App.showToast('Entrez d\'abord un texte.', 'error'); return; }
+    _builderState.name = name;
+    // Tokenize: sépare ponctuation et mots
+    const regex = /([a-zA-ZÀ-ÿ0-9''\-]+|[^a-zA-ZÀ-ÿ0-9\s''\-]+|\s+)/g;
+    const tokens = [];
+    let m;
+    while ((m = regex.exec(raw)) !== null) {
+      const w = m[0];
+      const isWord = /[a-zA-ZÀ-ÿ0-9]/.test(w);
+      tokens.push({ word: w, isPunct: !isWord, isBlank: false });
+    }
+    _builderState.tokens = tokens;
+    renderTokenList();
+    const area = document.getElementById('fill-token-area');
+    if (area) area.style.display = '';
+  }
+
+  function renderTokenList() {
+    const container = document.getElementById('fill-token-list');
+    if (!container) return;
+    container.innerHTML = '';
+    _builderState.tokens.forEach((tok, i) => {
+      if (tok.isPunct) {
+        const span = document.createElement('span');
+        span.className = 'fill-build-punct';
+        span.textContent = tok.word;
+        container.appendChild(span);
+        return;
+      }
+      const btn = document.createElement('button');
+      btn.className = 'fill-build-word' + (tok.isBlank ? ' is-blank' : '');
+      btn.textContent = tok.word;
+      btn.title = tok.isBlank ? 'Cliquer pour retirer ce trou' : 'Cliquer pour faire un trou';
+      btn.onclick = () => {
+        tok.isBlank = !tok.isBlank;
+        btn.classList.toggle('is-blank', tok.isBlank);
+        btn.title = tok.isBlank ? 'Cliquer pour retirer ce trou' : 'Cliquer pour faire un trou';
+        renderPreview();
+      };
+      container.appendChild(btn);
+    });
+    renderPreview();
+  }
+
+  function renderPreview() {
+    const box = document.getElementById('fill-preview');
+    if (!box) return;
+    let holeCount = 0;
+    const html = _builderState.tokens.map(tok => {
+      if (tok.isPunct) return tok.word.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      if (tok.isBlank) {
+        holeCount++;
+        return `<span class="fill-preview-blank">[${holeCount}]</span>`;
+      }
+      return tok.word.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }).join('');
+    box.innerHTML = html;
+  }
+
+  // ---- Convertir tokens en segments + holes ----
+  function _buildActivityData() {
+    const holes = [];
+    const segments = [];
+    let seg = '';
+    let holeIdx = 0;
+    _builderState.tokens.forEach(tok => {
+      if (!tok.isPunct && tok.isBlank) {
+        segments.push(seg);
+        seg = '';
+        holes.push({ id: holeIdx++, word: tok.word });
+      } else {
+        seg += tok.word;
+      }
+    });
+    segments.push(seg);
+    return { segments, holes };
+  }
+
+  // ---- Sauvegarder ----
+  function saveFillActivity() {
+    const nameInput = document.getElementById('fill-name-input');
+    const name = (nameInput ? nameInput.value.trim() : '') || _builderState.name || 'Texte sans titre';
+    const holes = _builderState.tokens.filter(t => !t.isPunct && t.isBlank);
+    if (holes.length === 0) { App.showToast('Sélectionnez au moins un mot comme trou.', 'error'); return; }
+    const { segments, holes: holeList } = _buildActivityData();
+    const activity = {
+      id: Date.now(),
+      name,
+      date: new Date().toLocaleDateString('fr-FR'),
+      level: _builderState.level,
+      segments,
+      holes: holeList,
+    };
+    const list = Array.isArray(App.state.savedFillActivities) ? [...App.state.savedFillActivities, activity] : [activity];
+    App.persistSavedFillActivities(list);
+    App.showToast(`Activité "${name}" sauvegardée ✓`, 'success');
+    // Reset builder
+    _builderState.tokens = [];
+    _builderState.name = '';
+    if (nameInput) nameInput.value = '';
+    const textInput = document.getElementById('fill-text-input');
+    if (textInput) textInput.value = '';
+    const area = document.getElementById('fill-token-area');
+    if (area) area.style.display = 'none';
+    showBuilderTab('tab-fill-saved');
+  }
+
+  // ---- Afficher les activités sauvegardées ----
+  function renderSavedFills() {
+    App.loadSavedFillActivities();
+    const list = document.getElementById('fill-saved-list');
+    if (!list) return;
+    const fills = App.state.savedFillActivities || [];
+    if (fills.length === 0) {
+      list.innerHTML = '<p class="empty-state">Aucune activité sauvegardée.</p>';
+      return;
+    }
+    list.innerHTML = fills.slice().reverse().map(f => `
+      <div class="quiz-card">
+        <div class="quiz-card-header">
+          <div>
+            <div class="quiz-card-title">${escHtml(f.name)}</div>
+            <div class="quiz-card-meta">${f.holes.length} trou(s) • Niveau ${f.level} • ${f.date}</div>
+          </div>
+          <div class="quiz-card-actions">
+            <button class="btn btn-primary btn-sm" onclick="FillActivity.launchFillActivity(${f.id})">▶ Lancer</button>
+            <button class="btn btn-ghost btn-sm" onclick="FillActivity.deleteFillActivity(${f.id})">🗑</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function deleteFillActivity(id) {
+    if (!confirm('Supprimer cette activité ?')) return;
+    const next = (App.state.savedFillActivities || []).filter(f => f.id !== id);
+    App.persistSavedFillActivities(next);
+    renderSavedFills();
+    App.showToast('Activité supprimée.', '');
+  }
+
+  // ---- Lancer une activité ----
+  function launchFillActivity(id) {
+    const activity = (App.state.savedFillActivities || []).find(f => f.id === id);
+    if (!activity) { App.showToast('Activité introuvable.', 'error'); return; }
+    _currentActivity = activity;
+    _fillPlayerAnswers = {};
+    // Créer session jeu via /api/host (questions factices pour compatibilité)
+    fetch('/api/host', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions: [{ text: '__fill__', type: 'fill' }] }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      App.state.gameCode    = data.code;
+      App.state.adminToken  = data.adminToken;
+      // Connecter SSE admin
+      _connectFillSSE(data.code);
+      // Aller vers screen-fill-game
+      const titleEl = document.getElementById('fill-game-title');
+      if (titleEl) titleEl.textContent = activity.name;
+      App.showScreen('screen-fill-game');
+      renderFillPlayerList([]);
+      // Broadcaster fillStart aux joueurs
+      _broadcastFill('fillStart', {
+        activityId: activity.id,
+        name: activity.name,
+        level: activity.level,
+        segments: activity.segments,
+        holes: activity.holes.map(h => ({ id: h.id, word: (_currentActivity.level === 1 ? h.word : null) })),
+        timeLimit: 300,
+      });
+      // Démarrer chrono
+      startTimer();
+    })
+    .catch(() => App.showToast('Erreur lors du lancement.', 'error'));
+  }
+
+  // Pour le niveau 1 : les mots sont fournis (pour les joueurs les voir dans la bank)
+  // Pour le niveau 2 : les mots ne sont pas fournis (joueurs tapent)
+
+  function _broadcastFill(type, payload) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/broadcast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, type, payload }),
+    }).catch(() => {});
+  }
+
+  function _connectFillSSE(code) {
+    if (_fillAdminSSE) { _fillAdminSSE.close(); _fillAdminSSE = null; }
+    const sse = new EventSource('/api/events/' + code);
+    _fillAdminSSE = sse;
+    sse.addEventListener('fillPlayerSubmit', function(e) {
+      const data = JSON.parse(e.data);
+      _fillPlayerAnswers[data.playerId] = data.answers || [];
+      _updatePlayerSubmitted(data.playerId, data.playerName, data.playerAvatar);
+    });
+    sse.addEventListener('playerJoin', function(e) {
+      const player = JSON.parse(e.data);
+      _addPlayerRow(player.id, player.name, player.avatar, false);
+    });
+    sse.addEventListener('init', function(e) {
+      const data = JSON.parse(e.data);
+      (data.players || []).forEach(p => _addPlayerRow(p.id, p.name, p.avatar, p.fillSubmitted));
+    });
+    sse.onerror = function() {};
+  }
+
+  function _addPlayerRow(id, name, avatar, submitted) {
+    const container = document.getElementById('fill-player-list');
+    if (!container) return;
+    const existing = container.querySelector(`[data-player-id="${id}"]`);
+    if (existing) return;
+    if (container.querySelector('.empty-state')) container.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'fill-player-row' + (submitted ? ' submitted' : '');
+    row.setAttribute('data-player-id', id);
+    row.innerHTML = `<span class="fill-player-avatar">${avatar}</span>
+      <span class="fill-player-name">${escHtml(name)}</span>
+      <span class="fill-player-status">${submitted ? '✅ Validé' : '⏳ En cours…'}</span>`;
+    container.appendChild(row);
+  }
+
+  function _updatePlayerSubmitted(playerId, name, avatar) {
+    const container = document.getElementById('fill-player-list');
+    if (!container) return;
+    const existing = container.querySelector(`[data-player-id="${playerId}"]`);
+    if (existing) {
+      existing.classList.add('submitted');
+      const status = existing.querySelector('.fill-player-status');
+      if (status) status.textContent = '✅ Validé';
+    } else {
+      _addPlayerRow(playerId, name, avatar, true);
+    }
+  }
+
+  function renderFillPlayerList(players) {
+    const container = document.getElementById('fill-player-list');
+    if (!container) return;
+    container.innerHTML = '<p class="empty-state">En attente des joueurs…</p>';
+    players.forEach(p => _addPlayerRow(p.id, p.name, p.avatar, p.fillSubmitted));
+  }
+
+  // ---- Chrono ----
+  function startTimer() {
+    _fillTimerSeconds = 300;
+    _fillTimerTotal = 300;
+    _renderTimer();
+    clearInterval(_fillTimerInterval);
+    _fillTimerInterval = setInterval(() => {
+      _fillTimerSeconds = Math.max(0, _fillTimerSeconds - 1);
+      _renderTimer();
+      if (_fillTimerSeconds === 0) {
+        clearInterval(_fillTimerInterval);
+        _timerEnded();
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(_fillTimerInterval);
+    _timerEnded();
+  }
+
+  function _renderTimer() {
+    const bar = document.getElementById('fill-timer-bar');
+    const text = document.getElementById('fill-timer-text');
+    if (bar) bar.style.width = (_fillTimerSeconds / _fillTimerTotal * 100) + '%';
+    if (text) {
+      const m = Math.floor(_fillTimerSeconds / 60);
+      const s = _fillTimerSeconds % 60;
+      text.textContent = `${m}:${String(s).padStart(2, '0')}`;
+    }
+  }
+
+  function _timerEnded() {
+    const stopBtn = document.getElementById('btn-fill-stop');
+    if (stopBtn) stopBtn.disabled = true;
+    // Broadcast timerEnd so players know time is up
+    _broadcastFill('fillTimerEnd', {});
+    // Ouvrir la modale de correction
+    openCorrectionModal();
+  }
+
+  // ---- Modale correction ----
+  function openCorrectionModal() {
+    if (!_currentActivity) return;
+    const modal = document.getElementById('fill-correction-modal');
+    if (!modal) return;
+    modal.style.display = '';
+    _renderCorrectionText();
+    _renderWordBank();
+    const hint = document.getElementById('fill-correction-hint');
+    if (hint) hint.textContent = _currentActivity.level === 1
+      ? 'Faites glisser les mots dans les trous.'
+      : 'Saisissez les mots manquants dans les champs.';
+  }
+
+  function closeCorrectionModal() {
+    const modal = document.getElementById('fill-correction-modal');
+    if (modal) modal.style.display = 'none';
+    // Afficher les scores
+    _showFillScores();
+  }
+
+  function _renderCorrectionText() {
+    const container = document.getElementById('fill-correction-text');
+    if (!container || !_currentActivity) return;
+    const { segments, holes, level } = _currentActivity;
+    let html = '';
+    segments.forEach((seg, i) => {
+      html += seg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      if (i < holes.length) {
+        const hole = holes[i];
+        if (level === 1) {
+          html += `<span class="fill-drop-zone" data-hole-id="${hole.id}" data-correct="${escHtml(hole.word)}"
+            ondragover="event.preventDefault(); this.classList.add('over')"
+            ondragleave="this.classList.remove('over')"
+            ondrop="FillActivity.dropWord(event, ${hole.id})">${escHtml(hole.word.replace(/./g,'_'))}</span>`;
+        } else {
+          html += `<input type="text" class="fill-type-input" data-hole-id="${hole.id}"
+            data-correct="${escHtml(hole.word)}"
+            placeholder="${'_'.repeat(Math.min(hole.word.length, 8))}"
+            oninput="FillActivity.typeWord(${hole.id}, this.value)">`;
+        }
+      }
+    });
+    container.innerHTML = html;
+  }
+
+  function _renderWordBank() {
+    const bank = document.getElementById('fill-word-bank');
+    if (!bank || !_currentActivity) return;
+    if (_currentActivity.level !== 1) { bank.style.display = 'none'; return; }
+    bank.style.display = '';
+    // Mélanger les mots
+    const words = [..._currentActivity.holes].sort(() => Math.random() - 0.5);
+    bank.innerHTML = words.map(h =>
+      `<span class="fill-word-chip" draggable="true" data-word="${escHtml(h.word)}"
+        ondragstart="FillActivity.dragWordStart(event, '${h.word.replace(/'/g,"\\'")}')">
+        ${escHtml(h.word)}
+      </span>`
+    ).join('');
+  }
+
+  // ---- Drag & drop (niveau 1) ----
+  function dragWordStart(event, word) {
+    event.dataTransfer.setData('text/plain', word);
+    event.dataTransfer.effectAllowed = 'move';
+  }
+
+  function dropWord(event, holeId) {
+    event.preventDefault();
+    const word = event.dataTransfer.getData('text/plain');
+    const zone = event.currentTarget;
+    if (!zone) return;
+    zone.classList.remove('over');
+    _placeWordInZone(holeId, word, zone);
+    // Retirer le chip du bank
+    const bank = document.getElementById('fill-word-bank');
+    if (bank) {
+      const chip = bank.querySelector(`[data-word="${escHtml(word)}"]`);
+      if (chip) chip.remove();
+    }
+  }
+
+  function _placeWordInZone(holeId, word, zone) {
+    zone.textContent = word;
+    zone.classList.add('filled');
+    zone.setAttribute('data-placed', word);
+    _broadcastFill('fillWordPlaced', { holeId, word });
+  }
+
+  // ---- Saisie (niveau 2) ----
+  function typeWord(holeId, value) {
+    _broadcastFill('fillWordTyped', { holeId, word: value });
+  }
+
+  // ---- Valider la correction ----
+  function validateCorrection() {
+    if (!_currentActivity) return;
+    // Récupérer toutes les réponses placées par l'admin (les bonnes réponses)
+    const correctAnswers = {}; // holeId -> word
+    if (_currentActivity.level === 1) {
+      document.querySelectorAll('#fill-correction-text .fill-drop-zone').forEach(zone => {
+        const holeId = Number(zone.getAttribute('data-hole-id'));
+        const placed = zone.getAttribute('data-placed') || '';
+        correctAnswers[holeId] = placed;
+      });
+    } else {
+      document.querySelectorAll('#fill-correction-text .fill-type-input').forEach(inp => {
+        const holeId = Number(inp.getAttribute('data-hole-id'));
+        correctAnswers[holeId] = inp.value.trim();
+      });
+    }
+    // Calculer les scores de chaque joueur
+    const scores = [];
+    const allPlayers = document.querySelectorAll('#fill-player-list .fill-player-row');
+    allPlayers.forEach(row => {
+      const playerId = Number(row.getAttribute('data-player-id'));
+      const playerAnswers = _fillPlayerAnswers[playerId] || [];
+      const results = _currentActivity.holes.map(hole => {
+        const playerAns = playerAnswers.find(a => a.holeId === hole.id);
+        const playerWord = String(playerAns ? playerAns.word : '').trim().toLowerCase();
+        const adminWord = String(correctAnswers[hole.id] || hole.word || '').trim().toLowerCase();
+        return { holeId: hole.id, correct: playerWord === adminWord };
+      });
+      const correctCount = results.filter(r => r.correct).length;
+      const delta = correctCount * 100;
+      scores.push({ playerId, delta, results });
+    });
+    _broadcastFill('fillCorrectionEnd', {
+      scores,
+      correctAnswers,
+      holes: _currentActivity.holes,
+    });
+    App.showToast('Correction envoyée aux joueurs ✓', 'success');
+    const btn = document.getElementById('btn-fill-validate');
+    if (btn) { btn.disabled = true; btn.textContent = '✅ Correction envoyée'; }
+  }
+
+  function _showFillScores() {
+    // Naviguer vers écran podium admin (réutiliser screen-podium si disponible)
+    const podium = document.getElementById('fill-podium-screen');
+    if (podium) { App.showScreen('fill-podium-screen'); return; }
+    // Fallback: aller à la liste
+    endFillGame();
+  }
+
+  function endFillGame() {
+    clearInterval(_fillTimerInterval);
+    if (_fillAdminSSE) { _fillAdminSSE.close(); _fillAdminSSE = null; }
+    App.state.gameCode = null;
+    App.state.adminToken = null;
+    _currentActivity = null;
+    _fillPlayerAnswers = {};
+    App.showScreen('screen-home');
+  }
+
+  return {
+    showBuilderTab,
+    setLevel,
+    parseText,
+    saveFillActivity,
+    renderSavedFills,
+    deleteFillActivity,
+    launchFillActivity,
+    stopTimer,
+    openCorrectionModal,
+    closeCorrectionModal,
+    dragWordStart,
+    dropWord,
+    typeWord,
+    validateCorrection,
+    endFillGame,
+  };
+})();
