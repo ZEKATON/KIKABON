@@ -1287,6 +1287,15 @@ function _renderFillScreen(data) {
   // Démarrer le chrono côté joueur
   _startFillPlayerTimer(300);
 
+  // Réinitialiser les contrôles de validation joueur
+  const submitBtn = document.getElementById('btn-fill-player-submit');
+  const submittedMsg = document.getElementById('fill-submitted-msg');
+  if (submitBtn) {
+    submitBtn.style.display = '';
+    submitBtn.disabled = false;
+  }
+  if (submittedMsg) submittedMsg.style.display = 'none';
+
   // Construire le texte
   const textContainer = document.getElementById('fill-player-text');
   if (textContainer) {
@@ -1362,16 +1371,16 @@ function _applyLiveFillFeedback(data) {
     void liveScoreEl.offsetWidth;
     liveScoreEl.classList.add('fill-live-score-pop');
   }
-}
 
-    // Overlay de feedback centré
-    var overlay = document.getElementById('fill-feedback-overlay');
-    if (overlay) {
-      overlay.innerHTML = '<div class="fill-feedback-bubble ' + (isCorrect ? 'super' : 'wrong') + '">' + (isCorrect ? 'SUPER ✅' : 'INCORRECT ❌') + '</div>';
-      overlay.style.display = 'flex';
-      clearTimeout(window._fillFeedbackTimer);
-      window._fillFeedbackTimer = setTimeout(function() { overlay.style.display = 'none'; }, 2500);
-    }
+  // Overlay de feedback centré
+  var overlay = document.getElementById('fill-feedback-overlay');
+  if (overlay) {
+    overlay.innerHTML = '<div class="fill-feedback-bubble ' + (isCorrect ? 'super' : 'wrong') + '">' + (isCorrect ? 'SUPER ✅' : 'INCORRECT ❌') + '</div>';
+    overlay.style.display = 'flex';
+    clearTimeout(window._fillFeedbackTimer);
+    window._fillFeedbackTimer = setTimeout(function() { overlay.style.display = 'none'; }, 2500);
+  }
+}
 
 
 var _fillPlayerTimerInterval = null;
@@ -1475,6 +1484,13 @@ function submitFillAnswers() {
     });
   }
   playerState.fillSubmitted = true;
+  var submitBtn = document.getElementById('btn-fill-player-submit');
+  var submittedMsg = document.getElementById('fill-submitted-msg');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.style.display = 'none';
+  }
+  if (submittedMsg) submittedMsg.style.display = '';
   clearInterval(_fillPlayerTimerInterval);
   fetch('/api/fill-answer/' + playerState.gameCode, {
     method: 'POST',
