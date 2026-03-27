@@ -160,6 +160,7 @@ const Game = (() => {
     const fillOverlay = document.getElementById('fill-correction-overlay');
     if (fillPanel) fillPanel.style.display = 'none';
     if (fillOverlay) fillOverlay.style.display = 'none';
+    renderAdminFillPreview(null);
     document.getElementById('btn-launch-question').textContent = '▶️ Lancer la question';
     document.getElementById('question-card').style.display = 'none';
     document.getElementById('question-result').style.display = 'none';
@@ -271,6 +272,8 @@ const Game = (() => {
       }
     }
 
+    renderAdminFillPreview(q);
+
     // Timer
     startTimer();
     App.playSound('question');
@@ -290,6 +293,26 @@ const Game = (() => {
       total,
       timeLeft: getQuestionTime()
     });
+  }
+
+  function renderAdminFillPreview(question) {
+    const previewText = document.getElementById('admin-fill-preview-text');
+    const previewBank = document.getElementById('admin-fill-preview-bank');
+    if (!previewText || !previewBank) return;
+
+    if (question && question.type === 'fill') {
+      previewText.innerHTML = buildFillMarkup(question);
+      previewBank.innerHTML = Array.isArray(question.holes)
+        ? question.holes.map(hole => `<span class="fill-word-chip">${String(hole.word || '')}</span>`).join('')
+        : '';
+      return;
+    }
+
+    const fallbackText = question && question.text
+      ? String(question.text)
+      : 'La zone affiche le texte a trous pendant les questions de ce type.';
+    previewText.textContent = fallbackText;
+    previewBank.innerHTML = '';
   }
 
   function getCorrectAnswerText() {
@@ -1097,6 +1120,7 @@ const Game = (() => {
   // ---- Fin de partie ----
   function endGame() {
     stopTimer();
+    renderAdminFillPreview(null);
     App.showScreen('screen-podium');
     showPodium();
     // Informer les joueurs de la fin de partie

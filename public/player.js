@@ -1472,6 +1472,31 @@ const PlayerGame = (function() {
               '</div>';
     });
     standings.innerHTML = html;
+
+    // Bloc stats personnel
+    const statEl = document.getElementById('podium-player-stat');
+    if (statEl && me) {
+      const rank = sorted.findIndex(p => p.id === me.id) + 1;
+      const total = playerState.totalQuestions;
+      const correct = playerState.correctCount;
+      const pct = total > 0 ? Math.round(correct / total * 100) : 0;
+      const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🏅';
+      const pctColor = pct >= 80 ? '#4ecb71' : pct >= 50 ? '#f7c948' : '#ff6b6b';
+      statEl.innerHTML =
+        '<div class="pps-row">' +
+          '<span class="pps-icon">🎯</span>' +
+          '<span class="pps-label">Bonnes réponses</span>' +
+          '<span class="pps-value" style="color:' + pctColor + '">' + correct + '/' + total + ' — ' + pct + '%</span>' +
+        '</div>' +
+        '<div class="pps-bar-wrap"><div class="pps-bar" style="width:' + pct + '%;background:' + pctColor + '"></div></div>' +
+        '<div class="pps-row">' +
+          '<span class="pps-icon">' + rankEmoji + '</span>' +
+          '<span class="pps-label">Classement</span>' +
+          '<span class="pps-value">' + rank + 'e&nbsp;/ ' + sorted.length + '</span>' +
+        '</div>';
+      statEl.style.display = 'flex';
+    }
+
     showScreen('screen-podium');
   }
 
