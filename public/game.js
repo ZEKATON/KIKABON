@@ -341,7 +341,7 @@ const Game = (() => {
     const code  = App.state.gameCode;
     const token = App.state.adminToken;
     if (!code || !token) return;
-    fetch(`/api/admin/${code}/broadcast`, {
+    fetch(App.apiUrl(`/api/admin/${code}/broadcast`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminToken: token, type, payload: payload || {} }),

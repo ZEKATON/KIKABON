@@ -1293,7 +1293,7 @@ const Admin = (() => {
 
   function connectAdminSSE(code) {
     if (adminSSE) { adminSSE.close(); adminSSE = null; }
-    adminSSE = new EventSource(`/api/events/${code}`);
+    adminSSE = new EventSource(App.sseUrl(`/api/events/${code}`));
 
     adminSSE.addEventListener('playerJoin', e => {
       const player = JSON.parse(e.data);
@@ -1355,7 +1355,7 @@ const Admin = (() => {
       return;
     }
     try {
-      const res = await fetch('/api/host', {
+      const res = await fetch(App.apiUrl('/api/host'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

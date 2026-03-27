@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  PLAYER.JS - Script autonome pour la page joueur (/play)
 //  Utilise SSE (EventSource) + fetch pour communication cross-device
 // ============================================================
@@ -34,6 +34,33 @@ let reconnectTimeout = null;
 let playerAudioCtx = null;
 let heartbeatTimer = null;
 let heartbeatFailureCount = 0;
+function apiPath(path) {
+  if (window.App && typeof App.apiUrl === 'function') return App.apiUrl(path);
+  return path;
+}
+
+function ssePath(path) {
+  if (window.App && typeof App.sseUrl === 'function') return App.sseUrl(path);
+  return path;
+}
+
+function routePath(path) {
+  const raw = String(path || '');
+  const host = String(window.location.hostname || '').toLowerCase();
+  if (!host.endsWith('github.io')) return raw;
+  const qIdx = raw.indexOf('?');
+  const pathname = qIdx >= 0 ? raw.slice(0, qIdx) : raw;
+  const query = qIdx >= 0 ? raw.slice(qIdx) : '';
+  const segs = window.location.pathname.split('/').filter(Boolean);
+  const base = segs.length > 0 ? '/' + segs[0] : '';
+  if (pathname === '/play' || pathname === '/join-new-game') {
+    return base + '/player.html' + query;
+  }
+  if (pathname === '/admin' || pathname === '/') {
+    return base + '/index.html' + query;
+  }
+  return base + pathname + query;
+}
 
 function getOrCreateClientSessionId() {
   const key = 'kikabon_client_session';
@@ -64,7 +91,7 @@ function getQuestionTypeLabel(question) {
 function formatQuestionMeta(question) {
   const typeLabel = getQuestionTypeLabel(question);
   const categoryLabel = String(question && question.category ? question.category : '').trim();
-  return categoryLabel ? `${typeLabel} • ${categoryLabel}` : typeLabel;
+  return categoryLabel ? `${typeLabel} â€¢ ${categoryLabel}` : typeLabel;
 }
 
 function updateLobbyPlayerCount(countOverride) {
@@ -74,10 +101,10 @@ function updateLobbyPlayerCount(countOverride) {
     ? countOverride
     : document.querySelectorAll('#players-list .lobby-player-card').length;
   if (count === 0) {
-    counter.textContent = 'Aucun joueur connecté';
+    counter.textContent = 'Aucun joueur connectÃ©';
     return;
   }
-  counter.textContent = `${count} joueur${count > 1 ? 's' : ''} connecté${count > 1 ? 's' : ''}`;
+  counter.textContent = `${count} joueur${count > 1 ? 's' : ''} connectÃ©${count > 1 ? 's' : ''}`;
 }
 
 function formatCorrectAnswerText(question, correctAnswer) {
@@ -87,8 +114,8 @@ function formatCorrectAnswerText(question, correctAnswer) {
     return '';
   }
   if (!question || question.type === 'qcm') {
-    const hasMultiple = /^r[eé]ponses\s+correctes\s*:/i.test(answerText);
-    const cleanAnswer = answerText.replace(/^r[eé]ponses\s+correctes\s*:\s*/i, '');
+    const hasMultiple = /^r[eÃ©]ponses\s+correctes\s*:/i.test(answerText);
+    const cleanAnswer = answerText.replace(/^r[eÃ©]ponses\s+correctes\s*:\s*/i, '');
     return hasMultiple
       ? 'Les bonnes reponses sont : ' + cleanAnswer
       : 'La bonne reponse est : ' + cleanAnswer;
@@ -129,7 +156,7 @@ function redirectToJoinNewGame(redirectCode, message) {
   const target = hasValidCode
     ? ('/join-new-game?code=' + String(redirectCode))
     : '/join-new-game';
-  window.location.assign(target);
+  window.location.assign(routePath(target));
 }
 
 function mergeKnownPlayer(player) {
@@ -138,7 +165,7 @@ function mergeKnownPlayer(player) {
   const merged = {
     id: player.id,
     name: String(player.name || ''),
-    avatar: String(player.avatar || '🙂'),
+    avatar: String(player.avatar || 'ðŸ™‚'),
     color: String(player.color || '#ffffff'),
     score: Number(player.score) || 0,
   };
@@ -314,7 +341,7 @@ async function tryRestoreSession() {
   try { saved = JSON.parse(localStorage.getItem('kikabon_session') || 'null'); } catch (e) { saved = null; }
   if (!saved || !saved.playerId || !saved.gameCode) return false;
   try {
-    const activeRes = await fetch('/api/game-active').catch(() => null);
+    const activeRes = await fetch(apiPath('/api/game-active')).catch(() => null);
     if (activeRes && activeRes.ok) {
       const activeData = await activeRes.json().catch(() => ({}));
       const activeCode = String(activeData.code || '').trim();
@@ -324,7 +351,7 @@ async function tryRestoreSession() {
       }
     }
 
-    const res = await fetch('/api/game/' + saved.gameCode);
+    const res = await fetch(apiPath('/api/game/' + saved.gameCode));
     if (!res.ok) {
       const gameErr = await res.json().catch(() => ({}));
       if (res.status === 409 && /^\d{4}$/.test(String(gameErr.redirectCode || ''))) {
@@ -337,7 +364,7 @@ async function tryRestoreSession() {
 
     const gameMeta = await res.json().catch(() => ({}));
     if (gameMeta && gameMeta.gamePhase === 'ended') {
-      const activeRes = await fetch('/api/game-active').catch(() => null);
+      const activeRes = await fetch(apiPath('/api/game-active')).catch(() => null);
       if (activeRes && activeRes.ok) {
         const activeData = await activeRes.json().catch(() => ({}));
         const redirectCode = String(activeData.code || '').trim();
@@ -350,7 +377,7 @@ async function tryRestoreSession() {
       return false;
     }
 
-    const joinRes = await fetch('/api/join/' + saved.gameCode, {
+    const joinRes = await fetch(apiPath('/api/join/' + saved.gameCode), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -421,19 +448,19 @@ async function tryAutoJoinByStoredName() {
   if (!storedName) return false;
 
   try {
-    const activeRes = await fetch('/api/game-active');
+    const activeRes = await fetch(apiPath('/api/game-active'));
     if (!activeRes.ok) return false;
     const activeData = await activeRes.json().catch(() => ({}));
     const code = String(activeData.code || '').trim();
     if (!/^\d{4}$/.test(code)) return false;
 
-    const joinRes = await fetch('/api/join/' + code, {
+    const joinRes = await fetch(apiPath('/api/join/' + code), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sessionId: getOrCreateClientSessionId(),
         name: storedName,
-        avatar: storedAvatar || '🐼',
+        avatar: storedAvatar || 'ðŸ¼',
         color: PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)],
       }),
     });
@@ -464,7 +491,7 @@ async function tryAutoJoinByStoredName() {
     } else if (data.gamePhase === 'game') {
       showScreen('screen-game');
       const status = document.getElementById('game-status');
-      if (status) status.textContent = '⏳ Prochaine question...';
+      if (status) status.textContent = 'â³ Prochaine question...';
     }
 
     connectSSE(code);
@@ -536,7 +563,7 @@ async function pingServerWithTimeout(timeoutMs) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch('/api/ping', { cache: 'no-store', signal: controller.signal });
+    const response = await fetch(apiPath('/api/ping'), { cache: 'no-store', signal: controller.signal });
     if (!response.ok) return null;
     return await response.json().catch(() => null);
   } catch (e) {
@@ -615,7 +642,7 @@ function initAvatarGrid() {
     grid.appendChild(btn);
   });
   playerState.selectedAvatar = null;
-  if (preview) preview.textContent = '❔';
+  if (preview) preview.textContent = 'â”';
 }
 
 // ---- Etapes du formulaire rejoindre ----
@@ -638,7 +665,7 @@ async function goToJoinStep(step) {
       return;
     }
     try {
-      const res = await fetch('/api/game/' + code);
+      const res = await fetch(apiPath('/api/game/' + code));
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (res.status === 409 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
@@ -670,7 +697,7 @@ async function joinGameWithCode() {
   const avatar = playerState.selectedAvatar;
 
   if (!name) {
-    showToast('Entrez votre prénom', 'error');
+    showToast('Entrez votre prÃ©nom', 'error');
     return;
   }
 
@@ -681,7 +708,7 @@ async function joinGameWithCode() {
 
   if (!code) {
     try {
-      const activeRes = await fetch('/api/game-active');
+      const activeRes = await fetch(apiPath('/api/game-active'));
       if (!activeRes.ok) {
         showToast('Aucune partie en cours. Attends que le professeur lance le jeu.', 'error');
         return;
@@ -708,7 +735,7 @@ async function joinGameWithCode() {
   );
 
   const performJoin = async (targetCode, canResumeForCode) => {
-    return fetch('/api/join/' + targetCode, {
+    return fetch(apiPath('/api/join/' + targetCode), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -764,7 +791,7 @@ async function joinGameWithCode() {
     addPlayerToLobby(player);
     showScreen('screen-lobby');
     const footerMsg = document.querySelector('#screen-lobby .lobby-footer p');
-    if (footerMsg) footerMsg.textContent = 'En attente du professeur pour démarrer le quiz...';
+    if (footerMsg) footerMsg.textContent = 'En attente du professeur pour dÃ©marrer le quiz...';
     updatePlayerHeader();
     updatePlayerStats();
     try { localStorage.setItem('playerName', name); } catch (e) {}
@@ -794,7 +821,7 @@ function connectSSE(code) {
   clearTimeout(reconnectTimeout);
 
   try {
-    const sse = new EventSource('/api/events/' + code);
+    const sse = new EventSource(ssePath('/api/events/' + code));
     playerState.sse = sse;
     startHeartbeat();
 
@@ -817,7 +844,7 @@ function connectSSE(code) {
       renderGamePlayersStrip();
       updateLobbyPlayerCount(players.length);
 
-      // Reconnexion : restaurer état depuis serveur
+      // Reconnexion : restaurer Ã©tat depuis serveur
       if (playerState.currentPlayer) {
         const serverPlayer = players.find(p => p.id === playerState.currentPlayer.id);
         if (serverPlayer) {
@@ -833,7 +860,7 @@ function connectSSE(code) {
             if (data.fillCorrectionState && data.fillCorrectionState.active) {
               PlayerGame.lockFillInputs();
               const stCorrection = document.getElementById('game-status');
-              if (stCorrection) stCorrection.textContent = '🧠 Correction en cours par le professeur...';
+              if (stCorrection) stCorrection.textContent = 'ðŸ§  Correction en cours par le professeur...';
             }
           } else {
             const st = document.getElementById('game-status');
@@ -885,7 +912,7 @@ function connectSSE(code) {
         PlayerGame.lockFillInputs();
         setGamePlayersStripVisible(false);
         const status = document.getElementById('game-status');
-        if (status) status.textContent = '🧠 Correction en cours par le professeur...';
+        if (status) status.textContent = 'ðŸ§  Correction en cours par le professeur...';
         return;
       }
       if (data.phase !== 'question') return;
@@ -927,7 +954,7 @@ function connectSSE(code) {
       playerState.fillHolesCorrect = 0;
       playerState.fillHolesTotal = Number(data.total) || 0;
       const status = document.getElementById('game-status');
-      if (status) status.textContent = '🧠 Correction en cours...';
+      if (status) status.textContent = 'ðŸ§  Correction en cours...';
     });
 
     sse.addEventListener('fillCorrectionStep', function(e) {
@@ -954,13 +981,13 @@ function connectSSE(code) {
         status.classList.remove('score-good', 'score-neutral');
         status.classList.add(iWon ? 'score-good' : 'score-neutral');
         status.textContent = iWon
-          ? `🎉 Trou ${holeNum} valide ! +${pointsPerHole} pts • Total: ${playerState.score} pts`
-          : `❌ FAUX • Trou ${holeNum} corrige. Total actuel: ${playerState.score} pts`;
+          ? `ðŸŽ‰ Trou ${holeNum} valide ! +${pointsPerHole} pts â€¢ Total: ${playerState.score} pts`
+          : `âŒ FAUX â€¢ Trou ${holeNum} corrige. Total actuel: ${playerState.score} pts`;
       }
       showToast(
         iWon
-          ? `🔥 Excellent ! +${pointsPerHole} pts • ${playerState.score} pts`
-          : `❌ FAUX • Score en direct: ${playerState.score} pts`,
+          ? `ðŸ”¥ Excellent ! +${pointsPerHole} pts â€¢ ${playerState.score} pts`
+          : `âŒ FAUX â€¢ Score en direct: ${playerState.score} pts`,
         iWon ? 'success score-pop' : 'score-pop'
       );
       if (iWon) {
@@ -981,13 +1008,13 @@ function connectSSE(code) {
         const myEntry = myId ? results.find(r => r.playerId === myId) : null;
         if (myEntry && myEntry.isCorrect) {
           status.className = 'game-status score-good';
-          status.textContent = '🏆 Bravo ! Tu as tout juste !';
+          status.textContent = 'ðŸ† Bravo ! Tu as tout juste !';
         } else if (holesCorrect > 0) {
           status.className = 'game-status score-neutral';
-          status.textContent = `✅ ${holesCorrect}/${holesTotal} trous corrects • Total: ${playerState.score} pts`;
+          status.textContent = `âœ… ${holesCorrect}/${holesTotal} trous corrects â€¢ Total: ${playerState.score} pts`;
         } else {
           status.className = 'game-status score-neutral';
-          status.textContent = `📋 Correction terminée • Total: ${playerState.score} pts`;
+          status.textContent = `ðŸ“‹ Correction terminÃ©e â€¢ Total: ${playerState.score} pts`;
         }
       }
     });
@@ -1011,9 +1038,9 @@ function connectSSE(code) {
       clearPlayerIdentityStorage();
       resetPlayerStateOnly();
       if (/^\d{4}$/.test(targetCode)) {
-        window.location.href = '/join-new-game?code=' + targetCode;
+        window.location.href = routePath('/join-new-game?code=' + targetCode);
       } else {
-        window.location.href = '/play';
+        window.location.href = routePath('/play');
       }
     });
 
@@ -1023,7 +1050,7 @@ function connectSSE(code) {
 
       const currentCode = String(playerState.gameCode || '').trim();
       if (currentCode) {
-        fetch('/api/game-active')
+        fetch(apiPath('/api/game-active'))
           .then(r => r.ok ? r.json() : null)
           .then(activeData => {
             const activeCode = String(activeData && activeData.code ? activeData.code : '').trim();
@@ -1458,7 +1485,7 @@ const PlayerGame = (function() {
     const code = playerState.gameCode;
     if (player && code) {
       try {
-        const res = await fetch('/api/answer/' + code, {
+        const res = await fetch(apiPath('/api/answer/' + code), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1515,7 +1542,7 @@ const PlayerGame = (function() {
       fillSubmitBtn.disabled = true;
     }
     const status = document.getElementById('game-status');
-    if (status) status.textContent = '✅ Reponse enregistree';
+    if (status) status.textContent = 'âœ… Reponse enregistree';
   }
 
   function submitOpenAnswer() {
@@ -1584,13 +1611,13 @@ const PlayerGame = (function() {
     if (result) {
       setGamePlayersStripVisible(false);
       if (myResult && myResult.isCorrect) {
-        if (icon) icon.textContent = '✅';
+        if (icon) icon.textContent = 'âœ…';
         if (text) text.textContent = 'Bravo ! Bonne reponse';
       } else if (myResult && !myResult.isCorrect) {
-        if (icon) icon.textContent = '❌';
+        if (icon) icon.textContent = 'âŒ';
         if (text) text.textContent = 'FAUX';
       } else {
-        if (icon) icon.textContent = 'ℹ️';
+        if (icon) icon.textContent = 'â„¹ï¸';
         if (text) text.textContent = 'Resultat';
       }
       if (ans) {
@@ -1631,15 +1658,15 @@ const PlayerGame = (function() {
       const total = playerState.totalQuestions;
       const correct = playerState.correctCount;
       const pct = total > 0 ? Math.round(correct / total * 100) : 0;
-      const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🏅';
+      const rankEmoji = rank === 1 ? 'ðŸ¥‡' : rank === 2 ? 'ðŸ¥ˆ' : rank === 3 ? 'ðŸ¥‰' : 'ðŸ…';
       const pctColor = pct >= 80 ? '#4ecb71' : pct >= 50 ? '#f7c948' : '#ff6b6b';
       const encouragement = pct >= 80
-        ? '🌟 Excellent travail, continue comme ca !'
+        ? 'ðŸŒŸ Excellent travail, continue comme ca !'
         : pct >= 60
-          ? '👏 Tres bon score, encore un petit effort !'
+          ? 'ðŸ‘ Tres bon score, encore un petit effort !'
           : pct >= 40
-            ? '👍 Bon debut, tu progresses !'
-            : '💪 Courage, la prochaine manche sera meilleure !';
+            ? 'ðŸ‘ Bon debut, tu progresses !'
+            : 'ðŸ’ª Courage, la prochaine manche sera meilleure !';
       statEl.innerHTML =
         '<div class="pps-main" style="color:' + pctColor + '">' + pct + '%</div>' +
         '<div class="pps-sub">de bonnes reponses</div>' +
@@ -1655,7 +1682,7 @@ const PlayerGame = (function() {
 
     showScreen('screen-podium');
     
-    // Auto-transition après 30 secondes si final
+    // Auto-transition aprÃ¨s 30 secondes si final
     if (isFinal) {
       if (window.podiumTimeout) clearTimeout(window.podiumTimeout);
       window.podiumTimeout = setTimeout(() => {
@@ -1680,24 +1707,24 @@ const PlayerGame = (function() {
 
     const sorted = [...results].sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
 
-    // Feedback personnalisé pour le joueur courant
+    // Feedback personnalisÃ© pour le joueur courant
     const myId = playerState.currentPlayer && playerState.currentPlayer.id;
     const myEntry = myId ? results.find(r => r.playerId === myId) : null;
     const holesCorrect = playerState.fillHolesCorrect || 0;
     const holesTotal = playerState.fillHolesTotal || 0;
     if (myEntry) {
       if (myEntry.isCorrect) {
-        if (icon) icon.textContent = '🏆';
+        if (icon) icon.textContent = 'ðŸ†';
         if (text) text.textContent = 'Parfait ! Tous les trous corrects !';
       } else if (holesCorrect > 0) {
-        if (icon) icon.textContent = '👍';
+        if (icon) icon.textContent = 'ðŸ‘';
         if (text) text.textContent = holesCorrect + '/' + holesTotal + ' trous corrects';
       } else {
-        if (icon) icon.textContent = '📝';
-        if (text) text.textContent = 'Texte à trous terminé';
+        if (icon) icon.textContent = 'ðŸ“';
+        if (text) text.textContent = 'Texte Ã  trous terminÃ©';
       }
     } else {
-      if (icon) icon.textContent = '🏁';
+      if (icon) icon.textContent = 'ðŸ';
       if (text) text.textContent = 'Scores des joueurs';
     }
 
@@ -1705,7 +1732,7 @@ const PlayerGame = (function() {
       const name = String(row.playerName || `Joueur ${idx + 1}`);
       const score = Number(row.score) || 0;
       const isMe = myId && row.playerId === myId;
-      return `<span style="${isMe ? 'font-weight:800;color:var(--accent)' : ''}">${idx + 1}. ${name} — ${score} pts${isMe ? ' ⭐' : ''}</span>`;
+      return `<span style="${isMe ? 'font-weight:800;color:var(--accent)' : ''}">${idx + 1}. ${name} â€” ${score} pts${isMe ? ' â­' : ''}</span>`;
     }).join('\n');
     ans.style.whiteSpace = 'pre-line';
     result.style.display = 'flex';
@@ -1737,7 +1764,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const params = new URLSearchParams(window.location.search);
   const forcedCode = String(params.get('code') || '').trim();
-  const isForcedJoinRoute = window.location.pathname === '/join-new-game';
+  const isForcedJoinRoute = window.location.pathname === '/join-new-game' || window.location.pathname.endsWith('/player.html');
 
   if (isForcedJoinRoute) {
     clearSession();

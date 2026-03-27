@@ -40,11 +40,30 @@ const App = (() => {
   const QUIZ_STORAGE_LEGACY_KEYS = ['quizzes'];
   const QUESTIONS_STORAGE_KEY = 'quizrace_questions';
   const SETTINGS_STORAGE_KEY = 'quizrace_settings';
+  const REMOTE_API_ORIGIN = 'https://kikabon.onrender.com';
 
   // ---- Garde admin ----
   const ADMIN_SCREENS = new Set(['screen-quiz-list', 'screen-admin', 'screen-lobby', 'screen-game']);
   const ADMIN_PASSWORD = 'FORMA974';
   const ADMIN_SESSION_KEY = 'kikabon_admin_ok';
+
+  function shouldUseRemoteApi() {
+    const host = String(window.location.hostname || '').toLowerCase();
+    return host.endsWith('github.io');
+  }
+
+  function getApiOrigin() {
+    if (shouldUseRemoteApi()) return REMOTE_API_ORIGIN;
+    return window.location.origin;
+  }
+
+  function apiUrl(apiPath) {
+    return new URL(apiPath, getApiOrigin()).toString();
+  }
+
+  function sseUrl(apiPath) {
+    return apiUrl(apiPath);
+  }
 
   // ---- Écrans ----
   function showScreen(id) {
@@ -688,7 +707,7 @@ const App = (() => {
     renderQuizList();
   }
 
-  return { state, AVATARS, PLAYER_COLORS, showScreen, requestAdminAccess, submitAdminPassword, cancelAdminAccess, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, startLobbyMusic, stopLobbyMusic, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, init };
+  return { state, AVATARS, PLAYER_COLORS, showScreen, requestAdminAccess, submitAdminPassword, cancelAdminAccess, joinGame, joinGameWithCode, goToJoinStep, initQuizList, renderQuizList, showToast, playSound, startLobbyMusic, stopLobbyMusic, loadSavedQuizzes, persistSavedQuizzes, updateTrackLength, updateAdminCurrentCodeBadge, apiUrl, sseUrl, init };
 })();
 
 // ============================================================
