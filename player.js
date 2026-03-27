@@ -1345,6 +1345,9 @@ function _renderFillScreen(data) {
           // Champ de saisie
           html += `<input type="text" class="fill-player-input" data-hole-id="${h.id}"
             placeholder="________"
+            autocomplete="off"
+            inputmode="text"
+            onkeydown="if(event.key==='Enter'){event.preventDefault(); submitFillAnswers();}"
             oninput="_playerTypeWord(${h.id}, this.value)">`;
         }
       }

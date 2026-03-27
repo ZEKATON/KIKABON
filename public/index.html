@@ -138,6 +138,9 @@
       <button class="btn btn-secondary sidebar-launch" onclick="Admin.saveQuiz()">
         💾 Enregistrer le quiz
       </button>
+      <button class="btn btn-ghost sidebar-launch" onclick="App.renderQuizList(); App.showScreen('screen-quiz-list')">
+        📚 Retour aux activités
+      </button>
       <button class="btn btn-primary sidebar-launch" onclick="Admin.launchGame()">
         ▶ Lancer le jeu
       </button>
@@ -344,6 +347,9 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
           </button>
           <button class="btn btn-warning" id="btn-stop-timer" onclick="Game.stopTimerManually()" style="display:none">
             ⏹️ Arrêter le chrono
+          </button>
+          <button class="btn btn-secondary" onclick="App.renderQuizList(); App.showScreen('screen-quiz-list')">
+            📚 Activités
           </button>
           <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
             ← Arrêter la course
@@ -580,7 +586,7 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
 <div id="screen-fill-game" class="screen">
   <div class="fill-game-layout">
     <div class="fill-game-header">
-      <button class="back-btn" onclick="FillActivity.endFillGame()">← Retour aux activités</button>
+      <button class="btn btn-ghost fill-header-back" onclick="FillActivity.endFillGame()">← Retour aux activités</button>
       <h2 id="fill-game-title">Texte à Trous</h2>
       <div id="fill-progress-counter" class="fill-progress-counter">0 / 0 terminé(s)</div>
       <button class="btn btn-primary" onclick="FillActivity.startFillGame()" id="btn-fill-launch">▶️ Lancer le jeu</button>

@@ -2545,7 +2545,18 @@ html, body {
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
-.fill-game-header h2 { flex: 1; font-size: 20px; font-weight: 700; }
+.fill-game-header h2 {
+  flex: 1;
+  font-size: 20px;
+  font-weight: 700;
+  margin-left: 8px;
+}
+.fill-header-back {
+  position: static;
+  top: auto;
+  left: auto;
+  flex-shrink: 0;
+}
 .fill-progress-counter {
   padding: 6px 12px;
   border-radius: 999px;
