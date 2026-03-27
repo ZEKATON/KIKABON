@@ -140,13 +140,28 @@ const App = (() => {
       if (!rawValue) continue;
       const parsed = safeParseJson(rawValue, [], key);
       if (Array.isArray(parsed)) {
-        console.log('[storage] loaded quizzes from ' + key + ' (' + parsed.length + ')');
+        console.log('[storage] loaded activities from ' + key + ' (' + parsed.length + ')');
         return parsed;
       }
       console.log('[storage] ignored non-array payload in ' + key);
     }
-    console.log('[storage] no saved quizzes found');
+    console.log('[storage] no saved activities found');
     return [];
+  }
+
+  // ---- Stockage unifié : quizzes + textes à trous dans la même clé ----
+  function _readAllActivities() {
+    return readSavedQuizzesFromStorage();
+  }
+
+  function _writeAllActivities(quizzes, fills) {
+    const tagged = [
+      ...quizzes.map(q => ({ ...q, type: 'quiz' })),
+      ...fills.map(f => ({ ...f, type: 'fill' })),
+    ];
+    const payload = safeStringifyJson(tagged, QUIZ_STORAGE_KEY);
+    if (payload === null) return false;
+    try { localStorage.setItem(QUIZ_STORAGE_KEY, payload); return true; } catch (e) { return false; }
   }
 
   function normalizeSavedQuizzes(quizzes) {
@@ -177,21 +192,15 @@ const App = (() => {
   function persistSavedQuizzes(nextQuizzes) {
     const source = Array.isArray(nextQuizzes) ? nextQuizzes : state.savedQuizzes;
     const { quizzes } = normalizeSavedQuizzes(source);
-    const payload = safeStringifyJson(quizzes, QUIZ_STORAGE_KEY);
-    if (payload === null) {
+    const ok = _writeAllActivities(quizzes, state.savedFillActivities);
+    if (!ok) {
       console.log('[storage] failed to save quizzes');
       return false;
     }
-    try {
-      localStorage.setItem(QUIZ_STORAGE_KEY, payload);
-      state.savedQuizzes = quizzes;
-      console.log('[storage] quizzes saved successfully (' + quizzes.length + ')');
-      renderQuizList();
-      return true;
-    } catch (error) {
-      console.log('[storage] write failed for ' + QUIZ_STORAGE_KEY, error);
-      return false;
-    }
+    state.savedQuizzes = quizzes;
+    console.log('[storage] quizzes saved successfully (' + quizzes.length + ')');
+    renderQuizList();
+    return true;
   }
 
   function lockAdminScreens() {
@@ -392,35 +401,43 @@ const App = (() => {
 
   // ---- Charger quiz sauvegardés ----
   function loadSavedQuizzes() {
-    const loadedQuizzes = readSavedQuizzesFromStorage();
-    const normalized = normalizeSavedQuizzes(loadedQuizzes);
+    const all = _readAllActivities();
+    const quizItems = all.filter(item => item.type !== 'fill');
+    const normalized = normalizeSavedQuizzes(quizItems);
     state.savedQuizzes = normalized.quizzes;
     if (normalized.changed) {
-      persistSavedQuizzes(state.savedQuizzes);
+      _writeAllActivities(state.savedQuizzes, state.savedFillActivities);
     }
   }
 
   function loadSavedFillActivities() {
+    const all = _readAllActivities();
+    state.savedFillActivities = all.filter(item => item.type === 'fill');
+    // Migration depuis l'ancienne clé séparée
     try {
-      const raw = localStorage.getItem(FILL_STORAGE_KEY);
-      if (!raw) { state.savedFillActivities = []; return; }
-      const parsed = JSON.parse(raw);
-      state.savedFillActivities = Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      state.savedFillActivities = [];
-    }
+      const legacyRaw = localStorage.getItem(FILL_STORAGE_KEY);
+      if (legacyRaw) {
+        const legacyFills = JSON.parse(legacyRaw);
+        if (Array.isArray(legacyFills) && legacyFills.length > 0) {
+          const existingIds = new Set(state.savedFillActivities.map(f => f.id));
+          const toMigrate = legacyFills.filter(f => !existingIds.has(f.id));
+          if (toMigrate.length > 0) {
+            state.savedFillActivities = [...state.savedFillActivities, ...toMigrate];
+            _writeAllActivities(state.savedQuizzes, state.savedFillActivities);
+          }
+        }
+        localStorage.removeItem(FILL_STORAGE_KEY);
+      }
+    } catch (e) {}
   }
 
   function persistSavedFillActivities(list) {
     const source = Array.isArray(list) ? list : state.savedFillActivities;
-    try {
-      localStorage.setItem(FILL_STORAGE_KEY, JSON.stringify(source));
-      state.savedFillActivities = source;
-      renderQuizList();
-      return true;
-    } catch (e) {
-      return false;
-    }
+    const ok = _writeAllActivities(state.savedQuizzes, source);
+    if (!ok) return false;
+    state.savedFillActivities = source;
+    renderQuizList();
+    return true;
   }
 
   // ---- Sons ----
