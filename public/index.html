@@ -183,7 +183,10 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
       <div class="admin-tab active" id="tab-saved">
         <div class="admin-header">
           <h2>💾 Quiz sauvegardés</h2>
-          <button class="btn btn-secondary sm" onclick="Admin.saveQuiz()">💾 Sauvegarder le quiz actuel</button>
+          <div class="header-actions">
+            <button class="btn btn-ghost sm" onclick="Admin.createModule()">📁 Nouveau module</button>
+            <button class="btn btn-secondary sm" onclick="Admin.saveQuiz()">💾 Sauvegarder le quiz actuel</button>
+          </div>
         </div>
         <div id="saved-quizzes-list" class="saved-list"></div>
         <div class="empty-state" id="saved-empty">

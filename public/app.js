@@ -152,6 +152,11 @@ const App = (() => {
     const used = new Set();
     const normalized = (Array.isArray(quizzes) ? quizzes : []).map(quiz => {
       const clone = { ...quiz };
+      const moduleId = String(clone.moduleId || '').trim();
+      if (!moduleId) {
+        clone.moduleId = 'uncategorized';
+        changed = true;
+      }
       let code = String(clone.gameCode || '').trim();
       const valid = /^\d{4}$/.test(code) && !used.has(code);
       if (!valid) {

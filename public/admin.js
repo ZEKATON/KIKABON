@@ -4,11 +4,143 @@
 
 const Admin = (() => {
   const MAX_IMPORTED_QUESTIONS = 20;
+  const MODULES_STORAGE_KEY = 'quizrace_modules';
+  const UNCLASSIFIED_MODULE_ID = 'uncategorized';
+  const UNCLASSIFIED_MODULE_NAME = 'Non classes';
   let editingId = null;
   let correctIdx = 0;
   let correctIndices = [0]; // Pour les choix multiples
   let isMultipleChoice = false; // Mode choix unique ou multiples
   let adminSSE = null;
+  let dragQuizId = null;
+  let dragModuleId = null;
+
+  function normalizeModuleName(name) {
+    return String(name || '').trim();
+  }
+
+  function readModulesFromStorage() {
+    try {
+      const raw = localStorage.getItem(MODULES_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.log('[storage] failed to read modules', error);
+      return [];
+    }
+  }
+
+  function generateModuleId(existingModules) {
+    const used = new Set((existingModules || []).map(m => String(m.id || '')));
+    let id;
+    do {
+      id = `module_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    } while (used.has(id));
+    return id;
+  }
+
+  function normalizeModules(modules) {
+    let changed = false;
+    const normalized = [];
+    const usedIds = new Set();
+    const source = Array.isArray(modules) ? modules : [];
+    source.forEach(mod => {
+      if (!mod || typeof mod !== 'object') return;
+      const name = normalizeModuleName(mod.name);
+      if (!name) return;
+      let id = String(mod.id || '').trim();
+      if (!id || usedIds.has(id)) {
+        id = generateModuleId(normalized);
+        changed = true;
+      }
+      if (id === UNCLASSIFIED_MODULE_ID && name !== UNCLASSIFIED_MODULE_NAME) {
+        changed = true;
+      }
+      usedIds.add(id);
+      normalized.push({ id, name: id === UNCLASSIFIED_MODULE_ID ? UNCLASSIFIED_MODULE_NAME : name });
+    });
+
+    if (!usedIds.has(UNCLASSIFIED_MODULE_ID)) {
+      normalized.unshift({ id: UNCLASSIFIED_MODULE_ID, name: UNCLASSIFIED_MODULE_NAME });
+      changed = true;
+    } else {
+      const idx = normalized.findIndex(m => m.id === UNCLASSIFIED_MODULE_ID);
+      if (idx > 0) {
+        const [unclassified] = normalized.splice(idx, 1);
+        normalized.unshift({ id: UNCLASSIFIED_MODULE_ID, name: UNCLASSIFIED_MODULE_NAME || unclassified.name });
+        changed = true;
+      }
+    }
+
+    return { modules: normalized, changed };
+  }
+
+  function persistModules(modules) {
+    const { modules: normalized } = normalizeModules(modules);
+    try {
+      localStorage.setItem(MODULES_STORAGE_KEY, JSON.stringify(normalized));
+      return normalized;
+    } catch (error) {
+      console.log('[storage] failed to save modules', error);
+      return normalized;
+    }
+  }
+
+  function getModules() {
+    const loaded = readModulesFromStorage();
+    const { modules, changed } = normalizeModules(loaded);
+    if (changed || loaded.length !== modules.length) {
+      persistModules(modules);
+    }
+    return modules;
+  }
+
+  function getModuleIdSet(modules) {
+    return new Set((modules || []).map(m => m.id));
+  }
+
+  function getModuleSelectOptions(currentModuleId, modules) {
+    return (modules || [])
+      .map(module => {
+        const selected = module.id === currentModuleId ? 'selected' : '';
+        return `<option value="${module.id}" ${selected}>${module.name}</option>`;
+      })
+      .join('');
+  }
+
+  function reorderModules(sourceModuleId, targetModuleId) {
+    if (!sourceModuleId || !targetModuleId || sourceModuleId === targetModuleId) return;
+    if (sourceModuleId === UNCLASSIFIED_MODULE_ID || targetModuleId === UNCLASSIFIED_MODULE_ID) return;
+    const modules = getModules();
+    const sourceIdx = modules.findIndex(m => m.id === sourceModuleId);
+    const targetIdx = modules.findIndex(m => m.id === targetModuleId);
+    if (sourceIdx < 0 || targetIdx < 0) return;
+    const [moved] = modules.splice(sourceIdx, 1);
+    modules.splice(targetIdx, 0, moved);
+    persistModules(modules);
+    renderSaved();
+  }
+
+  function ensureQuizModuleAssignments() {
+    const modules = getModules();
+    const validIds = getModuleIdSet(modules);
+    let changed = false;
+    App.state.savedQuizzes = (App.state.savedQuizzes || []).map(quiz => {
+      if (!quiz || typeof quiz !== 'object') return quiz;
+      const moduleId = String(quiz.moduleId || '').trim();
+      const nextModuleId = validIds.has(moduleId) ? moduleId : UNCLASSIFIED_MODULE_ID;
+      if (nextModuleId !== moduleId) {
+        changed = true;
+        return { ...quiz, moduleId: nextModuleId };
+      }
+      return quiz;
+    });
+    if (changed) {
+      App.persistSavedQuizzes(App.state.savedQuizzes);
+    }
+    return modules;
+  }
 
   function generateUniqueSavedQuizCode(excludeQuizId = null) {
     const used = new Set(
@@ -307,6 +439,7 @@ const Admin = (() => {
       date: new Date().toLocaleDateString('fr-FR'),
       count: questions.length,
       gameCode: generateUniqueSavedQuizCode(null),
+      moduleId: UNCLASSIFIED_MODULE_ID,
     };
 
     App.state.savedQuizzes.push(quiz);
@@ -615,6 +748,7 @@ const Admin = (() => {
         date: new Date().toLocaleDateString('fr-FR'),
         count: qs.length,
         gameCode,
+        moduleId: UNCLASSIFIED_MODULE_ID,
       };
       const currentSavedQuizzes = Array.isArray(App.state.savedQuizzes) ? [...App.state.savedQuizzes] : [];
       currentSavedQuizzes.push(quiz);
@@ -635,24 +769,235 @@ const Admin = (() => {
     const list = document.getElementById('saved-quizzes-list');
     const empty = document.getElementById('saved-empty');
     list.innerHTML = '';
-    const saved = App.state.savedQuizzes;
+    const saved = App.state.savedQuizzes || [];
+    const modules = ensureQuizModuleAssignments();
     empty.style.display = saved.length === 0 ? 'flex' : 'none';
-    [...saved].reverse().forEach(quiz => {
-      const item = document.createElement('div');
-      item.className = 'saved-item';
-      item.innerHTML = `
-        <div class="saved-info">
-           <button class="saved-launch-btn" onclick="Admin.loadAndLaunchQuiz(${quiz.id})">▶️ ${quiz.name}</button>
-          <p>${quiz.count} question(s) — ${quiz.date}</p>
-        </div>
-        <div class="saved-actions">
-          <button class="btn btn-secondary sm" onclick="Admin.loadSavedQuiz(${quiz.id})">✏️ Modifier</button>
-          <button class="btn btn-ghost sm" onclick="Admin.downloadSavedQuiz(${quiz.id})">⬇️ JSON</button>
-          <button class="btn btn-ghost sm" onclick="Admin.deleteSavedQuiz(${quiz.id})" style="color:var(--accent2)">🗑️</button>
+    modules.forEach(module => {
+      const moduleWrap = document.createElement('section');
+      moduleWrap.className = 'saved-module';
+      moduleWrap.dataset.moduleId = module.id;
+      moduleWrap.draggable = module.id !== UNCLASSIFIED_MODULE_ID;
+      moduleWrap.addEventListener('dragstart', event => onModuleDragStart(event, module.id));
+      moduleWrap.addEventListener('dragend', onModuleDragEnd);
+
+      const header = document.createElement('div');
+      header.className = 'saved-module-header';
+      header.addEventListener('dragover', event => onModuleHeaderDragOver(event, module.id));
+      header.addEventListener('dragleave', onModuleHeaderDragLeave);
+      header.addEventListener('drop', event => onModuleHeaderDrop(event, module.id));
+      const quizzesInModule = saved.filter(q => (q.moduleId || UNCLASSIFIED_MODULE_ID) === module.id).reverse();
+      header.innerHTML = `
+        <h3>${module.name} <span class="saved-module-count">${quizzesInModule.length}</span></h3>
+        <div class="saved-module-actions">
+          ${module.id === UNCLASSIFIED_MODULE_ID ? '' : '<span class="saved-module-grip" title="Glisser pour reordonner">↕</span>'}
+          <button class="btn btn-ghost sm" onclick="Admin.renameModule('${module.id}')" title="Renommer le module">✏️</button>
+          ${module.id === UNCLASSIFIED_MODULE_ID ? '' : `<button class="btn btn-ghost sm" onclick="Admin.deleteModule('${module.id}')" title="Supprimer le module" style="color:var(--accent2)">🗑️</button>`}
         </div>
       `;
-      list.appendChild(item);
+
+      const body = document.createElement('div');
+      body.className = 'saved-module-body';
+      body.dataset.moduleId = module.id;
+      body.addEventListener('dragover', event => onModuleDragOver(event, module.id));
+      body.addEventListener('dragleave', onModuleDragLeave);
+      body.addEventListener('drop', event => onModuleDrop(event, module.id));
+
+      if (quizzesInModule.length === 0) {
+        const emptyModule = document.createElement('div');
+        emptyModule.className = 'saved-module-empty';
+        emptyModule.textContent = 'Glissez un quiz ici';
+        body.appendChild(emptyModule);
+      } else {
+        quizzesInModule.forEach(quiz => {
+          const item = document.createElement('div');
+          item.className = 'saved-item';
+          item.draggable = true;
+          item.dataset.quizId = String(quiz.id);
+          item.addEventListener('dragstart', event => onQuizDragStart(event, quiz.id));
+          item.addEventListener('dragend', onQuizDragEnd);
+          item.innerHTML = `
+            <div class="saved-info">
+              <button class="saved-launch-btn" onclick="Admin.loadAndLaunchQuiz(${quiz.id})">▶️ ${quiz.name}</button>
+              <p>${quiz.count} question(s) — ${quiz.date}</p>
+            </div>
+            <div class="saved-actions">
+              <label class="saved-move-wrap" title="Deplacer ce quiz">
+                <span>Vers</span>
+                <select class="saved-move-select" onchange="Admin.changeQuizModule(${quiz.id}, this.value)">
+                  ${getModuleSelectOptions(quiz.moduleId || UNCLASSIFIED_MODULE_ID, modules)}
+                </select>
+              </label>
+              <button class="btn btn-ghost sm" onclick="Admin.renameSavedQuiz(${quiz.id})" title="Renommer le quiz">✏️ Nom</button>
+              <button class="btn btn-secondary sm" onclick="Admin.loadSavedQuiz(${quiz.id})">✏️ Modifier</button>
+              <button class="btn btn-ghost sm" onclick="Admin.downloadSavedQuiz(${quiz.id})">⬇️ JSON</button>
+              <button class="btn btn-ghost sm" onclick="Admin.deleteSavedQuiz(${quiz.id})" style="color:var(--accent2)">🗑️</button>
+            </div>
+          `;
+          body.appendChild(item);
+        });
+      }
+
+      moduleWrap.appendChild(header);
+      moduleWrap.appendChild(body);
+      list.appendChild(moduleWrap);
     });
+  }
+
+  function createModule() {
+    const name = prompt('Nom du module :');
+    const trimmed = normalizeModuleName(name);
+    if (!trimmed) return;
+    const modules = getModules();
+    if (modules.some(m => m.name.toLowerCase() === trimmed.toLowerCase())) {
+      App.showToast('Un module avec ce nom existe deja', 'error');
+      return;
+    }
+    modules.push({ id: generateModuleId(modules), name: trimmed });
+    persistModules(modules);
+    renderSaved();
+    App.showToast(`Module "${trimmed}" cree`, 'success');
+  }
+
+  function renameModule(moduleId) {
+    if (!moduleId || moduleId === UNCLASSIFIED_MODULE_ID) return;
+    const modules = getModules();
+    const module = modules.find(m => m.id === moduleId);
+    if (!module) return;
+    const nextName = prompt('Nouveau nom du module :', module.name);
+    const trimmed = normalizeModuleName(nextName);
+    if (!trimmed || trimmed === module.name) return;
+    if (modules.some(m => m.id !== moduleId && m.name.toLowerCase() === trimmed.toLowerCase())) {
+      App.showToast('Ce nom de module est deja utilise', 'error');
+      return;
+    }
+    module.name = trimmed;
+    persistModules(modules);
+    renderSaved();
+    App.showToast('Module renomme', 'success');
+  }
+
+  function deleteModule(moduleId) {
+    if (!moduleId || moduleId === UNCLASSIFIED_MODULE_ID) return;
+    const modules = getModules();
+    const module = modules.find(m => m.id === moduleId);
+    if (!module) return;
+    if (!confirm(`Supprimer le module "${module.name}" ? Les quiz seront deplaces vers "${UNCLASSIFIED_MODULE_NAME}".`)) {
+      return;
+    }
+
+    const nextModules = modules.filter(m => m.id !== moduleId);
+    persistModules(nextModules);
+
+    App.state.savedQuizzes = (App.state.savedQuizzes || []).map(quiz => {
+      if ((quiz.moduleId || UNCLASSIFIED_MODULE_ID) !== moduleId) return quiz;
+      return { ...quiz, moduleId: UNCLASSIFIED_MODULE_ID };
+    });
+    App.persistSavedQuizzes(App.state.savedQuizzes);
+    renderSaved();
+    App.showToast('Module supprime', 'success');
+  }
+
+  function renameSavedQuiz(id) {
+    const quiz = App.state.savedQuizzes.find(q => q.id === id);
+    if (!quiz) return;
+    const nextName = prompt('Nouveau nom du quiz :', quiz.name);
+    const trimmed = normalizeModuleName(nextName);
+    if (!trimmed || trimmed === quiz.name) return;
+    quiz.name = trimmed;
+    App.persistSavedQuizzes(App.state.savedQuizzes);
+    renderSaved();
+    App.showToast('Quiz renomme', 'success');
+  }
+
+  function moveQuizToModule(quizId, moduleId) {
+    const modules = getModules();
+    const validIds = getModuleIdSet(modules);
+    const targetModuleId = validIds.has(moduleId) ? moduleId : UNCLASSIFIED_MODULE_ID;
+    const quiz = App.state.savedQuizzes.find(q => q.id === quizId);
+    if (!quiz) return;
+    if ((quiz.moduleId || UNCLASSIFIED_MODULE_ID) === targetModuleId) return;
+    quiz.moduleId = targetModuleId;
+    App.persistSavedQuizzes(App.state.savedQuizzes);
+    renderSaved();
+  }
+
+  function changeQuizModule(quizId, moduleId) {
+    moveQuizToModule(Number(quizId), String(moduleId || ''));
+  }
+
+  function onQuizDragStart(event, quizId) {
+    if (dragModuleId) return;
+    dragQuizId = Number(quizId);
+    if (event && event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(quizId));
+    }
+  }
+
+  function onQuizDragEnd() {
+    dragQuizId = null;
+    document.querySelectorAll('.saved-module-body.drag-over').forEach(el => el.classList.remove('drag-over'));
+  }
+
+  function onModuleDragStart(event, moduleId) {
+    if (moduleId === UNCLASSIFIED_MODULE_ID) {
+      if (event) event.preventDefault();
+      return;
+    }
+    dragModuleId = String(moduleId);
+    if (event && event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('application/x-module-id', dragModuleId);
+    }
+  }
+
+  function onModuleDragEnd() {
+    dragModuleId = null;
+    document.querySelectorAll('.saved-module-header.module-drag-over').forEach(el => el.classList.remove('module-drag-over'));
+  }
+
+  function onModuleHeaderDragOver(event, moduleId) {
+    if (!dragModuleId || moduleId === UNCLASSIFIED_MODULE_ID || dragModuleId === moduleId) return;
+    event.preventDefault();
+    event.currentTarget.classList.add('module-drag-over');
+  }
+
+  function onModuleHeaderDragLeave(event) {
+    event.currentTarget.classList.remove('module-drag-over');
+  }
+
+  function onModuleHeaderDrop(event, moduleId) {
+    if (!dragModuleId || moduleId === UNCLASSIFIED_MODULE_ID) return;
+    event.preventDefault();
+    event.currentTarget.classList.remove('module-drag-over');
+    let source = dragModuleId;
+    if (event.dataTransfer) {
+      source = event.dataTransfer.getData('application/x-module-id') || source;
+    }
+    reorderModules(source, moduleId);
+    dragModuleId = null;
+  }
+
+  function onModuleDragOver(event) {
+    if (!dragQuizId) return;
+    event.preventDefault();
+    event.currentTarget.classList.add('drag-over');
+  }
+
+  function onModuleDragLeave(event) {
+    event.currentTarget.classList.remove('drag-over');
+  }
+
+  function onModuleDrop(event, moduleId) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+    let quizId = dragQuizId;
+    if (!quizId && event.dataTransfer) {
+      quizId = Number(event.dataTransfer.getData('text/plain'));
+    }
+    if (!quizId) return;
+    moveQuizToModule(Number(quizId), moduleId);
+    dragQuizId = null;
   }
 
   function loadSavedQuiz(id) {
@@ -779,6 +1124,7 @@ const Admin = (() => {
     saveQuestion, closeModal, updateModalType, setCorrect, toggleCorrectFromRow,
     importFromText, importFromFile, importFromFileObj,
     saveQuiz, loadSavedQuiz, loadAndLaunchQuiz, downloadSavedQuiz, deleteSavedQuiz,
+    createModule, renameModule, deleteModule, renameSavedQuiz, changeQuizModule,
     startNewQuiz,
     launchGame,
   };
