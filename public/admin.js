@@ -1151,6 +1151,7 @@ const FillActivity = (() => {
   let _fillCorrectionValidated = false;
   let _fillGameStarted = false;
   let _savedFillSort = 'newest';
+  let _savedFillQuery = '';
 
   function _refreshFillProgressCounter() {
     const counter = document.getElementById('fill-progress-counter');
@@ -1407,6 +1408,8 @@ const FillActivity = (() => {
     if (!list) return;
     const sortEl = document.getElementById('fill-sort-select');
     if (sortEl) sortEl.value = _savedFillSort;
+    const queryEl = document.getElementById('fill-search-input');
+    if (queryEl && queryEl.value !== _savedFillQuery) queryEl.value = _savedFillQuery;
 
     const fills = (App.state.savedFillActivities || []).slice();
     fills.sort((a, b) => {
@@ -1435,11 +1438,15 @@ const FillActivity = (() => {
           return (b.id || 0) - (a.id || 0);
       }
     });
-    if (fills.length === 0) {
+    const query = String(_savedFillQuery || '').trim().toLowerCase();
+    const visibleFills = query
+      ? fills.filter(f => _buildFillSearchText(f).includes(query))
+      : fills;
+    if (visibleFills.length === 0) {
       list.innerHTML = '<p class="empty-state">Aucune activité sauvegardée.</p>';
       return;
     }
-    list.innerHTML = fills.map(f => `
+    list.innerHTML = visibleFills.map(f => `
       <div class="quiz-card fill-saved-card">
         <div class="fill-card-top">
           <div class="quiz-card-title">📝 ${escHtml(f.name)}</div>
@@ -1464,6 +1471,11 @@ const FillActivity = (() => {
     renderSavedFills();
   }
 
+  function setSavedFillQuery(query) {
+    _savedFillQuery = String(query || '');
+    renderSavedFills();
+  }
+
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
@@ -1478,6 +1490,12 @@ const FillActivity = (() => {
     });
     const compact = text.replace(/\s+/g, ' ').trim();
     return compact.length > maxLen ? compact.slice(0, maxLen - 1) + '…' : compact;
+  }
+
+  function _buildFillSearchText(activity) {
+    const name = String(activity && activity.name ? activity.name : '');
+    const text = _buildFillPreviewText(activity, 2000);
+    return (name + ' ' + text).toLowerCase();
   }
 
   function goToActivities() {
@@ -1846,6 +1864,7 @@ const FillActivity = (() => {
     saveFillActivity,
     editFillActivity,
     setSavedFillSort,
+    setSavedFillQuery,
     renderSavedFills,
     goToActivities,
     deleteFillActivity,

@@ -2401,6 +2401,21 @@ html, body {
   border-color: #a78bfa;
 }
 
+.fill-search-input {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  min-width: 220px;
+  outline: none;
+}
+
+.fill-search-input:focus {
+  border-color: #a78bfa;
+}
+
 .fill-level-selector {
   display: flex; gap: 8px;
 }

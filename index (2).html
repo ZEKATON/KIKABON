@@ -550,6 +550,12 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
               <option value="level-desc">Niveau décroissant</option>
               <option value="name-asc">Nom A → Z</option>
             </select>
+            <input
+              id="fill-search-input"
+              class="fill-search-input"
+              type="text"
+              placeholder="Rechercher (titre ou texte)"
+              oninput="FillActivity.setSavedFillQuery(this.value)">
             <button class="btn btn-secondary" onclick="FillActivity.showBuilderTab('tab-fill-create')">✏️ Créer une nouvelle</button>
           </div>
         </div>
