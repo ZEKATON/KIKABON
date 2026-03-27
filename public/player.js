@@ -816,11 +816,16 @@ function connectSSE(code) {
         updatePlayerHeader();
         updatePlayerStats();
       }
-      PlayerGame.showAnswer(data.correctIndices, data.correctAnswer, myResult);
+      if (!playerState.currentQuestion || playerState.currentQuestion.type !== 'fill') {
+        PlayerGame.showAnswer(data.correctIndices, data.correctAnswer, myResult);
+      }
     });
 
-    sse.addEventListener('fillCorrectionStart', function() {
+    sse.addEventListener('fillCorrectionStart', function(e) {
       PlayerGame.lockFillInputs();
+      const data = JSON.parse((e && e.data) || '{}');
+      playerState.fillHolesCorrect = 0;
+      playerState.fillHolesTotal = Number(data.total) || 0;
       const status = document.getElementById('game-status');
       if (status) status.textContent = '🧠 Correction en cours...';
     });
@@ -832,6 +837,7 @@ function connectSSE(code) {
       const myName = playerState.currentPlayer ? String(playerState.currentPlayer.name || '') : '';
       const iWon = myName ? winners.some(name => String(name || '').toLowerCase() === myName.toLowerCase()) : false;
       const pointsPerHole = Number(data.pointsPerHole) || 0;
+      if (iWon) playerState.fillHolesCorrect = (playerState.fillHolesCorrect || 0) + 1;
       if (playerState.currentPlayer) {
         const me = updates.find(item => item.playerId === playerState.currentPlayer.id);
         if (me && Number.isFinite(Number(me.score))) {
@@ -867,6 +873,23 @@ function connectSSE(code) {
       const data = JSON.parse(e.data || '{}');
       const results = Array.isArray(data.results) ? data.results : [];
       PlayerGame.showFillScores(results);
+      const status = document.getElementById('game-status');
+      if (status) {
+        const holesCorrect = playerState.fillHolesCorrect || 0;
+        const holesTotal = playerState.fillHolesTotal || 0;
+        const myId = playerState.currentPlayer && playerState.currentPlayer.id;
+        const myEntry = myId ? results.find(r => r.playerId === myId) : null;
+        if (myEntry && myEntry.isCorrect) {
+          status.className = 'game-status score-good';
+          status.textContent = '🏆 Bravo ! Tu as tout juste !';
+        } else if (holesCorrect > 0) {
+          status.className = 'game-status score-neutral';
+          status.textContent = `✅ ${holesCorrect}/${holesTotal} trous corrects • Total: ${playerState.score} pts`;
+        } else {
+          status.className = 'game-status score-neutral';
+          status.textContent = `📋 Correction terminée • Total: ${playerState.score} pts`;
+        }
+      }
     });
 
     sse.addEventListener('gameEnd', function(e) {
@@ -975,7 +998,10 @@ const PlayerGame = (function() {
 
     if (counter) counter.textContent = 'Q' + (idx + 1) + '/' + total;
     playPlayerSound('question');
-    if (qCat) qCat.textContent = formatQuestionMeta(q);
+    if (qCat) {
+      qCat.textContent = formatQuestionMeta(q);
+      qCat.style.display = q.type === 'fill' ? 'none' : '';
+    }
     if (qText) {
       qText.textContent = q.text;
       qText.style.display = q.type === 'fill' ? 'none' : '';
@@ -1511,12 +1537,33 @@ const PlayerGame = (function() {
     if (!result || !ans) return;
 
     const sorted = [...results].sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
-    if (icon) icon.textContent = '🏁';
-    if (text) text.textContent = 'Scores des joueurs';
+
+    // Feedback personnalisé pour le joueur courant
+    const myId = playerState.currentPlayer && playerState.currentPlayer.id;
+    const myEntry = myId ? results.find(r => r.playerId === myId) : null;
+    const holesCorrect = playerState.fillHolesCorrect || 0;
+    const holesTotal = playerState.fillHolesTotal || 0;
+    if (myEntry) {
+      if (myEntry.isCorrect) {
+        if (icon) icon.textContent = '🏆';
+        if (text) text.textContent = 'Parfait ! Tous les trous corrects !';
+      } else if (holesCorrect > 0) {
+        if (icon) icon.textContent = '👍';
+        if (text) text.textContent = holesCorrect + '/' + holesTotal + ' trous corrects';
+      } else {
+        if (icon) icon.textContent = '📝';
+        if (text) text.textContent = 'Texte à trous terminé';
+      }
+    } else {
+      if (icon) icon.textContent = '🏁';
+      if (text) text.textContent = 'Scores des joueurs';
+    }
+
     ans.innerHTML = sorted.map((row, idx) => {
       const name = String(row.playerName || `Joueur ${idx + 1}`);
       const score = Number(row.score) || 0;
-      return `${idx + 1}. ${name} - ${score} pts`;
+      const isMe = myId && row.playerId === myId;
+      return `<span style="${isMe ? 'font-weight:800;color:var(--accent)' : ''}">${idx + 1}. ${name} — ${score} pts${isMe ? ' ⭐' : ''}</span>`;
     }).join('\n');
     ans.style.whiteSpace = 'pre-line';
     result.style.display = 'flex';
