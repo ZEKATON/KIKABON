@@ -154,10 +154,30 @@ const App = (() => {
     return readSavedQuizzesFromStorage();
   }
 
+  function _isFillActivity(item) {
+    return !!item
+      && typeof item === 'object'
+      && Array.isArray(item.segments)
+      && Array.isArray(item.holes)
+      && typeof item.name === 'string';
+  }
+
+  function _isQuizActivity(item) {
+    return !!item
+      && typeof item === 'object'
+      && !_isFillActivity(item)
+      && (Array.isArray(item.questions)
+        || typeof item.gameCode === 'string'
+        || typeof item.count === 'number'
+        || typeof item.moduleId === 'string');
+  }
+
   function _writeAllActivities(quizzes, fills) {
+    const safeQuizzes = (Array.isArray(quizzes) ? quizzes : []).filter(_isQuizActivity);
+    const safeFills = (Array.isArray(fills) ? fills : []).filter(_isFillActivity);
     const tagged = [
-      ...quizzes.map(q => ({ ...q, type: 'quiz' })),
-      ...fills.map(f => ({ ...f, type: 'fill' })),
+      ...safeQuizzes.map(q => ({ ...q, type: 'quiz' })),
+      ...safeFills.map(f => ({ ...f, type: 'fill' })),
     ];
     const payload = safeStringifyJson(tagged, QUIZ_STORAGE_KEY);
     if (payload === null) return false;
@@ -402,18 +422,19 @@ const App = (() => {
   // ---- Charger quiz sauvegardés ----
   function loadSavedQuizzes() {
     const all = _readAllActivities();
-    const quizItems = all.filter(item => item.type !== 'fill');
-      const fillItems  = all.filter(item => item.type === 'fill');
-      const normalized = normalizeSavedQuizzes(quizItems);
+    const quizItems = all.filter(item => item.type !== 'fill').filter(_isQuizActivity);
+    const fillItems = all.filter(item => item.type === 'fill').filter(_isFillActivity);
+    const normalized = normalizeSavedQuizzes(quizItems);
     state.savedQuizzes = normalized.quizzes;
     if (normalized.changed) {
-        _writeAllActivities(state.savedQuizzes, fillItems);
+      _writeAllActivities(state.savedQuizzes, fillItems);
     }
   }
 
   function loadSavedFillActivities() {
     const all = _readAllActivities();
-    state.savedFillActivities = all.filter(item => item.type === 'fill');
+    const cleanFills = all.filter(item => item.type === 'fill').filter(_isFillActivity);
+    state.savedFillActivities = cleanFills;
     // Migration depuis l'ancienne clé séparée
     try {
       const legacyRaw = localStorage.getItem(FILL_STORAGE_KEY);
@@ -421,7 +442,7 @@ const App = (() => {
         const legacyFills = JSON.parse(legacyRaw);
         if (Array.isArray(legacyFills) && legacyFills.length > 0) {
           const existingIds = new Set(state.savedFillActivities.map(f => f.id));
-          const toMigrate = legacyFills.filter(f => !existingIds.has(f.id));
+          const toMigrate = legacyFills.filter(_isFillActivity).filter(f => !existingIds.has(f.id));
           if (toMigrate.length > 0) {
             state.savedFillActivities = [...state.savedFillActivities, ...toMigrate];
             _writeAllActivities(state.savedQuizzes, state.savedFillActivities);
@@ -430,10 +451,16 @@ const App = (() => {
         localStorage.removeItem(FILL_STORAGE_KEY);
       }
     } catch (e) {}
+
+    // Nettoyage automatique si des données non-fill se sont glissées côté fills
+    const rawFillCount = all.filter(item => item.type === 'fill').length;
+    if (rawFillCount !== state.savedFillActivities.length) {
+      _writeAllActivities(state.savedQuizzes, state.savedFillActivities);
+    }
   }
 
   function persistSavedFillActivities(list) {
-    const source = Array.isArray(list) ? list : state.savedFillActivities;
+    const source = (Array.isArray(list) ? list : state.savedFillActivities).filter(_isFillActivity);
     const ok = _writeAllActivities(state.savedQuizzes, source);
     if (!ok) return false;
     state.savedFillActivities = source;
