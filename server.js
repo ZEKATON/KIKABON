@@ -431,6 +431,7 @@ const server = http.createServer(async (req, res) => {
     const code = pathname.split('/')[3];
     const game = games.get(code);
     if (!game) return json(404, { error: 'Partie introuvable' });
+    if (game.gamePhase !== 'fill') return json(409, { error: 'Texte a trous inactif' });
     const body = await readBody(req);
     const { playerId, answers } = body; // answers = [{holeId, word}]
     const player = game.players.find(p => p.id === playerId);

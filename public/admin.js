@@ -1148,6 +1148,7 @@ const FillActivity = (() => {
   let _currentActivity = null; // activité en cours de jeu
   let _lastFillScores = null;
   let _fillCorrectionValidated = false;
+  let _fillGameStarted = false;
 
   function _refreshFillProgressCounter() {
     const counter = document.getElementById('fill-progress-counter');
@@ -1401,24 +1402,48 @@ const FillActivity = (() => {
       App.showScreen('screen-fill-game');
       _lastFillScores = null;
       _fillCorrectionValidated = false;
+      _fillGameStarted = false;
       const scoresPanel = document.getElementById('fill-admin-results-panel');
       if (scoresPanel) scoresPanel.style.display = 'none';
       _renderAdminFillTextPreview();
       renderFillPlayerList([]);
       _refreshFillProgressCounter();
-      // Broadcaster fillStart aux joueurs
-      _broadcastFill('fillStart', {
-        activityId: activity.id,
-        name: activity.name,
-        level: activity.level,
-        segments: activity.segments,
-        holes: activity.holes.map(h => ({ id: h.id, word: (_currentActivity.level === 1 ? h.word : null) })),
-        timeLimit: 300,
-      });
-      // Démarrer chrono
-      startTimer();
+      const launchBtn = document.getElementById('btn-fill-launch');
+      const stopBtn = document.getElementById('btn-fill-stop');
+      if (launchBtn) {
+        launchBtn.disabled = false;
+        launchBtn.textContent = '▶️ Lancer le jeu';
+      }
+      if (stopBtn) stopBtn.disabled = true;
+      const timerText = document.getElementById('fill-timer-text');
+      if (timerText) timerText.textContent = '5:00';
     })
     .catch(() => App.showToast('Erreur lors du lancement.', 'error'));
+  }
+
+  function startFillGame() {
+    if (!_currentActivity || _fillGameStarted) return;
+    _fillGameStarted = true;
+    _fillCorrectionValidated = false;
+    _lastFillScores = null;
+    const launchBtn = document.getElementById('btn-fill-launch');
+    const stopBtn = document.getElementById('btn-fill-stop');
+    if (launchBtn) {
+      launchBtn.disabled = true;
+      launchBtn.textContent = '✅ Jeu lancé';
+    }
+    if (stopBtn) stopBtn.disabled = false;
+
+    _broadcastFill('fillStart', {
+      activityId: _currentActivity.id,
+      name: _currentActivity.name,
+      level: _currentActivity.level,
+      segments: _currentActivity.segments,
+      holes: _currentActivity.holes.map(h => ({ id: h.id, word: (_currentActivity.level === 1 ? h.word : null) })),
+      timeLimit: 300,
+    });
+    startTimer();
+    App.showToast('Jeu lancé: les joueurs peuvent répondre.', 'success');
   }
 
   // Pour le niveau 1 : les mots sont fournis (pour les joueurs les voir dans la bank)
@@ -1524,6 +1549,7 @@ const FillActivity = (() => {
   }
 
   function _timerEnded() {
+    if (!_fillGameStarted) return;
     const stopBtn = document.getElementById('btn-fill-stop');
     if (stopBtn) stopBtn.disabled = true;
     // Broadcast timerEnd so players know time is up
@@ -1686,6 +1712,7 @@ const FillActivity = (() => {
   function endFillGame() {
     clearInterval(_fillTimerInterval);
     if (_fillAdminSSE) { _fillAdminSSE.close(); _fillAdminSSE = null; }
+    _fillGameStarted = false;
     App.state.gameCode = null;
     App.state.adminToken = null;
     _currentActivity = null;
@@ -1701,6 +1728,7 @@ const FillActivity = (() => {
     renderSavedFills,
     deleteFillActivity,
     launchFillActivity,
+    startFillGame,
     stopTimer,
     openCorrectionModal,
     closeCorrectionModal,

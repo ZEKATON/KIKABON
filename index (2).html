@@ -556,13 +556,14 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
       <button class="back-btn" onclick="FillActivity.endFillGame()">← Terminer</button>
       <h2 id="fill-game-title">Texte à Trous</h2>
       <div id="fill-progress-counter" class="fill-progress-counter">0 / 0 terminé(s)</div>
+      <button class="btn btn-primary" onclick="FillActivity.startFillGame()" id="btn-fill-launch">▶️ Lancer le jeu</button>
       <div class="fill-timer-wrap">
         <div class="fill-timer-bar-track">
           <div id="fill-timer-bar" class="fill-timer-bar-fill"></div>
         </div>
         <span id="fill-timer-text" class="fill-timer-text">5:00</span>
       </div>
-      <button class="btn btn-warning" onclick="FillActivity.stopTimer()" id="btn-fill-stop">⏹ Arrêter le chrono</button>
+      <button class="btn btn-warning" onclick="FillActivity.stopTimer()" id="btn-fill-stop" disabled>⏹ Arrêter le chrono</button>
     </div>
 
     <div class="fill-game-body">
