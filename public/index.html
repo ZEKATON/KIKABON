@@ -355,10 +355,57 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
 
       <!-- Panneau de contrôle admin -->
       <div class="admin-control-panel" id="admin-control-panel">
-        <div class="admin-controls-title" id="admin-controls-title">En attente du lancement</div>
+        <div class="admin-round-board" id="admin-round-board">
+          <div class="admin-round-top">
+            <span class="admin-stage-chip is-idle" id="admin-stage-chip">Salle prête</span>
+            <div class="admin-round-headings">
+              <div class="admin-controls-title" id="admin-controls-title">En attente du lancement</div>
+              <div class="admin-round-subline">
+                <span id="admin-round-question-counter">Question —</span>
+                <span id="admin-round-type">Aucune question active</span>
+              </div>
+            </div>
+            <div class="admin-panel-chrono" id="admin-panel-chrono" style="display:none">
+              <span class="admin-panel-chrono-icon">⏱️</span>
+              <span class="admin-panel-chrono-value" id="admin-panel-chrono-value">30</span>
+              <span class="admin-panel-chrono-unit">sec</span>
+            </div>
+          </div>
+          <div class="admin-round-question" id="admin-round-question">Lancez une question pour afficher les consignes et le contexte de jeu.</div>
+          <div class="admin-round-helper" id="admin-round-helper">Le panneau de bord vous indique quoi faire, combien d'élèves ont répondu et qui mène la course.</div>
+          <div class="admin-live-grid">
+            <div class="admin-live-card">
+              <span class="admin-live-label">Élèves connectés</span>
+              <strong class="admin-live-value" id="admin-live-total">0</strong>
+            </div>
+            <div class="admin-live-card">
+              <span class="admin-live-label">Réponses reçues</span>
+              <strong class="admin-live-value" id="admin-live-answered">0</strong>
+            </div>
+            <div class="admin-live-card">
+              <span class="admin-live-label" id="admin-live-focus-label">En attente</span>
+              <strong class="admin-live-value" id="admin-live-focus-value">0</strong>
+            </div>
+            <div class="admin-live-card admin-live-card-leader">
+              <span class="admin-live-label" id="admin-live-leader-label">Tête de course</span>
+              <strong class="admin-live-value admin-live-leader-value" id="admin-live-leader-value">—</strong>
+            </div>
+          </div>
+          <div class="admin-live-feed" id="admin-live-feed">
+            <div class="admin-live-feed-empty">Les événements récents de la classe apparaîtront ici.</div>
+          </div>
+        </div>
         <button class="btn btn-primary" id="btn-launch-question" onclick="Game.launchQuestion()" style="display:block">
           ▶️ Afficher la question
         </button>
+        <div class="admin-actions-secondary">
+          <button class="btn btn-add-time" id="btn-add-time" onclick="Game.addTime()" style="display:none">
+            ⏰ +10 sec
+          </button>
+          <button class="btn btn-warning" id="btn-stop-timer" onclick="Game.stopTimerManually()" style="display:none">
+            ⏹️ Arrêter le chrono
+          </button>
+        </div>
         <div class="admin-stats-bar" id="admin-stats-bar" style="display:none">
           <div class="admin-stat">
             <span class="stat-label">Question</span>
@@ -370,17 +417,6 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
           </div>
         </div>
         <div class="admin-right-controls">
-          <div class="admin-panel-chrono" id="admin-panel-chrono" style="display:none">
-            <span class="admin-panel-chrono-icon">⏱️</span>
-            <span class="admin-panel-chrono-value" id="admin-panel-chrono-value">30</span>
-            <span class="admin-panel-chrono-unit">sec</span>
-          </div>
-          <button class="btn btn-add-time" id="btn-add-time" onclick="Game.addTime()" style="display:none">
-            ⏰ +10 sec
-          </button>
-          <button class="btn btn-warning" id="btn-stop-timer" onclick="Game.stopTimerManually()" style="display:none">
-            ⏹️ Arrêter le chrono
-          </button>
           <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
             ← Arrêter la course
           </button>
@@ -420,10 +456,24 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
             <div class="fill-correction-head-top">
               <h3>Correction interactive: texte a trous</h3>
               <button class="btn btn-primary fill-correction-close" id="fill-correction-close-btn" type="button" onclick="Game.closeFillCorrectionModal()" disabled>
-                Fermer et voir le classement
+                Voir le récapitulatif
               </button>
             </div>
             <p>Glissez les mots dans les trous. Les scores des joueurs s'actualisent automatiquement sur leur ecran.</p>
+            <div class="fill-correction-stats">
+              <div class="fill-correction-stat">
+                <strong id="fill-correction-done">0</strong>
+                <span>Trous corrigés</span>
+              </div>
+              <div class="fill-correction-stat">
+                <strong id="fill-correction-remaining">0</strong>
+                <span>Restants</span>
+              </div>
+              <div class="fill-correction-stat">
+                <strong id="fill-correction-points">0</strong>
+                <span>Pts / trou</span>
+              </div>
+            </div>
           </div>
           <div class="fill-correction-layout">
             <div class="fill-correction-text" id="fill-correction-text"></div>
@@ -433,6 +483,7 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
             </div>
           </div>
           <div class="fill-correction-feedback" id="fill-correction-feedback">En attente d'un mot...</div>
+          <div class="fill-correction-log" id="fill-correction-log"></div>
           <div class="fill-correction-scores" id="fill-correction-scores" style="display:none"></div>
         </div>
       </div>
@@ -450,6 +501,23 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
     <div class="open-validation-panel">
       <h3 class="open-val-title">📝 Validation des réponses ouvertes</h3>
       <p class="open-val-subtitle">Glisse ou clique les ✅ bonnes réponses dans la zone verte, puis valide.</p>
+      <div class="open-val-toolbar">
+        <div class="open-val-counts">
+          <div class="open-val-count">
+            <strong id="open-val-pending-count">0</strong>
+            <span>À juger</span>
+          </div>
+          <div class="open-val-count">
+            <strong id="open-val-correct-count">0</strong>
+            <span>Retenues</span>
+          </div>
+          <div class="open-val-count">
+            <strong id="open-val-missing-count">0</strong>
+            <span>Sans réponse</span>
+          </div>
+        </div>
+        <div class="open-val-answer-key" id="open-val-answer-key"></div>
+      </div>
       <div class="open-val-zones">
         <div class="open-val-zone" id="open-val-pending">
           <div class="zone-label">🤔 Réponses à juger</div>

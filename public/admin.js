@@ -1300,6 +1300,9 @@ const Admin = (() => {
       if (!App.state.players.find(p => p.id === player.id)) {
         App.state.players.push(player);
         Lobby.addPlayer(player);
+        if (typeof Game !== 'undefined' && typeof Game.refreshAdminDashboard === 'function') {
+          Game.refreshAdminDashboard();
+        }
       }
     });
 
@@ -1317,6 +1320,9 @@ const Admin = (() => {
         // Indicateur vert : le joueur a répondu
         const ind = document.getElementById(`indicator-${playerId}`);
         if (ind) { ind.className = 'answer-indicator answered'; ind.title = 'A répondu'; }
+        if (typeof Game !== 'undefined' && typeof Game.refreshAdminDashboard === 'function') {
+          Game.refreshAdminDashboard({ phase: 'question' });
+        }
       }
     });
 
@@ -1337,6 +1343,9 @@ const Admin = (() => {
           player.score = Number(update.score);
         }
       });
+      if (typeof Game !== 'undefined' && typeof Game.refreshAdminDashboard === 'function') {
+        Game.refreshAdminDashboard({ phase: 'fill' });
+      }
     });
   }
 
