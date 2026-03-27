@@ -27,6 +27,8 @@ const playerState = {
   score: 0,
   correctCount: 0,
   totalQuestions: 0,
+  fillLiveCorrectMap: {},
+  fillLiveScoreBase: 0,
 };
 let reconnectTimeout = null;
 let playerAudioCtx = null;
@@ -784,6 +786,8 @@ function connectSSE(code) {
       playerState.fillActivity = data;
       playerState.fillAnswers = {};
       playerState.fillSubmitted = false;
+      playerState.fillLiveCorrectMap = {};
+      playerState.fillLiveScoreBase = Number(playerState.score || 0);
       _renderFillScreen(data);
       showScreen('screen-fill');
     });
@@ -796,12 +800,13 @@ function connectSSE(code) {
     });
 
     sse.addEventListener('fillWordPlaced', function(e) {
-      // Admin a placé un mot : mettre en évidence (optionnel, feedback subtil)
-      // Pas d'action nécessaire ici pour le joueur
+      const data = JSON.parse(e.data || '{}');
+      _applyLiveFillFeedback(data);
     });
 
-    sse.addEventListener('fillWordTyped', function() {
-      // Pas d'action nécessaire ici pour le joueur
+    sse.addEventListener('fillWordTyped', function(e) {
+      const data = JSON.parse(e.data || '{}');
+      _applyLiveFillFeedback(data);
     });
 
     sse.addEventListener('fillCorrectionEnd', function(e) {
@@ -1256,6 +1261,8 @@ function _renderFillScreen(data) {
   const nameEl   = document.getElementById('fill-player-name');
   if (avatarEl && playerState.currentPlayer) avatarEl.textContent = playerState.currentPlayer.avatar;
   if (nameEl   && playerState.currentPlayer) nameEl.textContent   = playerState.currentPlayer.name;
+  const liveScoreEl = document.getElementById('fill-live-score');
+  if (liveScoreEl) liveScoreEl.textContent = 'Score: ' + Number(playerState.score || 0);
 
   // Démarrer le chrono côté joueur
   _startFillPlayerTimer(300);
@@ -1309,6 +1316,30 @@ function _renderFillScreen(data) {
   } else {
     if (bankContainer) bankContainer.style.display = 'none';
   }
+}
+
+function _applyLiveFillFeedback(data) {
+  if (!playerState.fillActivity) return;
+  const holeId = Number(data && data.holeId);
+  if (!Number.isInteger(holeId)) return;
+  const adminWord = String((data && data.word) || '').trim().toLowerCase();
+  if (!adminWord) return;
+
+  const playerWord = String((playerState.fillAnswers && playerState.fillAnswers[holeId]) || '').trim().toLowerCase();
+  const isCorrect = playerWord && playerWord === adminWord;
+  playerState.fillLiveCorrectMap[holeId] = !!isCorrect;
+
+  const msg = document.getElementById('fill-player-status-msg');
+  if (msg) {
+    msg.textContent = isCorrect ? 'SUPER ✅' : 'INCORRECT ❌';
+    msg.classList.toggle('fill-live-super', !!isCorrect);
+    msg.classList.toggle('fill-live-wrong', !isCorrect);
+  }
+
+  const correctCount = Object.values(playerState.fillLiveCorrectMap).filter(Boolean).length;
+  const liveScore = Number(playerState.fillLiveScoreBase || 0) + (correctCount * 100);
+  const liveScoreEl = document.getElementById('fill-live-score');
+  if (liveScoreEl) liveScoreEl.textContent = 'Score: ' + liveScore;
 }
 
 var _fillPlayerTimerInterval = null;

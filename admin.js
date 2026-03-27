@@ -1146,6 +1146,7 @@ const FillActivity = (() => {
   let _fillTimerTotal = 300;
   let _fillPlayerAnswers = {}; // { playerId: [{holeId, word}] }
   let _currentActivity = null; // activité en cours de jeu
+  let _lastFillScores = null;
 
   function _refreshFillProgressCounter() {
     const counter = document.getElementById('fill-progress-counter');
@@ -1154,6 +1155,53 @@ const FillActivity = (() => {
     const total = rows.length;
     const done = rows.filter(r => r.classList.contains('submitted')).length;
     counter.textContent = `${done} / ${total} terminé(s)`;
+  }
+
+  function _renderAdminFillTextPreview() {
+    const box = document.getElementById('fill-admin-text-preview');
+    if (!box || !_currentActivity) return;
+    const { segments, holes } = _currentActivity;
+    let html = '';
+    segments.forEach((seg, i) => {
+      html += escHtml(seg).replace(/\n/g, '<br>');
+      if (i < holes.length) {
+        html += `<span class="fill-admin-hole">[${i + 1}]</span>`;
+      }
+    });
+    box.innerHTML = html;
+  }
+
+  function _renderAdminFinalScores() {
+    const panel = document.getElementById('fill-admin-results-panel');
+    const list = document.getElementById('fill-admin-results-list');
+    if (!panel || !list) return;
+    if (!_lastFillScores || !Array.isArray(_lastFillScores)) {
+      panel.style.display = 'none';
+      return;
+    }
+    const rows = Array.from(document.querySelectorAll('#fill-player-list .fill-player-row')).map(row => {
+      const id = Number(row.getAttribute('data-player-id'));
+      const name = row.querySelector('.fill-player-name') ? row.querySelector('.fill-player-name').textContent : 'Joueur';
+      const avatar = row.querySelector('.fill-player-avatar') ? row.querySelector('.fill-player-avatar').textContent : '🙂';
+      return { id, name, avatar };
+    });
+    const merged = _lastFillScores.map(score => {
+      const profile = rows.find(r => r.id === score.playerId) || { name: 'Joueur', avatar: '🙂' };
+      return {
+        ...score,
+        name: profile.name,
+        avatar: profile.avatar,
+      };
+    }).sort((a, b) => (b.delta || 0) - (a.delta || 0));
+    list.innerHTML = merged.map((r, idx) => `
+      <div class="fill-admin-score-row">
+        <span class="fill-admin-rank">${idx + 1}</span>
+        <span class="fill-admin-avatar">${escHtml(r.avatar)}</span>
+        <span class="fill-admin-name">${escHtml(r.name)}</span>
+        <span class="fill-admin-points">${Number(r.delta || 0)} pts</span>
+      </div>
+    `).join('');
+    panel.style.display = '';
   }
 
   // ---- Onglets du constructeur ----
@@ -1350,6 +1398,10 @@ const FillActivity = (() => {
       const titleEl = document.getElementById('fill-game-title');
       if (titleEl) titleEl.textContent = activity.name;
       App.showScreen('screen-fill-game');
+      _lastFillScores = null;
+      const scoresPanel = document.getElementById('fill-admin-results-panel');
+      if (scoresPanel) scoresPanel.style.display = 'none';
+      _renderAdminFillTextPreview();
       renderFillPlayerList([]);
       _refreshFillProgressCounter();
       // Broadcaster fillStart aux joueurs
@@ -1610,17 +1662,19 @@ const FillActivity = (() => {
       correctAnswers,
       holes: _currentActivity.holes,
     });
+    _lastFillScores = scores;
     App.showToast('Correction envoyée aux joueurs ✓', 'success');
     const btn = document.getElementById('btn-fill-validate');
     if (btn) { btn.disabled = true; btn.textContent = '✅ Correction envoyée'; }
   }
 
   function _showFillScores() {
-    // Naviguer vers écran podium admin (réutiliser screen-podium si disponible)
-    const podium = document.getElementById('fill-podium-screen');
-    if (podium) { App.showScreen('fill-podium-screen'); return; }
-    // Fallback: aller à la liste
-    endFillGame();
+    _renderAdminFinalScores();
+    const stopBtn = document.getElementById('btn-fill-stop');
+    if (stopBtn) stopBtn.disabled = true;
+    if (!_lastFillScores) {
+      App.showToast('Validez la correction pour afficher les scores.', 'error');
+    }
   }
 
   function endFillGame() {

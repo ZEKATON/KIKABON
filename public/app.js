@@ -416,6 +416,7 @@ const App = (() => {
     try {
       localStorage.setItem(FILL_STORAGE_KEY, JSON.stringify(source));
       state.savedFillActivities = source;
+      renderQuizList();
       return true;
     } catch (e) {
       return false;
@@ -701,9 +702,34 @@ const App = (() => {
       
       grid.appendChild(card);
     });
+
+    // Afficher les textes à trous dans la meme liste d'activites
+    (state.savedFillActivities || []).forEach(activity => {
+      const card = document.createElement('div');
+      card.className = 'quiz-card saved-fill-activity';
+
+      card.innerHTML = `
+        <div class="quiz-card-title">📝 ${activity.name}</div>
+        <div class="quiz-card-stats">
+          <div class="quiz-card-stat">🧩 ${activity.holes.length} trou${activity.holes.length > 1 ? 's' : ''}</div>
+          <div class="quiz-card-stat">🎚 Niveau ${activity.level || 1}</div>
+          <div class="quiz-card-stat">📅 ${activity.date || '-'}</div>
+        </div>
+        <div class="quiz-card-actions">
+          <button class="quiz-card-btn" onclick="FillActivity.launchFillActivity(${activity.id}); event.stopPropagation();">
+            ▶️ Lancer
+          </button>
+          <button class="quiz-card-btn secondary" onclick="App.showScreen('screen-fill-builder'); FillActivity.showBuilderTab('tab-fill-saved'); FillActivity.renderSavedFills(); event.stopPropagation();">
+            📂 Ouvrir
+          </button>
+        </div>
+      `;
+
+      grid.appendChild(card);
+    });
     
     // Gérer l'état vide
-    const hasContent = state.questions.length > 0 || state.savedQuizzes.length > 0;
+    const hasContent = state.questions.length > 0 || state.savedQuizzes.length > 0 || (state.savedFillActivities || []).length > 0;
     grid.style.display = hasContent ? 'grid' : 'none';
     empty.style.display = hasContent ? 'none' : 'flex';
   }

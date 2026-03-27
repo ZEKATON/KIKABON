@@ -119,6 +119,9 @@
         <span>🏎️</span> KIKABON
       </div>
       <nav class="sidebar-nav">
+        <button class="nav-item" onclick="App.showScreen('screen-fill-builder'); FillActivity.showBuilderTab('tab-fill-create');" id="nav-fill-create">
+          📝 Créer Texte à Trous
+        </button>
         <button class="nav-item active" onclick="Admin.showTab('tab-import')" id="nav-import">
           📤 Exporter
         </button>
@@ -566,11 +569,19 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
     </div>
 
     <div class="fill-game-body">
+      <div class="fill-admin-text-panel">
+        <h3>Texte à trous en cours</h3>
+        <div id="fill-admin-text-preview" class="fill-admin-text-preview"></div>
+      </div>
       <div class="fill-submissions-panel">
         <h3>Validations des joueurs</h3>
         <div id="fill-player-list" class="fill-player-list">
           <p class="empty-state">En attente des joueurs…</p>
         </div>
+      </div>
+      <div class="fill-admin-results-panel" id="fill-admin-results-panel" style="display:none">
+        <h3>Scores finaux</h3>
+        <div id="fill-admin-results-list" class="fill-admin-results-list"></div>
       </div>
     </div>
   </div>
