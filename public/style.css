@@ -1083,6 +1083,11 @@ html, body {
   cursor: default;
 }
 
+.fill-word-chip.selected:not(.used) {
+  border-color: var(--accent);
+  background: rgba(247,201,72,0.22);
+}
+
 .fill-word-chip.admin {
   cursor: grab;
 }

@@ -880,6 +880,7 @@ const PlayerGame = (function() {
   let answered = false;
   let selectedIndices = [];
   let fillAnswers = [];
+  let selectedFillChipId = null;
   let playerTimerInterval = null;
   let playerTimerTotal = 60;
   let playerTimeLeft = 60;
@@ -1047,6 +1048,7 @@ const PlayerGame = (function() {
 
     const holes = Array.isArray(question.holes) ? question.holes : [];
     fillAnswers = new Array(holes.length).fill('');
+    selectedFillChipId = null;
     fillSection.style.display = 'flex';
     fillText.innerHTML = '';
 
@@ -1074,23 +1076,18 @@ const PlayerGame = (function() {
           if (answered) return;
           event.preventDefault();
           gap.classList.remove('drag-over');
-          const chipId = event.dataTransfer.getData('text/fill-chip-id');
+          const chipId =
+            event.dataTransfer.getData('text/fill-chip-id')
+            || event.dataTransfer.getData('text/plain');
           const chip = chipId ? fillWordBank.querySelector(`.fill-word-chip[data-chip-id="${chipId}"]`) : null;
           if (!chip || chip.classList.contains('used')) return;
-
-          const previousChipId = gap.dataset.chipId;
-          if (previousChipId) {
-            const previousChip = fillWordBank.querySelector(`.fill-word-chip[data-chip-id="${previousChipId}"]`);
-            if (previousChip) previousChip.classList.remove('used');
-          }
-
-          const droppedWord = String(chip.dataset.word || chip.textContent || '').trim();
-          fillAnswers[holeIndex] = droppedWord;
-          gap.dataset.chipId = chipId;
-          gap.textContent = droppedWord;
-          gap.classList.add('filled');
-          chip.classList.add('used');
-          updateFillSubmitState();
+          assignFillChipToGap(chip, gap, holeIndex, fillWordBank);
+        });
+        gap.addEventListener('click', () => {
+          if (answered || !selectedFillChipId) return;
+          const chip = fillWordBank.querySelector(`.fill-word-chip[data-chip-id="${selectedFillChipId}"]`);
+          if (!chip || chip.classList.contains('used')) return;
+          assignFillChipToGap(chip, gap, holeIndex, fillWordBank);
         });
       }
     });
@@ -1109,7 +1106,17 @@ const PlayerGame = (function() {
           chip.dataset.chipId = String(orderIdx + '_' + hole.idx);
           chip.textContent = hole.word;
           chip.addEventListener('dragstart', event => {
-            event.dataTransfer.setData('text/fill-chip-id', chip.dataset.chipId);
+            const chipId = chip.dataset.chipId;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/fill-chip-id', chipId);
+            // Firefox/Safari fallback: some browsers only keep text/plain payloads.
+            event.dataTransfer.setData('text/plain', chipId);
+          });
+          chip.addEventListener('click', () => {
+            if (answered || chip.classList.contains('used')) return;
+            selectedFillChipId = chip.dataset.chipId;
+            fillWordBank.querySelectorAll('.fill-word-chip').forEach(c => c.classList.remove('selected'));
+            chip.classList.add('selected');
           });
           fillWordBank.appendChild(chip);
         });
@@ -1118,6 +1125,32 @@ const PlayerGame = (function() {
     fillSubmitBtn.style.display = 'block';
     fillSubmitBtn.disabled = true;
     fillSubmitBtn.textContent = 'Valider mes reponses';
+  }
+
+  function assignFillChipToGap(chip, gap, holeIndex, fillWordBank) {
+    if (!chip || !gap || !fillWordBank) return;
+    const chipId = chip.dataset.chipId;
+
+    const previousChipId = gap.dataset.chipId;
+    if (previousChipId) {
+      const previousChip = fillWordBank.querySelector(`.fill-word-chip[data-chip-id="${previousChipId}"]`);
+      if (previousChip) {
+        previousChip.classList.remove('used');
+        if (previousChip.dataset.chipId === selectedFillChipId) {
+          previousChip.classList.add('selected');
+        }
+      }
+    }
+
+    const droppedWord = String(chip.dataset.word || chip.textContent || '').trim();
+    fillAnswers[holeIndex] = droppedWord;
+    gap.dataset.chipId = chipId;
+    gap.textContent = droppedWord;
+    gap.classList.add('filled');
+    chip.classList.add('used');
+    chip.classList.remove('selected');
+    if (selectedFillChipId === chipId) selectedFillChipId = null;
+    updateFillSubmitState();
   }
 
   function updateFillSubmitState() {
