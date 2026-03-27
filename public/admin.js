@@ -1146,6 +1146,7 @@ const FillActivity = (() => {
   let _fillTimerTotal = 300;
   let _fillPlayerAnswers = {}; // { playerId: [{holeId, word}] }
   let _currentActivity = null; // activité en cours de jeu
+  let _editingFillId = null;
   let _lastFillScores = null;
   let _fillCorrectionValidated = false;
   let _fillGameStarted = false;
@@ -1311,6 +1312,59 @@ const FillActivity = (() => {
     return { segments, holes };
   }
 
+  function _tokenizeFillText(raw, isBlankWord = false) {
+    const regex = /([a-zA-ZÀ-ÿ0-9''\-]+|[^a-zA-ZÀ-ÿ0-9\s''\-]+|\s+)/g;
+    const tokens = [];
+    let m;
+    while ((m = regex.exec(String(raw || ''))) !== null) {
+      const w = m[0];
+      const isWord = /[a-zA-ZÀ-ÿ0-9]/.test(w);
+      tokens.push({ word: w, isPunct: !isWord, isBlank: isWord ? !!isBlankWord : false });
+    }
+    return tokens;
+  }
+
+  function _activityToRawText(activity) {
+    const segments = Array.isArray(activity && activity.segments) ? activity.segments : [];
+    const holes = Array.isArray(activity && activity.holes) ? activity.holes : [];
+    let text = '';
+    segments.forEach((seg, i) => {
+      text += String(seg || '');
+      if (i < holes.length) text += String((holes[i] && holes[i].word) || '');
+    });
+    return text;
+  }
+
+  function editFillActivity(id) {
+    const activity = (App.state.savedFillActivities || []).find(f => f.id === id);
+    if (!activity) { App.showToast('Activité introuvable.', 'error'); return; }
+
+    const tokens = [];
+    const segments = Array.isArray(activity.segments) ? activity.segments : [];
+    const holes = Array.isArray(activity.holes) ? activity.holes : [];
+    segments.forEach((seg, i) => {
+      tokens.push(..._tokenizeFillText(seg, false));
+      if (i < holes.length) tokens.push(..._tokenizeFillText((holes[i] && holes[i].word) || '', true));
+    });
+
+    _editingFillId = id;
+    _builderState.tokens = tokens;
+    _builderState.name = activity.name || 'Texte sans titre';
+    setLevel(activity.level || 1);
+
+    const nameInput = document.getElementById('fill-name-input');
+    const textInput = document.getElementById('fill-text-input');
+    const area = document.getElementById('fill-token-area');
+    if (nameInput) nameInput.value = _builderState.name;
+    if (textInput) textInput.value = _activityToRawText(activity);
+    if (area) area.style.display = '';
+    renderTokenList();
+
+    App.showScreen('screen-fill-builder');
+    showBuilderTab('tab-fill-create');
+    App.showToast('Modification du texte à trous.', '');
+  }
+
   // ---- Sauvegarder ----
   function saveFillActivity() {
     const nameInput = document.getElementById('fill-name-input');
@@ -1318,20 +1372,25 @@ const FillActivity = (() => {
     const holes = _builderState.tokens.filter(t => !t.isPunct && t.isBlank);
     if (holes.length === 0) { App.showToast('Sélectionnez au moins un mot comme trou.', 'error'); return; }
     const { segments, holes: holeList } = _buildActivityData();
+    const existing = (App.state.savedFillActivities || []).find(f => f.id === _editingFillId);
     const activity = {
-      id: Date.now(),
+      id: _editingFillId || Date.now(),
       name,
-      date: new Date().toLocaleDateString('fr-FR'),
+      date: existing && existing.date ? existing.date : new Date().toLocaleDateString('fr-FR'),
       level: _builderState.level,
       segments,
       holes: holeList,
     };
-    const list = Array.isArray(App.state.savedFillActivities) ? [...App.state.savedFillActivities, activity] : [activity];
+    const list = Array.isArray(App.state.savedFillActivities) ? [...App.state.savedFillActivities] : [];
+    const idx = list.findIndex(f => f.id === activity.id);
+    if (idx >= 0) list[idx] = activity;
+    else list.push(activity);
     App.persistSavedFillActivities(list);
-    App.showToast(`Activité "${name}" sauvegardée ✓`, 'success');
+    App.showToast(_editingFillId ? `Activité "${name}" modifiée ✓` : `Activité "${name}" sauvegardée ✓`, 'success');
     // Reset builder
     _builderState.tokens = [];
     _builderState.name = '';
+    _editingFillId = null;
     if (nameInput) nameInput.value = '';
     const textInput = document.getElementById('fill-text-input');
     if (textInput) textInput.value = '';
@@ -1359,6 +1418,7 @@ const FillActivity = (() => {
           </div>
           <div class="quiz-card-actions">
             <button class="btn btn-primary btn-sm" onclick="FillActivity.launchFillActivity(${f.id})">▶ Lancer</button>
+            <button class="btn btn-ghost btn-sm" onclick="FillActivity.editFillActivity(${f.id})">✏️ Modifier</button>
             <button class="btn btn-ghost btn-sm" onclick="FillActivity.deleteFillActivity(${f.id})">🗑</button>
           </div>
         </div>
@@ -1373,6 +1433,7 @@ const FillActivity = (() => {
   function deleteFillActivity(id) {
     if (!confirm('Supprimer cette activité ?')) return;
     const next = (App.state.savedFillActivities || []).filter(f => f.id !== id);
+    if (_editingFillId === id) _editingFillId = null;
     App.persistSavedFillActivities(next);
     renderSavedFills();
     App.showToast('Activité supprimée.', '');
@@ -1728,6 +1789,7 @@ const FillActivity = (() => {
     setLevel,
     parseText,
     saveFillActivity,
+    editFillActivity,
     renderSavedFills,
     deleteFillActivity,
     launchFillActivity,

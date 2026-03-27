@@ -737,8 +737,11 @@ const App = (() => {
           <button class="quiz-card-btn" onclick="FillActivity.launchFillActivity(${activity.id}); event.stopPropagation();">
             ▶️ Lancer
           </button>
-          <button class="quiz-card-btn secondary" onclick="App.showScreen('screen-fill-builder'); FillActivity.showBuilderTab('tab-fill-saved'); FillActivity.renderSavedFills(); event.stopPropagation();">
-            📂 Ouvrir
+          <button class="quiz-card-btn secondary" onclick="FillActivity.editFillActivity(${activity.id}); event.stopPropagation();">
+            ✏️ Modifier
+          </button>
+          <button class="quiz-card-btn secondary" onclick="FillActivity.deleteFillActivity(${activity.id}); event.stopPropagation();">
+            🗑️ Supprimer
           </button>
         </div>
       `;

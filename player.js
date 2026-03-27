@@ -816,8 +816,7 @@ function connectSSE(code) {
     sse.addEventListener('fillTimerEnd', function() {
       const msg = document.getElementById('fill-player-status-msg');
       if (msg) msg.textContent = '⏰ Temps écoulé !';
-      const btn = document.getElementById('btn-fill-player-submit');
-      if (btn && !playerState.fillSubmitted) btn.click();
+      submitFillAnswers();
     });
 
     sse.addEventListener('fillWordPlaced', function(e) {
@@ -1288,12 +1287,6 @@ function _renderFillScreen(data) {
   // Démarrer le chrono côté joueur
   _startFillPlayerTimer(300);
 
-  // Réinitialiser UI
-  const submitBtn = document.getElementById('btn-fill-player-submit');
-  const submittedMsg = document.getElementById('fill-submitted-msg');
-  if (submitBtn)    { submitBtn.style.display = ''; submitBtn.disabled = false; }
-  if (submittedMsg) submittedMsg.style.display = 'none';
-
   // Construire le texte
   const textContainer = document.getElementById('fill-player-text');
   if (textContainer) {
@@ -1482,10 +1475,6 @@ function submitFillAnswers() {
     });
   }
   playerState.fillSubmitted = true;
-  var submitBtn = document.getElementById('btn-fill-player-submit');
-  var submittedMsg = document.getElementById('fill-submitted-msg');
-  if (submitBtn) submitBtn.style.display = 'none';
-  if (submittedMsg) submittedMsg.style.display = '';
   clearInterval(_fillPlayerTimerInterval);
   fetch('/api/fill-answer/' + playerState.gameCode, {
     method: 'POST',
