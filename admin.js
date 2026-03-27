@@ -1147,6 +1147,7 @@ const FillActivity = (() => {
   let _fillPlayerAnswers = {}; // { playerId: [{holeId, word}] }
   let _currentActivity = null; // activité en cours de jeu
   let _lastFillScores = null;
+  let _fillCorrectionValidated = false;
 
   function _refreshFillProgressCounter() {
     const counter = document.getElementById('fill-progress-counter');
@@ -1399,6 +1400,7 @@ const FillActivity = (() => {
       if (titleEl) titleEl.textContent = activity.name;
       App.showScreen('screen-fill-game');
       _lastFillScores = null;
+      _fillCorrectionValidated = false;
       const scoresPanel = document.getElementById('fill-admin-results-panel');
       if (scoresPanel) scoresPanel.style.display = 'none';
       _renderAdminFillTextPreview();
@@ -1545,6 +1547,9 @@ const FillActivity = (() => {
   }
 
   function closeCorrectionModal() {
+    if (!_fillCorrectionValidated) {
+      validateCorrection();
+    }
     const modal = document.getElementById('fill-correction-modal');
     if (modal) modal.style.display = 'none';
     // Afficher les scores
@@ -1663,6 +1668,7 @@ const FillActivity = (() => {
       holes: _currentActivity.holes,
     });
     _lastFillScores = scores;
+    _fillCorrectionValidated = true;
     App.showToast('Correction envoyée aux joueurs ✓', 'success');
     const btn = document.getElementById('btn-fill-validate');
     if (btn) { btn.disabled = true; btn.textContent = '✅ Correction envoyée'; }
