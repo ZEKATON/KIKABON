@@ -157,6 +157,20 @@ function playPlayerSound(type) {
       g.gain.setValueAtTime(0.08, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
       o.start(now); o.stop(now + 0.14);
+    } else if (type === 'score') {
+      [1046, 1318].forEach((f, i) => {
+        const o = playerAudioCtx.createOscillator();
+        const g = playerAudioCtx.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(f, now + i * 0.04);
+        o.connect(g); g.connect(playerAudioCtx.destination);
+        const t0 = now + i * 0.04;
+        g.gain.setValueAtTime(0.001, t0);
+        g.gain.exponentialRampToValueAtTime(0.08, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
+        o.start(t0);
+        o.stop(t0 + 0.2);
+      });
     }
   } catch (e) {}
 }
@@ -843,7 +857,10 @@ function connectSSE(code) {
           : `📊 Score en direct: ${playerState.score} pts`,
         iWon ? 'success score-pop' : 'score-pop'
       );
-      if (iWon) triggerScoreConfetti();
+      if (iWon) {
+        playPlayerSound('score');
+        triggerScoreConfetti();
+      }
     });
 
     sse.addEventListener('fillCorrectionEnd', function(e) {
