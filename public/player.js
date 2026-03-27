@@ -408,6 +408,16 @@ function showToast(msg, type) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
 }
 
+function flashScoreDisplay() {
+  const scoreEl = document.getElementById('score-display');
+  if (!scoreEl) return;
+  scoreEl.classList.remove('score-bump');
+  void scoreEl.offsetWidth;
+  scoreEl.classList.add('score-bump');
+  clearTimeout(scoreEl._bumpTimer);
+  scoreEl._bumpTimer = setTimeout(() => scoreEl.classList.remove('score-bump'), 750);
+}
+
 function stopHeartbeat() {
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer);
@@ -790,23 +800,32 @@ function connectSSE(code) {
       const winners = Array.isArray(data.correctPlayers) ? data.correctPlayers : [];
       const myName = playerState.currentPlayer ? String(playerState.currentPlayer.name || '') : '';
       const iWon = myName ? winners.some(name => String(name || '').toLowerCase() === myName.toLowerCase()) : false;
+      const pointsPerHole = Number(data.pointsPerHole) || 0;
       if (playerState.currentPlayer) {
         const me = updates.find(item => item.playerId === playerState.currentPlayer.id);
         if (me && Number.isFinite(Number(me.score))) {
           playerState.score = Number(me.score);
           playerState.currentPlayer.score = playerState.score;
           updatePlayerHeader();
+          flashScoreDisplay();
           saveSession();
         }
       }
       const status = document.getElementById('game-status');
       if (status) {
         const holeNum = Number.isInteger(Number(data.holeIndex)) ? Number(data.holeIndex) + 1 : '?';
+        status.classList.remove('score-good', 'score-neutral');
+        status.classList.add(iWon ? 'score-good' : 'score-neutral');
         status.textContent = iWon
-          ? `🎉 Bravo ! Trou ${holeNum} réussi. Ton score: ${playerState.score} pts`
-          : `👏 Trou ${holeNum} corrigé. Ton score: ${playerState.score} pts`;
+          ? `🎉 Trou ${holeNum} valide ! +${pointsPerHole} pts • Total: ${playerState.score} pts`
+          : `✨ Trou ${holeNum} corrige. Total actuel: ${playerState.score} pts`;
       }
-      showToast(iWon ? `Bravo ! Score: ${playerState.score} pts` : `Score actuel: ${playerState.score} pts`, iWon ? 'success' : '');
+      showToast(
+        iWon
+          ? `🔥 Excellent ! +${pointsPerHole} pts • ${playerState.score} pts`
+          : `📊 Score en direct: ${playerState.score} pts`,
+        iWon ? 'success score-pop' : 'score-pop'
+      );
     });
 
     sse.addEventListener('fillCorrectionEnd', function(e) {

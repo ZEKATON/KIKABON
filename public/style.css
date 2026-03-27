@@ -1009,16 +1009,18 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 360px;
 }
 
 .fill-text {
-  font-size: 17px;
+  font-size: 8.5px;
   line-height: 1.9;
   color: var(--text);
   background: rgba(255,255,255,0.03);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
+  min-height: 300px;
 }
 
 .fill-gap {
@@ -1159,13 +1161,13 @@ html, body {
 }
 
 .fill-correction-text {
-  font-size: 9px;
+  font-size: 13px;
   line-height: 1.9;
   background: rgba(255,255,255,0.03);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
-  min-height: 280px;
+  min-height: 560px;
 }
 
 .fill-correction-bank-wrap {
@@ -2147,8 +2149,24 @@ html, body {
 
 .player-shell .game-status {
   text-align: left;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.4;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease;
+}
+
+.player-shell .game-status.score-good {
+  background: linear-gradient(135deg, rgba(78,203,113,0.22), rgba(78,203,113,0.1));
+  border-color: rgba(78,203,113,0.45);
+  transform: translateY(-1px);
+}
+
+.player-shell .game-status.score-neutral {
+  background: linear-gradient(135deg, rgba(79,163,255,0.22), rgba(79,163,255,0.1));
+  border-color: rgba(79,163,255,0.45);
 }
 
 .player-shell .game-footer {
@@ -2199,6 +2217,11 @@ html, body {
   border: 1px solid rgba(247,201,72,0.2);
   border-radius: 999px;
   padding: 8px 12px;
+}
+
+.player-shell .score-display.score-bump {
+  animation: score-bump 0.7s ease;
+  box-shadow: 0 0 0 3px rgba(247,201,72,0.16);
 }
 
 .player-shell .lobby-player-count {
@@ -2563,6 +2586,21 @@ html, body {
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 .toast.success { border-left: 3px solid var(--green); }
 .toast.error { border-left: 3px solid var(--accent2); }
+
+.toast.score-pop {
+  background: linear-gradient(135deg, rgba(247,201,72,0.95), rgba(255,159,67,0.95));
+  color: #1a1728;
+  border-left: 3px solid #fff2b0;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(255,159,67,0.32);
+}
+
+@keyframes score-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
 
 /* ===== SCROLLBAR ===== */
 ::-webkit-scrollbar { width: 6px; }
