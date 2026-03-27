@@ -787,6 +787,9 @@ function connectSSE(code) {
     sse.addEventListener('fillCorrectionStep', function(e) {
       const data = JSON.parse(e.data || '{}');
       const updates = Array.isArray(data.scoreUpdates) ? data.scoreUpdates : [];
+      const winners = Array.isArray(data.correctPlayers) ? data.correctPlayers : [];
+      const myName = playerState.currentPlayer ? String(playerState.currentPlayer.name || '') : '';
+      const iWon = myName ? winners.some(name => String(name || '').toLowerCase() === myName.toLowerCase()) : false;
       if (playerState.currentPlayer) {
         const me = updates.find(item => item.playerId === playerState.currentPlayer.id);
         if (me && Number.isFinite(Number(me.score))) {
@@ -797,12 +800,19 @@ function connectSSE(code) {
         }
       }
       const status = document.getElementById('game-status');
-      const winners = Array.isArray(data.correctPlayers) ? data.correctPlayers : [];
       if (status) {
-        status.textContent = winners.length > 0
-          ? `✅ Trou ${Number(data.holeIndex) + 1}: ${winners.join(', ')}`
-          : `ℹ️ Trou ${Number(data.holeIndex) + 1}: aucun joueur juste`;
+        const holeNum = Number.isInteger(Number(data.holeIndex)) ? Number(data.holeIndex) + 1 : '?';
+        status.textContent = iWon
+          ? `🎉 Bravo ! Trou ${holeNum} réussi. Ton score: ${playerState.score} pts`
+          : `👏 Trou ${holeNum} corrigé. Ton score: ${playerState.score} pts`;
       }
+      showToast(iWon ? `Bravo ! Score: ${playerState.score} pts` : `Score actuel: ${playerState.score} pts`, iWon ? 'success' : '');
+    });
+
+    sse.addEventListener('fillCorrectionEnd', function(e) {
+      const data = JSON.parse(e.data || '{}');
+      const results = Array.isArray(data.results) ? data.results : [];
+      PlayerGame.showFillScores(results);
     });
 
     sse.addEventListener('gameEnd', function(e) {
@@ -912,7 +922,10 @@ const PlayerGame = (function() {
     if (counter) counter.textContent = 'Q' + (idx + 1) + '/' + total;
     playPlayerSound('question');
     if (qCat) qCat.textContent = formatQuestionMeta(q);
-    if (qText) qText.textContent = q.text;
+    if (qText) {
+      qText.textContent = q.text;
+      qText.style.display = q.type === 'fill' ? 'none' : '';
+    }
     if (qCard) qCard.style.display = 'flex';
     if (qResult) qResult.style.display = 'none';
     if (qStatus) qStatus.textContent = '';
@@ -1408,6 +1421,28 @@ const PlayerGame = (function() {
     showScreen('screen-podium');
   }
 
+  function showFillScores(results) {
+    if (!Array.isArray(results) || results.length === 0) return;
+    const result = document.getElementById('question-result');
+    const icon = document.getElementById('result-icon');
+    const text = document.getElementById('result-text');
+    const ans = document.getElementById('result-answer');
+    const qCard = document.getElementById('question-card');
+    if (qCard) qCard.style.display = 'none';
+    if (!result || !ans) return;
+
+    const sorted = [...results].sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+    if (icon) icon.textContent = '🏁';
+    if (text) text.textContent = 'Scores des joueurs';
+    ans.innerHTML = sorted.map((row, idx) => {
+      const name = String(row.playerName || `Joueur ${idx + 1}`);
+      const score = Number(row.score) || 0;
+      return `${idx + 1}. ${name} - ${score} pts`;
+    }).join('\n');
+    ans.style.whiteSpace = 'pre-line';
+    result.style.display = 'flex';
+  }
+
   return {
     showQuestion: showQuestion,
     getCurrentQuestionIndex: function() { return currentDisplayedQuestionIndex; },
@@ -1419,7 +1454,8 @@ const PlayerGame = (function() {
     lockFillInputs: lockFillInputs,
     updateTimer: updateTimer,
     showAnswer: showAnswer,
-    showPodium: showPodium
+    showPodium: showPodium,
+    showFillScores: showFillScores
   };
 })();
 

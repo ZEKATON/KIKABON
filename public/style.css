@@ -1102,6 +1102,13 @@ html, body {
   gap: 12px;
 }
 
+.fill-correction-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
 .fill-correction-head h3 {
   margin: 0;
   font-family: var(--font-display);
@@ -1120,6 +1127,22 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
+  min-height: 220px;
+}
+
+.fill-correction-bank-wrap {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.fill-correction-bank-wrap h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .fill-correction-feedback {
@@ -1135,6 +1158,40 @@ html, body {
   color: var(--green);
   border-color: rgba(78,203,113,0.5);
   background: rgba(78,203,113,0.09);
+}
+
+.fill-correction-scores {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  padding: 10px 12px;
+}
+
+.fill-correction-scores h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fill-correction-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.08);
+}
+
+.fill-correction-score-row:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 920px) {
+  .fill-correction-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 #qcm-submit-btn {

@@ -193,7 +193,11 @@ const Game = (() => {
     // Header
     document.getElementById('track-question-num').textContent = `${currentQuestionIdx + 1}/${total}`;
     document.getElementById('question-category').textContent = formatQuestionMeta(q);
-    document.getElementById('question-text').textContent = q.text;
+    const qTextEl = document.getElementById('question-text');
+    if (qTextEl) {
+      qTextEl.textContent = q.text;
+      qTextEl.style.display = q.type === 'fill' ? 'none' : '';
+    }
 
     // Afficher la question dans le panneau de contrôle admin
     const ctrlTitle = document.getElementById('admin-controls-title');
@@ -334,6 +338,7 @@ const Game = (() => {
     const textWrap = document.getElementById('fill-correction-text');
     const bankWrap = document.getElementById('fill-correction-bank');
     const feedback = document.getElementById('fill-correction-feedback');
+    const scorePanel = document.getElementById('fill-correction-scores');
     if (!panel || !textWrap || !bankWrap || !feedback) return;
 
     fillCorrectionState = {
@@ -347,6 +352,10 @@ const Game = (() => {
     bankWrap.innerHTML = '';
     feedback.className = 'fill-correction-feedback';
     feedback.textContent = 'Correction en cours...';
+    if (scorePanel) {
+      scorePanel.style.display = 'none';
+      scorePanel.innerHTML = '';
+    }
 
     (q.holes || []).forEach((hole, idx) => {
       const chip = document.createElement('span');
@@ -467,13 +476,15 @@ const Game = (() => {
     if (!fillCorrectionState) return;
     const q = fillCorrectionState.question;
     const panel = document.getElementById('fill-correction-panel');
-    if (panel) panel.style.display = 'none';
+    const scorePanel = document.getElementById('fill-correction-scores');
+    if (panel) panel.style.display = 'flex';
 
     const finalResults = App.state.players.map(player => {
       const answers = Array.isArray(player.lastFillAnswers) ? player.lastFillAnswers : [];
       const allCorrect = (q.holes || []).every((hole, idx) => normalizeFillWord(answers[idx]) === normalizeFillWord(hole.word));
       return {
         playerId: player.id,
+        playerName: player.name,
         isCorrect: allCorrect,
         score: Number(player.score) || 0,
         scoreDelta: 0,
@@ -501,6 +512,20 @@ const Game = (() => {
     document.getElementById('btn-launch-question').style.display = 'block';
     document.getElementById('btn-launch-question').textContent = isLastQuestion ? '🏁 Voir les resultats' : '▶️ Lancer la question suivante';
     document.getElementById('game-status').textContent = fillCorrectionState.statusText;
+    if (scorePanel) {
+      const sorted = [...App.state.players].sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+      scorePanel.innerHTML = `<h4>Scores des joueurs</h4>${sorted.map((p, idx) => {
+        const safeName = String(p.name || 'Joueur');
+        const safeScore = Number(p.score) || 0;
+        return `<div class="fill-correction-score-row"><span>${idx + 1}. ${safeName}</span><strong>${safeScore} pts</strong></div>`;
+      }).join('')}`;
+      scorePanel.style.display = 'block';
+    }
+    const feedback = document.getElementById('fill-correction-feedback');
+    if (feedback) {
+      feedback.className = 'fill-correction-feedback ok';
+      feedback.textContent = 'Tous les mots sont places. Classement affiche ci-dessous.';
+    }
     waitingForNextLaunch = true;
     fillCorrectionState = null;
   }
