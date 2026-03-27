@@ -418,6 +418,23 @@ function flashScoreDisplay() {
   scoreEl._bumpTimer = setTimeout(() => scoreEl.classList.remove('score-bump'), 750);
 }
 
+function triggerScoreConfetti() {
+  const colors = ['#f7c948', '#4fa3ff', '#4ecb71', '#ff9f43', '#ff6b6b'];
+  const layer = document.createElement('div');
+  layer.className = 'score-confetti-layer';
+  for (let i = 0; i < 18; i++) {
+    const piece = document.createElement('span');
+    piece.className = 'score-confetti-piece';
+    piece.style.left = `${12 + Math.random() * 76}%`;
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = `${Math.random() * 120}ms`;
+    piece.style.animationDuration = `${650 + Math.random() * 420}ms`;
+    layer.appendChild(piece);
+  }
+  document.body.appendChild(layer);
+  setTimeout(() => layer.remove(), 1300);
+}
+
 function stopHeartbeat() {
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer);
@@ -826,6 +843,7 @@ function connectSSE(code) {
           : `📊 Score en direct: ${playerState.score} pts`,
         iWon ? 'success score-pop' : 'score-pop'
       );
+      if (iWon) triggerScoreConfetti();
     });
 
     sse.addEventListener('fillCorrectionEnd', function(e) {

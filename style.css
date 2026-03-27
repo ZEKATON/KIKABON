@@ -2602,6 +2602,41 @@ html, body {
   100% { transform: scale(1); }
 }
 
+.score-confetti-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  overflow: hidden;
+}
+
+.score-confetti-piece {
+  position: absolute;
+  top: 30%;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+  transform: translateY(0) rotate(0deg);
+  animation-name: score-confetti-fall;
+  animation-timing-function: cubic-bezier(0.21, 0.9, 0.31, 1);
+  animation-fill-mode: forwards;
+}
+
+@keyframes score-confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) rotate(0deg) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(180px) rotate(420deg) scale(1.08);
+  }
+}
+
 /* ===== SCROLLBAR ===== */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
