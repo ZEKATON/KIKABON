@@ -488,6 +488,8 @@ function returnToJoinScreen() {
 
   const standings = document.getElementById('podium-standings');
   if (standings) standings.innerHTML = '';
+  const podiumMsg = document.getElementById('podium-player-message');
+  if (podiumMsg) { podiumMsg.style.display = 'none'; podiumMsg.textContent = ''; }
   const playersList = document.getElementById('players-list');
   if (playersList) playersList.innerHTML = '';
   const joinName = document.getElementById('join-name');
@@ -1191,6 +1193,7 @@ const PlayerGame = (function() {
   function showPodium(players) {
     clearSession();
     const standings = document.getElementById('podium-standings');
+    const podiumMsg = document.getElementById('podium-player-message');
     if (!standings) return;
     const sorted = players.slice().sort((a, b) => b.score - a.score);
     const me = playerState.currentPlayer && players.find(p => p.id === playerState.currentPlayer.id);
@@ -1209,6 +1212,20 @@ const PlayerGame = (function() {
               '</div>';
     });
     standings.innerHTML = html;
+
+    if (podiumMsg) {
+      if (me) {
+        const rank = sorted.findIndex(p => p.id === me.id) + 1;
+        if (rank === 1) podiumMsg.textContent = 'Bravo ! Tu termines 1er, excellent !';
+        else if (rank > 0 && rank <= 3) podiumMsg.textContent = 'Très belle performance, tu es dans le top 3 !';
+        else if ((me.score || 0) > 0) podiumMsg.textContent = 'Bien joué ! Continue, tu progresses à chaque partie.';
+        else podiumMsg.textContent = 'Courage ! La prochaine partie sera encore meilleure.';
+      } else {
+        podiumMsg.textContent = 'Bravo à tous les joueurs !';
+      }
+      podiumMsg.style.display = '';
+    }
+
     showScreen('screen-podium');
   }
 

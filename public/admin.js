@@ -1148,6 +1148,7 @@ const FillActivity = (() => {
   let _currentActivity = null; // activité en cours de jeu
   let _editingFillId = null;
   let _lastFillScores = null;
+  let _lastFillCorrectionPayload = null;
   let _fillCorrectionValidated = false;
   let _fillGameStarted = false;
   let _savedFillSort = 'newest';
@@ -1539,6 +1540,7 @@ const FillActivity = (() => {
       if (titleEl) titleEl.textContent = activity.name;
       App.showScreen('screen-fill-game');
       _lastFillScores = null;
+      _lastFillCorrectionPayload = null;
       _fillCorrectionValidated = false;
       _fillGameStarted = false;
       const submissionsPanel = document.getElementById('fill-submissions-panel');
@@ -1831,11 +1833,13 @@ const FillActivity = (() => {
       const delta = correctCount * totalHoles > 0 ? Math.round(correctCount / totalHoles * 100) : 0;
       scores.push({ playerId, delta, correctCount, totalHoles, results });
     });
-    _broadcastFill('fillCorrectionEnd', {
+    const correctionPayload = {
       scores,
       correctAnswers,
       holes: _currentActivity.holes,
-    });
+    };
+    _broadcastFill('fillCorrectionEnd', correctionPayload);
+    _lastFillCorrectionPayload = correctionPayload;
     _lastFillScores = scores;
     _fillCorrectionValidated = true;
     App.showToast('Correction envoyée aux joueurs ✓', 'success');
@@ -1844,6 +1848,9 @@ const FillActivity = (() => {
   }
 
   function _showFillScores() {
+    if (_lastFillCorrectionPayload) {
+      _broadcastFill('fillCorrectionEnd', _lastFillCorrectionPayload);
+    }
     _renderAdminFinalScores();
     const submissionsPanel = document.getElementById('fill-submissions-panel');
     if (submissionsPanel) submissionsPanel.style.display = 'none';
