@@ -29,6 +29,23 @@ const Admin = (() => {
     return 'Ouverte';
   }
 
+  function isFillActivityQuiz(quiz) {
+    if (!quiz || typeof quiz !== 'object') return false;
+    if (String(quiz.activityType || '').toLowerCase() === 'fill') return true;
+    const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
+    return questions.length === 1 && questions[0] && questions[0].type === 'fill';
+  }
+
+  function isStandardSavedQuiz(quiz) {
+    return !!quiz && !isFillActivityQuiz(quiz);
+  }
+
+  function findStandardSavedQuizById(id) {
+    const numericId = Number(id);
+    const quiz = (App.state.savedQuizzes || []).find(q => q && q.id === numericId);
+    return isStandardSavedQuiz(quiz) ? quiz : null;
+  }
+
   function parseFillQuestion(rawText, difficulty) {
     const source = String(rawText || '').trim();
     if (!source) return null;
@@ -960,9 +977,14 @@ const Admin = (() => {
     const qs = App.state.questions;
     if (qs.length === 0) { App.showToast('Aucune question à sauvegarder !', 'error'); return; }
 
+    if (qs.some(q => q && q.type === 'fill')) {
+      App.showToast('Le texte a trous est une activite separee, non sauvegardee dans Mes Quiz.', 'error');
+      return;
+    }
+
     App.loadSavedQuizzes();
 
-    const existingQuiz = App.state.currentQuiz && App.state.savedQuizzes.find(q => q.id === App.state.currentQuiz.id);
+    const existingQuiz = App.state.currentQuiz && findStandardSavedQuizById(App.state.currentQuiz.id);
 
     if (existingQuiz) {
       // Mise à jour du quiz existant — pas de prompt, pas de téléchargement
@@ -1015,7 +1037,7 @@ const Admin = (() => {
     const list = document.getElementById('saved-quizzes-list');
     const empty = document.getElementById('saved-empty');
     list.innerHTML = '';
-    const saved = App.state.savedQuizzes || [];
+    const saved = (App.state.savedQuizzes || []).filter(isStandardSavedQuiz);
     const modules = ensureQuizModuleAssignments();
     empty.style.display = saved.length === 0 ? 'flex' : 'none';
     modules.forEach(module => {
@@ -1144,7 +1166,7 @@ const Admin = (() => {
   }
 
   function renameSavedQuiz(id) {
-    const quiz = App.state.savedQuizzes.find(q => q.id === id);
+    const quiz = findStandardSavedQuizById(id);
     if (!quiz) return;
     const nextName = prompt('Nouveau nom du quiz :', quiz.name);
     const trimmed = normalizeModuleName(nextName);
@@ -1159,7 +1181,7 @@ const Admin = (() => {
     const modules = getModules();
     const validIds = getModuleIdSet(modules);
     const targetModuleId = validIds.has(moduleId) ? moduleId : UNCLASSIFIED_MODULE_ID;
-    const quiz = App.state.savedQuizzes.find(q => q.id === quizId);
+    const quiz = findStandardSavedQuizById(quizId);
     if (!quiz) return;
     if ((quiz.moduleId || UNCLASSIFIED_MODULE_ID) === targetModuleId) return;
     quiz.moduleId = targetModuleId;
@@ -1247,7 +1269,7 @@ const Admin = (() => {
   }
 
   function loadSavedQuiz(id) {
-    const quiz = App.state.savedQuizzes.find(q => q.id === id);
+    const quiz = findStandardSavedQuizById(id);
     if (!quiz) return;
     if (!confirm(`Modifier "${quiz.name}" ? (remplace les questions actuelles)`)) return;
     App.state.questions = [...quiz.questions];
@@ -1262,7 +1284,7 @@ const Admin = (() => {
   }
 
   function loadAndLaunchQuiz(id) {
-    const quiz = App.state.savedQuizzes.find(q => q.id === id);
+    const quiz = findStandardSavedQuizById(id);
     if (!quiz) return;
     if (!quiz.gameCode) {
       quiz.gameCode = generateUniqueSavedQuizCode(quiz.id);
@@ -1276,7 +1298,7 @@ const Admin = (() => {
   }
 
   function downloadSavedQuiz(id) {
-    const quiz = App.state.savedQuizzes.find(q => q.id === id);
+    const quiz = findStandardSavedQuizById(id);
     if (!quiz) return;
     const blob = new Blob([JSON.stringify({ name: quiz.name, questions: quiz.questions }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1286,7 +1308,8 @@ const Admin = (() => {
   }
 
   function deleteSavedQuiz(id) {
-    App.state.savedQuizzes = App.state.savedQuizzes.filter(q => q.id !== id);
+    const numericId = Number(id);
+    App.state.savedQuizzes = (App.state.savedQuizzes || []).filter(q => !isStandardSavedQuiz(q) || q.id !== numericId);
     App.persistSavedQuizzes(App.state.savedQuizzes);
     renderSaved();
   }

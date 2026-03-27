@@ -634,6 +634,13 @@ const App = (() => {
     state.settings.trackLength = Math.max(state.questions.length, 1);
   }
 
+  function isSavedFillActivity(quiz) {
+    if (!quiz || typeof quiz !== 'object') return false;
+    if (String(quiz.activityType || '').toLowerCase() === 'fill') return true;
+    const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
+    return questions.length === 1 && questions[0] && questions[0].type === 'fill';
+  }
+
   // ---- Afficher la page de sélection de quiz ----
   function renderQuizList() {
     const grid = document.getElementById('quiz-grid');
@@ -672,7 +679,8 @@ const App = (() => {
     }
     
     // Afficher les quiz sauvegardés
-    state.savedQuizzes.forEach(quiz => {
+    const savedStandardQuizzes = (state.savedQuizzes || []).filter(quiz => !isSavedFillActivity(quiz));
+    savedStandardQuizzes.forEach(quiz => {
       const card = document.createElement('div');
       card.className = 'quiz-card saved-quiz';
       
@@ -697,7 +705,7 @@ const App = (() => {
     });
     
     // Gérer l'état vide
-    const hasContent = state.questions.length > 0 || state.savedQuizzes.length > 0;
+    const hasContent = state.questions.length > 0 || savedStandardQuizzes.length > 0;
     grid.style.display = hasContent ? 'grid' : 'none';
     empty.style.display = hasContent ? 'none' : 'flex';
   }
