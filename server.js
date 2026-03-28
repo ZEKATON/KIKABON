@@ -68,6 +68,9 @@ function forceResetGameSession(code, options = {}) {
   game.gamePhase = 'waiting';
   game.currentQuestion = null;
   game.currentQuestionIndex = 0;
+  game.currentFill = null;
+  game.fillStartedAt = null;
+  game.fillTimerEnded = false;
   game.players = [];
 
   broadcast(code, 'game_reset_force', {
@@ -94,6 +97,24 @@ function broadcast(code, eventName, data) {
   for (const r of game.sseClients) {
     try { r.write(msg); } catch { game.sseClients.delete(r); }
   }
+}
+
+function getCurrentFillPayload(game) {
+  if (!game || !game.currentFill) return null;
+  const timeLimit = Number.isFinite(Number(game.currentFill.timeLimit)) ? Number(game.currentFill.timeLimit) : 300;
+  const startedAt = Number.isFinite(Number(game.fillStartedAt)) ? Number(game.fillStartedAt) : Date.now();
+  const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const timeLeft = game.fillTimerEnded ? 0 : Math.max(0, timeLimit - elapsed);
+  return {
+    activityId: game.currentFill.activityId,
+    name: game.currentFill.name,
+    level: game.currentFill.level,
+    segments: Array.isArray(game.currentFill.segments) ? game.currentFill.segments : [],
+    holes: Array.isArray(game.currentFill.holes) ? game.currentFill.holes : [],
+    timeLimit,
+    timeLeft,
+    timerEnded: !!game.fillTimerEnded || timeLeft <= 0,
+  };
 }
 
 // ---- Types MIME ----
@@ -185,6 +206,9 @@ const server = http.createServer(async (req, res) => {
       gamePhase:       'lobby',
       currentQuestion: null,
       currentQuestionIndex: 0,
+      currentFill:     null,
+      fillStartedAt:   null,
+      fillTimerEnded:  false,
       resetTimer:      null,
     });
     clearStaleGamesForNewHostSession(code);
@@ -224,7 +248,12 @@ const server = http.createServer(async (req, res) => {
         });
       }
     }
-    return json(200, { code, playerCount: game.players.length, gamePhase: game.gamePhase });
+    return json(200, {
+      code,
+      playerCount: game.players.length,
+      gamePhase: game.gamePhase,
+      currentFill: game.gamePhase === 'fill' ? getCurrentFillPayload(game) : null,
+    });
   }
 
   // ── POST /api/join/:code ───────────────────────────────────
@@ -269,6 +298,7 @@ const server = http.createServer(async (req, res) => {
           timeLeft: Math.max(0, game.currentQuestion.duration - Math.floor((Date.now() - game.currentQuestion.startedAt) / 1000)),
         }
       : null;
+    const currentFillPayload = game.gamePhase === 'fill' ? getCurrentFillPayload(game) : null;
     if (Number.isFinite(requestedPlayerId)) {
       const existing = game.players.find(p => p.id === requestedPlayerId);
       if (existing) {
@@ -280,6 +310,7 @@ const server = http.createServer(async (req, res) => {
           currentQuestionIndex: Number.isInteger(game.currentQuestionIndex) ? game.currentQuestionIndex : 0,
           gamePhase: game.gamePhase,
           currentQuestion: currentQuestionPayload,
+          currentFill: currentFillPayload,
         });
       }
     }
@@ -297,6 +328,7 @@ const server = http.createServer(async (req, res) => {
           currentQuestionIndex: Number.isInteger(game.currentQuestionIndex) ? game.currentQuestionIndex : 0,
           gamePhase: game.gamePhase,
           currentQuestion: currentQuestionPayload,
+          currentFill: currentFillPayload,
         });
       }
     }
@@ -315,6 +347,7 @@ const server = http.createServer(async (req, res) => {
           currentQuestionIndex: Number.isInteger(game.currentQuestionIndex) ? game.currentQuestionIndex : 0,
           gamePhase: game.gamePhase,
           currentQuestion: currentQuestionPayload,
+          currentFill: currentFillPayload,
         });
       }
     }
@@ -339,6 +372,7 @@ const server = http.createServer(async (req, res) => {
       currentQuestionIndex: Number.isInteger(game.currentQuestionIndex) ? game.currentQuestionIndex : 0,
       gamePhase: game.gamePhase,
       currentQuestion: currentQuestionPayload,
+      currentFill: currentFillPayload,
     });
   }
 
@@ -377,6 +411,9 @@ const server = http.createServer(async (req, res) => {
         total:    game.currentQuestion.total,
         timeLeft: remaining,
       };
+    }
+    if (game.gamePhase === 'fill') {
+      initPayload.currentFill = getCurrentFillPayload(game);
     }
     res.write(`event: init\ndata: ${JSON.stringify(initPayload)}\n\n`);
 
@@ -484,10 +521,26 @@ const server = http.createServer(async (req, res) => {
         game.resetTimer = null;
       }
       game.gamePhase = 'game';
+      game.currentFill = null;
+      game.fillStartedAt = null;
+      game.fillTimerEnded = false;
     } else if (body.type === 'fillStart') {
       if (game.resetTimer) { clearTimeout(game.resetTimer); game.resetTimer = null; }
       game.gamePhase = 'fill';
+      game.currentQuestion = null;
+      game.currentFill = {
+        activityId: body.payload && body.payload.activityId,
+        name: body.payload && body.payload.name,
+        level: body.payload && body.payload.level,
+        segments: body.payload && body.payload.segments,
+        holes: body.payload && body.payload.holes,
+        timeLimit: body.payload && body.payload.timeLimit,
+      };
+      game.fillStartedAt = Date.now();
+      game.fillTimerEnded = false;
       game.players.forEach(p => { p.fillSubmitted = false; p.fillAnswers = []; });
+    } else if (body.type === 'fillTimerEnd') {
+      game.fillTimerEnded = true;
     } else if (body.type === 'fillCorrectionEnd') {
       // Mise à jour des scores depuis le payload
       if (Array.isArray(body.payload && body.payload.scores)) {
@@ -497,6 +550,9 @@ const server = http.createServer(async (req, res) => {
         });
       }
       game.gamePhase = 'ended';
+      game.currentFill = null;
+      game.fillStartedAt = null;
+      game.fillTimerEnded = false;
       game.resetTimer = setTimeout(() => {
         forceResetGameSession(code, { reason: 'ended' });
       }, 1500);
@@ -510,6 +566,9 @@ const server = http.createServer(async (req, res) => {
       };
       game.currentQuestionIndex = Number.isInteger(body.payload.idx) ? body.payload.idx : game.currentQuestionIndex;
       game.gamePhase = 'game';
+      game.currentFill = null;
+      game.fillStartedAt = null;
+      game.fillTimerEnded = false;
     } else if (body.type === 'update_state') {
       if (!body.payload || typeof body.payload !== 'object') body.payload = {};
       if (!Number.isInteger(body.payload.currentQuestionIndex)) {
@@ -531,11 +590,17 @@ const server = http.createServer(async (req, res) => {
         game.currentQuestionIndex = nextIndex;
       }
       game.gamePhase = 'game';
+      game.currentFill = null;
+      game.fillStartedAt = null;
+      game.fillTimerEnded = false;
     } else if (body.type === 'questionEnd') {
       game.currentQuestion = null;
     } else if (body.type === 'gameEnd') {
       game.gamePhase = 'ended';
       game.currentQuestion = null;
+      game.currentFill = null;
+      game.fillStartedAt = null;
+      game.fillTimerEnded = false;
       game.resetTimer = setTimeout(() => {
         forceResetGameSession(code, { reason: 'ended' });
       }, 1500);
