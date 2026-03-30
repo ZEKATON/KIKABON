@@ -1539,6 +1539,7 @@ const FillActivity = (() => {
       const titleEl = document.getElementById('fill-game-title');
       if (titleEl) titleEl.textContent = activity.name;
       App.showScreen('screen-fill-game');
+      _renderFillJoinQRCode();
       _lastFillScores = null;
       _lastFillCorrectionPayload = null;
       _fillCorrectionValidated = false;
@@ -1560,6 +1561,11 @@ const FillActivity = (() => {
       if (stopBtn) stopBtn.disabled = true;
       const timerText = document.getElementById('fill-timer-text');
       if (timerText) timerText.textContent = '5:00';
+      const validateBtn = document.getElementById('btn-fill-validate');
+      if (validateBtn) {
+        validateBtn.disabled = false;
+        validateBtn.textContent = '✅ Valider la correction';
+      }
     })
     .catch(() => App.showToast('Erreur lors du lancement.', 'error'));
   }
@@ -1600,6 +1606,22 @@ const FillActivity = (() => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminToken: App.state.adminToken, type, payload }),
     }).catch(() => {});
+  }
+
+  function _renderFillJoinQRCode() {
+    const qrContainer = document.getElementById('fill-game-qrcode');
+    if (!qrContainer) return;
+    qrContainer.innerHTML = '';
+    if (!App.state.gameCode || typeof QRCode !== 'function') return;
+    const joinUrl = `${window.location.origin}/join-new-game?code=${encodeURIComponent(App.state.gameCode)}`;
+    new QRCode(qrContainer, {
+      text: joinUrl,
+      width: 112,
+      height: 112,
+      colorDark: '#1a1a2e',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
   }
 
   function _connectFillSSE(code) {
@@ -1714,6 +1736,13 @@ const FillActivity = (() => {
     if (hint) hint.textContent = _currentActivity.level === 1
       ? 'Faites glisser les mots dans les trous.'
       : 'Saisissez les mots manquants dans les champs.';
+    const btn = document.getElementById('btn-fill-validate');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = _fillCorrectionValidated
+        ? '✅ Correction envoyée - cliquer pour renvoyer'
+        : '✅ Valider la correction';
+    }
   }
 
   function closeCorrectionModal() {
@@ -1844,7 +1873,7 @@ const FillActivity = (() => {
     _fillCorrectionValidated = true;
     App.showToast('Correction envoyée aux joueurs ✓', 'success');
     const btn = document.getElementById('btn-fill-validate');
-    if (btn) { btn.disabled = true; btn.textContent = '✅ Correction envoyée'; }
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Correction envoyée - cliquer pour renvoyer'; }
   }
 
   function _showFillScores() {

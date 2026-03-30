@@ -77,7 +77,10 @@
     </div>
 
     <div id="question-card" style="display:none">
-      <div class="question-category" id="question-category">Question</div>
+      <div class="question-topbar">
+        <div class="question-category" id="question-category">Question</div>
+        <button class="btn btn-primary" id="qcm-submit-btn" type="button" onclick="PlayerGame.submitQcmAnswer()">Valider mes réponses</button>
+      </div>
       <h2 id="question-text" class="question-text-player"></h2>
       <div class="choices-grid" id="choices-grid"></div>
       <div class="open-answer" id="open-answer" style="display:none">

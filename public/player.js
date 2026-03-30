@@ -980,6 +980,7 @@ const PlayerGame = (function() {
     const qStatus = document.getElementById('game-status');
     const grid = document.getElementById('choices-grid');
     const openAns = document.getElementById('open-answer');
+    const submitBtn = document.getElementById('qcm-submit-btn');
 
     if (counter) counter.textContent = 'Q' + (idx + 1) + '/' + total;
     playPlayerSound('question');
@@ -994,6 +995,12 @@ const PlayerGame = (function() {
       grid.style.display = 'grid';
       if (openAns) openAns.style.display = 'none';
       grid.innerHTML = '';
+      if (submitBtn) {
+        submitBtn.style.display = 'inline-flex';
+        submitBtn.disabled = true;
+        submitBtn.classList.remove('answer-locked');
+        submitBtn.textContent = 'Valider mes réponses';
+      }
       const letters = ['A', 'B', 'C', 'D'];
       q.choices.forEach((choice, i) => {
         const btn = document.createElement('button');
@@ -1013,24 +1020,8 @@ const PlayerGame = (function() {
         });
         grid.appendChild(btn);
       });
-
-      let submitBtn = document.getElementById('qcm-submit-btn');
-      if (!submitBtn) {
-        submitBtn = document.createElement('button');
-        submitBtn.id = 'qcm-submit-btn';
-        submitBtn.className = 'btn btn-primary';
-        submitBtn.type = 'button';
-        submitBtn.textContent = 'Valider mes reponses';
-        submitBtn.onclick = submitQcmAnswer;
-        grid.insertAdjacentElement('afterend', submitBtn);
-      }
-      submitBtn.style.display = 'block';
-      submitBtn.disabled = true;
-      submitBtn.classList.remove('answer-locked');
-      submitBtn.textContent = 'Valider mes reponses';
     } else if (q.type === 'open') {
       if (grid) grid.style.display = 'none';
-      const submitBtn = document.getElementById('qcm-submit-btn');
       if (submitBtn) {
         submitBtn.style.display = 'none';
         submitBtn.disabled = true;
@@ -1083,7 +1074,7 @@ const PlayerGame = (function() {
 
   function submitQcmAnswer() {
     if (selectedIndices.length === 0) {
-      showToast('Selectionnez au moins une reponse', 'error');
+      showToast('Sélectionnez au moins une réponse', 'error');
       return;
     }
     submitAnswer(selectedIndices.slice(), null);
