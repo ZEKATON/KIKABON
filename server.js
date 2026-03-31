@@ -405,8 +405,12 @@ const server = http.createServer(async (req, res) => {
     if (game.currentQuestion) {
       const elapsed = Math.floor((Date.now() - game.currentQuestion.startedAt) / 1000);
       const remaining = Math.max(0, game.currentQuestion.duration - elapsed);
+      const filteredQuestion = { ...game.currentQuestion.question };
+      delete filteredQuestion.correct;      // QCM answer index
+      delete filteredQuestion.correctIndices; // pour multiple-select
+      delete filteredQuestion.answer;       // pour open-ended
       initPayload.currentQuestion = {
-        question: game.currentQuestion.question,
+        question: filteredQuestion,
         idx:      game.currentQuestion.idx,
         total:    game.currentQuestion.total,
         timeLeft: remaining,
@@ -606,7 +610,20 @@ const server = http.createServer(async (req, res) => {
       }, 1500);
     }
 
-    broadcast(code, body.type, body.payload || {});
+    // Filtrer les champs sensibles avant broadcast aux joueurs
+    let payloadToBroadcast = body.payload || {};
+    if ((body.type === 'question' || body.type === 'update_state') && payloadToBroadcast.question) {
+      const filteredQuestion = { ...payloadToBroadcast.question };
+      delete filteredQuestion.correct;      // QCM answer index
+      delete filteredQuestion.correctIndices; // pour multiple-select
+      delete filteredQuestion.answer;       // pour open-ended
+      payloadToBroadcast = {
+        ...payloadToBroadcast,
+        question: filteredQuestion,
+      };
+    }
+
+    broadcast(code, body.type, payloadToBroadcast);
     return json(200, { ok: true });
   }
 
