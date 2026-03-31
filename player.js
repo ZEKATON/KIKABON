@@ -857,11 +857,11 @@ function connectSSE(code) {
       };
 
       const activeScreen = getActiveScreenId();
-      const justSawScores = (Date.now() - _lastScoreShownAt) < 7000;
+      const justSawScores = (Date.now() - _lastScoreShownAt) < 60000;
       if (justSawScores || activeScreen === 'screen-fill-results' || activeScreen === 'screen-podium') {
         clearTimeout(_pendingScoreRedirectTimer);
-        showToast('Bravo ! Regardez votre score quelques secondes…', 'success');
-        _pendingScoreRedirectTimer = setTimeout(doRedirect, 7000);
+        showToast('Bravo ! Vous avez 1 minute pour voir votre score…', 'success');
+        _pendingScoreRedirectTimer = setTimeout(doRedirect, 60000);
       } else {
         doRedirect();
       }
@@ -1132,7 +1132,7 @@ const PlayerGame = (function() {
         if (submitBtn) {
           submitBtn.disabled = normalizedIndices.length === 0;
           submitBtn.classList.remove('answer-locked');
-          submitBtn.textContent = 'Valider mes reponses';
+          submitBtn.textContent = 'Valider mes réponses';
         }
         const openInput = document.getElementById('open-input');
         if (openInput) openInput.disabled = false;
@@ -1142,14 +1142,14 @@ const PlayerGame = (function() {
     }
     answerSubmitting = false;
     playPlayerSound('submit');
-    showToast('Reponse enregistree', 'success');
+    showToast('Réponse enregistrée', 'success');
     if (submitBtn) {
-      submitBtn.textContent = 'Reponse enregistree';
+      submitBtn.textContent = 'Réponse enregistrée';
       submitBtn.disabled = true;
       submitBtn.classList.add('answer-locked');
     }
     const status = document.getElementById('game-status');
-    if (status) status.textContent = '✅ Reponse enregistree';
+    if (status) status.textContent = '✅ Réponse enregistrée';
   }
 
   function submitOpenAnswer() {
@@ -1416,6 +1416,33 @@ function _renderFillScreen(data) {
   } else {
     if (bankContainer) bankContainer.style.display = 'none';
   }
+
+  // Restore previously submitted answers if SSE reconnected mid-session
+  try {
+    var _savedSubmit = JSON.parse(sessionStorage.getItem('kikabon_fill_submitted') || 'null');
+    if (_savedSubmit && _savedSubmit.gameCode === playerState.gameCode) {
+      playerState.fillSubmitted = true;
+      if (!playerState.fillAnswers) playerState.fillAnswers = {};
+      (_savedSubmit.answers || []).forEach(function(a) {
+        playerState.fillAnswers[a.holeId] = a.word;
+        if (level === 1) {
+          var zone = document.querySelector('#fill-player-text .fill-player-drop[data-hole-id="' + a.holeId + '"]');
+          if (zone && a.word) {
+            zone.textContent = a.word;
+            zone.setAttribute('data-placed', a.word);
+            zone.classList.add('filled');
+          }
+        } else {
+          var inp = document.querySelector('#fill-player-text .fill-player-input[data-hole-id="' + a.holeId + '"]');
+          if (inp) inp.value = a.word;
+        }
+      });
+      var _submitBtnR = document.getElementById('btn-fill-player-submit');
+      var _submittedMsgR = document.getElementById('fill-submitted-msg');
+      if (_submitBtnR) { _submitBtnR.disabled = true; _submitBtnR.style.display = 'none'; }
+      if (_submittedMsgR) _submittedMsgR.style.display = '';
+    }
+  } catch (e) {}
 }
 
 function _applyLiveFillFeedback(data) {
@@ -1562,7 +1589,17 @@ function submitFillAnswers() {
       answers.push({ holeId: holeId, word: inp.value.trim() });
     });
   }
+  // Sync fillAnswers from DOM snapshot so display remains consistent after reconnects
+  if (!playerState.fillAnswers) playerState.fillAnswers = {};
+  answers.forEach(function(a) { playerState.fillAnswers[a.holeId] = a.word; });
   playerState.fillSubmitted = true;
+  // Persist to sessionStorage so answers survive SSE disconnects/reconnects
+  try {
+    sessionStorage.setItem('kikabon_fill_submitted', JSON.stringify({
+      gameCode: playerState.gameCode,
+      answers: answers,
+    }));
+  } catch (e) {}
   var submitBtn = document.getElementById('btn-fill-player-submit');
   var submittedMsg = document.getElementById('fill-submitted-msg');
   if (submitBtn) {
@@ -1571,14 +1608,23 @@ function submitFillAnswers() {
   }
   if (submittedMsg) submittedMsg.style.display = '';
   clearInterval(_fillPlayerTimerInterval);
+  _sendFillAnswersWithRetry(answers, 3);
+}
+
+function _sendFillAnswersWithRetry(answers, retriesLeft) {
+  if (!playerState.gameCode || !playerState.currentPlayer) return;
   fetch('/api/fill-answer/' + playerState.gameCode, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      playerId: playerState.currentPlayer && playerState.currentPlayer.id,
+      playerId: playerState.currentPlayer.id,
       answers: answers,
     }),
-  }).catch(function() {});
+  }).catch(function() {
+    if (retriesLeft > 0) {
+      setTimeout(function() { _sendFillAnswersWithRetry(answers, retriesLeft - 1); }, 2500);
+    }
+  });
 }
 
 function _showFillResults(data) {

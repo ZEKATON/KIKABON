@@ -1774,6 +1774,12 @@ html, body {
   backdrop-filter: blur(8px);
 }
 
+.player-shell .timer-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .player-shell .question-counter {
   align-self: flex-start;
   background: var(--card2);
@@ -1798,6 +1804,7 @@ html, body {
 
 .player-shell .question-topbar {
   align-items: flex-start;
+  gap: 14px;
 }
 
 .player-shell #qcm-submit-btn {
@@ -1808,6 +1815,7 @@ html, body {
   min-height: 52px;
   padding: 12px 18px;
   box-shadow: 0 10px 22px rgba(0,0,0,0.24);
+  white-space: nowrap;
 }
 
 .player-shell .question-text-player {
@@ -1831,6 +1839,8 @@ html, body {
   align-content: flex-start;
   line-height: 1.35;
   box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .player-shell .choice-letter {
@@ -1998,6 +2008,14 @@ html, body {
     font-size: 24px;
   }
 
+  .player-shell .game-container {
+    gap: 14px;
+  }
+
+  .player-shell #question-card {
+    padding: 16px;
+  }
+
   .player-shell .choice-btn {
     min-height: 76px;
     font-size: 16px;
@@ -2036,8 +2054,23 @@ html, body {
     padding: max(10px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom));
   }
 
+  .player-shell .game-header {
+    gap: 10px;
+  }
+
+  .player-shell .timer-bar-wrap {
+    gap: 8px;
+  }
+
+  .player-shell #question-card {
+    border-radius: 18px;
+    padding: 14px 12px;
+    gap: 12px;
+  }
+
   .player-shell .question-text-player {
     font-size: 21px;
+    line-height: 1.2;
   }
 
   .player-shell .join-actions-row {
@@ -2050,27 +2083,42 @@ html, body {
   }
 
   .player-shell .timer-text {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .player-shell .choice-btn {
-    padding: 12px 14px;
-    font-size: 15px;
+    min-height: 72px;
+    padding: 11px 10px;
+    font-size: 14px;
+    border-radius: 14px;
   }
 
   .player-shell .choices-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
+  }
+
+  .player-shell .choice-letter {
+    min-width: 28px;
+    padding: 4px 7px;
+    font-size: 11px;
   }
 
   .player-shell .question-topbar {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
   }
 
   .player-shell #qcm-submit-btn {
     width: 100%;
     min-width: 0;
+    min-height: 48px;
+    padding: 11px 14px;
+  }
+
+  .player-shell .game-status {
+    font-size: 14px;
   }
 
   .player-shell .podium-entry {
@@ -2685,8 +2733,8 @@ html, body {
 }
 .fill-game-qrcode {
   flex-shrink: 0;
-  width: 132px;
-  min-height: 132px;
+  width: 244px;
+  min-height: 244px;
   display: grid;
   place-items: center;
   padding: 10px;
@@ -2697,8 +2745,8 @@ html, body {
 .fill-game-qrcode img,
 .fill-game-qrcode canvas {
   display: block;
-  width: 112px;
-  height: 112px;
+  width: 224px;
+  height: 224px;
 }
 .fill-admin-hole {
   display: inline-block;

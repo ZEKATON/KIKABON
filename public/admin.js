@@ -1616,8 +1616,8 @@ const FillActivity = (() => {
     const joinUrl = `${window.location.origin}/join-new-game?code=${encodeURIComponent(App.state.gameCode)}`;
     new QRCode(qrContainer, {
       text: joinUrl,
-      width: 112,
-      height: 112,
+      width: 224,
+      height: 224,
       colorDark: '#1a1a2e',
       colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.M,
