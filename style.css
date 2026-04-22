@@ -812,24 +812,13 @@ html, body {
 }
 .lobby-actions {
   display: flex;
-  gap: 8px;
-  justify-content: flex-start;
-  flex-wrap: nowrap;
-  position: absolute;
-  top: 20px;
-  left: 20px;
+  gap: 12px;
+  position: sticky;
+  top: 8px;
   z-index: 20;
   background: linear-gradient(180deg, rgba(20,15,35,0.96), rgba(20,15,35,0.85));
   padding: 8px;
   border-radius: 12px;
-  overflow-x: auto;
-}
-.lobby-actions .btn {
-  white-space: nowrap;
-}
-.lobby-actions .btn.lg {
-  padding: 10px 16px;
-  font-size: 15px;
 }
 
 /* ===== GAME SCREEN ===== */
@@ -1531,10 +1520,11 @@ html, body {
   }
 
   #screen-lobby .lobby-actions {
-    width: fit-content;
-    max-width: calc(100% - 490px);
-    justify-content: flex-start;
-    flex-wrap: nowrap;
+    width: calc(100% - 450px);
+    max-width: 900px;
+    align-self: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
   }
 }
 
