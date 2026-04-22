@@ -246,30 +246,30 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
 <div id="screen-lobby" class="screen">
   <div class="lobby-bg"></div>
   <div class="lobby-content">
+    <div class="lobby-actions">
+      <button class="btn btn-primary lg" onclick="Game.start()" id="btn-launch-quiz-lobby">
+        🚦 Lancer le quiz
+      </button>
+      <button class="btn btn-secondary" onclick="App.renderQuizList(); App.showScreen('screen-quiz-list')">
+        📚 Retour aux activités
+      </button>
+      <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
+        ← Retour
+      </button>
+    </div>
+
     <h2 class="lobby-title">🏁 Salle d'attente</h2>
 
-    <div class="lobby-top-row">
-      <!-- QR code pour rejoindre -->
-      <div class="lobby-qr-wrap">
-        <div id="lobby-qrcode"></div>
-        <p class="lobby-qr-hint">📱 Scanne pour rejoindre directement la partie</p>
-      </div>
-
-      <div class="lobby-actions">
-        <button class="btn btn-primary lg" onclick="Game.start()" id="btn-launch-quiz-lobby">
-          🚦 Lancer le quiz
-        </button>
-        <button class="btn btn-secondary" onclick="App.renderQuizList(); App.showScreen('screen-quiz-list')">
-          📚 Retour aux activités
-        </button>
-        <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
-          ← Retour
-        </button>
-      </div>
+    <!-- QR code pour rejoindre -->
+    <div class="lobby-qr-wrap">
+      <div id="lobby-qrcode"></div>
+      <p class="lobby-qr-hint">📱 Scanne pour rejoindre directement la partie</p>
     </div>
 
     <p class="lobby-subtitle lobby-player-count" id="lobby-player-count">Aucun joueur connecté</p>
     <p class="lobby-subtitle lobby-subtitle-hint">Les joueurs rejoignent la partie...</p>
+    <div id="lobby-players" class="lobby-players"><p class="lobby-subtitle lobby-subtitle-hint">Les joueurs rejoignent la partie...</p>
+    <div id="lobby-players" class="lobby-players"><p class="lobby-subtitle lobby-subtitle-hint">Les joueurs rejoignent la partie...</p>
     <div id="lobby-players" class="lobby-players"></div>
   </div>
 </div>
