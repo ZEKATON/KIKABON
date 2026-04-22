@@ -250,24 +250,29 @@ RÉPONSE: Processus par lequel les plantes produisent leur énergie</pre>
 
     <!-- QR code pour rejoindre -->
     <div class="lobby-qr-wrap">
-      <div id="lobby-qrcode"></div>
-      <p class="lobby-qr-hint">📱 Scanne pour rejoindre directement la partie</p>
+    </div>
+
+    <div class="lobby-main-row">
+      <div class="lobby-qr-section">
+        <div id="lobby-qrcode"></div>
+        <p class="lobby-qr-hint">📱 Scanne pour rejoindre directement la partie</p>
+      </div>
+      <div class="lobby-actions">
+        <button class="btn btn-primary lg" onclick="Game.start()" id="btn-launch-quiz-lobby">
+          🚦 Lancer le quiz
+        </button>
+        <button class="btn btn-secondary" onclick="App.renderQuizList(); App.showScreen('screen-quiz-list')">
+          📚 Retour aux activités
+        </button>
+        <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
+          ← Retour
+        </button>
+      </div>
     </div>
 
     <p class="lobby-subtitle lobby-player-count" id="lobby-player-count">Aucun joueur connecté</p>
     <p class="lobby-subtitle lobby-subtitle-hint">Les joueurs rejoignent la partie...</p>
     <div id="lobby-players" class="lobby-players"></div>
-    <div class="lobby-actions">
-      <button class="btn btn-primary lg" onclick="Game.start()" id="btn-launch-quiz-lobby">
-        🚦 Lancer le quiz
-      </button>
-      <button class="btn btn-secondary" onclick="App.renderQuizList(); App.showScreen('screen-quiz-list')">
-        📚 Retour aux activités
-      </button>
-      <button class="btn btn-ghost" onclick="App.showScreen('screen-admin')">
-        ← Retour
-      </button>
-    </div>
   </div>
 </div>
 

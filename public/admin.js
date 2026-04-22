@@ -1655,7 +1655,8 @@ const FillActivity = (() => {
     row.setAttribute('data-player-id', id);
     row.innerHTML = `<span class="fill-player-avatar">${avatar}</span>
       <span class="fill-player-name">${escHtml(name)}</span>
-      <span class="fill-player-status">${submitted ? '✅ Validé' : '⏳ En cours…'}</span>`;
+      <span class="fill-player-status">${submitted ? '✅ Validé' : '⏳ En cours…'}</span>
+      <button class="fill-player-delete" onclick="FillActivity.removePlayer(${id})" title="Supprimer le joueur">🗑️</button>`;
     container.appendChild(row);
     _refreshFillProgressCounter();
   }
@@ -1680,6 +1681,18 @@ const FillActivity = (() => {
     container.innerHTML = '<p class="empty-state">En attente des joueurs…</p>';
     players.forEach(p => _addPlayerRow(p.id, p.name, p.avatar, p.fillSubmitted));
     _refreshFillProgressCounter();
+  }
+
+  function removePlayer(playerId) {
+    // Supprimer de l'état des joueurs du fill
+    if (_fillPlayerAnswers[playerId]) {
+      delete _fillPlayerAnswers[playerId];
+    }
+    // Supprimer de l'interface
+    const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+    if (row) row.remove();
+    _refreshFillProgressCounter();
+    App.showToast('Joueur supprimé du texte à trous', 'success');
   }
 
   // ---- Chrono ----
@@ -1923,6 +1936,7 @@ const FillActivity = (() => {
     dropWord,
     typeWord,
     validateCorrection,
+    removePlayer,
     endFillGame,
   };
 })();
