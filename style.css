@@ -1504,7 +1504,6 @@ html, body {
 @media (min-width: 960px) {
   #screen-lobby .lobby-content {
     padding-right: 450px;
-    align-items: flex-start;
   }
 
   #screen-lobby .lobby-qr-wrap {
@@ -1517,14 +1516,6 @@ html, body {
 
   #screen-lobby .lobby-players {
     width: min(100%, 900px);
-  }
-
-  #screen-lobby .lobby-actions {
-    width: calc(100% - 450px);
-    max-width: 900px;
-    align-self: flex-start;
-    justify-content: center;
-    flex-wrap: wrap;
   }
 }
 
@@ -2781,18 +2772,6 @@ html, body {
 .fill-player-name { flex: 1; font-weight: 600; }
 .fill-player-status { font-size: 14px; color: var(--text2); }
 .fill-player-row.submitted .fill-player-status { color: #10b981; font-weight: 700; }
-.fill-player-delete {
-  background: none; border: none; cursor: pointer;
-  font-size: 16px; padding: 4px; border-radius: 6px;
-  transition: background .2s;
-}
-.fill-player-delete:hover { background: rgba(239,68,68,.1); }
-.fill-player-delete {
-  background: none; border: none; cursor: pointer;
-  font-size: 16px; padding: 4px; border-radius: 6px;
-  transition: background .2s;
-}
-.fill-player-delete:hover { background: rgba(239,68,68,.1); }
 .fill-admin-results-list { display: flex; flex-direction: column; gap: 10px; }
 .fill-admin-score-row {
   display: grid;
