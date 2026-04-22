@@ -73,7 +73,21 @@ const Admin = (() => {
       }
     }
 
-    return { modules: normalized, changed };
+    function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
   }
 
   function persistModules(modules) {
@@ -509,7 +523,22 @@ const Admin = (() => {
         uniqueIndices.push(0);
       }
 
-      return {
+      function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
+  return {
         id,
         type: 'qcm',
         text,
@@ -527,7 +556,22 @@ const Admin = (() => {
     const answer = String(rawAnswer || '').trim();
     if (!answer) return null;
 
-    return {
+    function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
+  return {
       id,
       type: 'open',
       text,
@@ -561,7 +605,22 @@ const Admin = (() => {
     const rawChoice = match[2] ? match[2].trim() : match[1].trim();
     const isCorrect = /\*\s*$/.test(rawChoice);
     const choice = rawChoice.replace(/\*\s*$/, '').trim();
-    return { choice, isCorrect };
+    function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
+  return { choice, isCorrect };
   }
 
   function parseAnswerIndicesFromLine(answerLine, choices) {
@@ -619,7 +678,22 @@ const Admin = (() => {
       return null;
     }
 
-    return {
+    function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
+  return {
       id: Date.now() + Math.random(),
       type: 'qcm',
       text: questionText,
@@ -890,7 +964,22 @@ const Admin = (() => {
 
     App.state.savedQuizzes = (App.state.savedQuizzes || []).map(quiz => {
       if ((quiz.moduleId || UNCLASSIFIED_MODULE_ID) !== moduleId) return quiz;
-      return { ...quiz, moduleId: UNCLASSIFIED_MODULE_ID };
+      function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
+  return { ...quiz, moduleId: UNCLASSIFIED_MODULE_ID };
     });
     App.persistSavedQuizzes(App.state.savedQuizzes);
     renderSaved();
@@ -1118,6 +1207,21 @@ const Admin = (() => {
     }
   }
 
+  function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
   return {
     showTab, renderQuestions, renderSaved,
     addQuestion, editQuestion, deleteQuestion, moveQuestion,
@@ -1189,11 +1293,41 @@ const FillActivity = (() => {
       const id = Number(row.getAttribute('data-player-id'));
       const name = row.querySelector('.fill-player-name') ? row.querySelector('.fill-player-name').textContent : 'Joueur';
       const avatar = row.querySelector('.fill-player-avatar') ? row.querySelector('.fill-player-avatar').textContent : '🙂';
-      return { id, name, avatar };
+      function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
+  return { id, name, avatar };
     });
     const merged = _lastFillScores.map(score => {
       const profile = rows.find(r => r.id === score.playerId) || { name: 'Joueur', avatar: '🙂' };
-      return {
+      function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
+  return {
         ...score,
         name: profile.name,
         avatar: profile.avatar,
@@ -1312,7 +1446,22 @@ const FillActivity = (() => {
       }
     });
     segments.push(seg);
-    return { segments, holes };
+    function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
+  return { segments, holes };
   }
 
   function _tokenizeFillText(raw, isBlankWord = false) {
@@ -1655,7 +1804,8 @@ const FillActivity = (() => {
     row.setAttribute('data-player-id', id);
     row.innerHTML = `<span class="fill-player-avatar">${avatar}</span>
       <span class="fill-player-name">${escHtml(name)}</span>
-      <span class="fill-player-status">${submitted ? '✅ Validé' : '⏳ En cours…'}</span>`;
+      <span class="fill-player-status">${submitted ? '✅ Validé' : '⏳ En cours…'}</span>
+      <button class="fill-player-delete" onclick="FillActivity.removePlayer('${id}')">❌</button>`;
     container.appendChild(row);
     _refreshFillProgressCounter();
   }
@@ -1768,7 +1918,8 @@ const FillActivity = (() => {
           html += `<span class="fill-drop-zone" data-hole-id="${hole.id}" data-correct="${escHtml(hole.word)}"
             ondragover="event.preventDefault(); this.classList.add('over')"
             ondragleave="this.classList.remove('over')"
-            ondrop="FillActivity.dropWord(event, ${hole.id})">${escHtml(hole.word.replace(/./g,'_'))}</span>`;
+            ondrop="FillActivity.dropWord(event, ${hole.id})"
+            ondblclick="FillActivity.returnWordToBank(${hole.id})">${escHtml(hole.word.replace(/./g,'_'))}</span>`;
         } else {
           html += `<input type="text" class="fill-type-input" data-hole-id="${hole.id}"
             data-correct="${escHtml(hole.word)}"
@@ -1855,7 +2006,22 @@ const FillActivity = (() => {
         const playerAns = playerAnswers.find(a => a.holeId === hole.id);
         const playerWord = String(playerAns ? playerAns.word : '').trim().toLowerCase();
         const adminWord = String(correctAnswers[hole.id] || hole.word || '').trim().toLowerCase();
-        return { holeId: hole.id, correct: playerWord === adminWord };
+        function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
+  return { holeId: hole.id, correct: playerWord === adminWord };
       });
       const correctCount = results.filter(r => r.correct).length;
       const totalHoles = _currentActivity.holes.length;
@@ -1903,6 +2069,21 @@ const FillActivity = (() => {
     goToActivities();
   }
 
+  function removePlayer(playerId) {
+    if (!App.state.gameCode || !App.state.adminToken) return;
+    fetch(`/api/admin/${App.state.gameCode}/removePlayer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminToken: App.state.adminToken, playerId }),
+    }).then(() => {
+      // Remove from UI
+      const row = document.querySelector(`#fill-player-list [data-player-id="${playerId}"]`);
+      if (row) row.remove();
+      _refreshFillProgressCounter();
+      App.showToast('Joueur supprim�', 'success');
+    }).catch(() => App.showToast('Erreur lors de la suppression', 'error'));
+  }
+
   return {
     showBuilderTab,
     setLevel,
@@ -1924,5 +2105,39 @@ const FillActivity = (() => {
     typeWord,
     validateCorrection,
     endFillGame,
+    removePlayer,
   };
 })();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

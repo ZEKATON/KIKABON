@@ -627,6 +627,35 @@ const server = http.createServer(async (req, res) => {
     return json(200, { ok: true });
   }
 
+  // ── POST /api/admin/:code/removePlayer ─────────────────────
+  // L'admin supprime un joueur de la partie
+  if (pathname.startsWith('/api/admin/') && pathname.endsWith('/removePlayer') && method === 'POST') {
+    const code = pathname.split('/')[3];
+    const game = games.get(code);
+    if (!game) return json(404, { error: 'Partie introuvable' });
+    const body = await readBody(req);
+    if (body.adminToken !== game.adminToken) return json(403, { error: 'Unauthorized' });
+
+    const playerId = body.playerId;
+    if (!playerId) return json(400, { error: 'playerId requis' });
+
+    // Retirer le joueur de la liste
+    const initialCount = game.players.length;
+    game.players = game.players.filter(p => p.id !== playerId);
+
+    // Fermer la connexion SSE du joueur s'il existe
+    const sseConn = game.sseConnections.get(playerId);
+    if (sseConn) {
+      try { sseConn.end(); } catch (e) {}
+      game.sseConnections.delete(playerId);
+    }
+
+    // Notifier les autres joueurs de la mise à jour
+    broadcast(code, 'player_left', { playerId });
+
+    return json(200, { ok: true, removed: initialCount - game.players.length });
+  }
+
   // ── Fichiers statiques ─────────────────────────────────────
   serveStatic(pathname, res);
 });
@@ -634,3 +663,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, () => {
   console.log(`Kikabon running at http://localhost:${port}`);
 });
+
+
+
