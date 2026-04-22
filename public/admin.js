@@ -1577,11 +1577,13 @@ const FillActivity = (() => {
     _lastFillScores = null;
     const launchBtn = document.getElementById('btn-fill-launch');
     const stopBtn = document.getElementById('btn-fill-stop');
+    const addTimeBtn = document.getElementById('btn-fill-add-time');
     if (launchBtn) {
       launchBtn.disabled = true;
       launchBtn.textContent = '✅ Jeu lancé';
     }
     if (stopBtn) stopBtn.disabled = false;
+    if (addTimeBtn) addTimeBtn.disabled = false;
 
     _renderAdminFillTextPreview();
     _broadcastFill('fillStart', {
@@ -1716,6 +1718,14 @@ const FillActivity = (() => {
     _timerEnded();
   }
 
+  function addTime() {
+    if (!_fillGameStarted || _fillTimerSeconds <= 0) return;
+    _fillTimerSeconds = Math.min(_fillTimerSeconds + 60, _fillTimerTotal + 60); // Max +1 min
+    _fillTimerTotal = Math.max(_fillTimerTotal, _fillTimerSeconds);
+    _renderTimer();
+    App.showToast('+1 minute ajoutée', 'success');
+  }
+
   function _renderTimer() {
     const bar = document.getElementById('fill-timer-bar');
     const text = document.getElementById('fill-timer-text');
@@ -1730,7 +1740,9 @@ const FillActivity = (() => {
   function _timerEnded() {
     if (!_fillGameStarted) return;
     const stopBtn = document.getElementById('btn-fill-stop');
+    const addTimeBtn = document.getElementById('btn-fill-add-time');
     if (stopBtn) stopBtn.disabled = true;
+    if (addTimeBtn) addTimeBtn.disabled = true;
     // Broadcast timerEnd so players know time is up
     _broadcastFill('fillTimerEnd', {});
     // Ouvrir la modale de correction
@@ -1899,7 +1911,9 @@ const FillActivity = (() => {
     const scoresPanel = document.getElementById('fill-admin-results-panel');
     if (scoresPanel) scoresPanel.style.display = '';
     const stopBtn = document.getElementById('btn-fill-stop');
+    const addTimeBtn = document.getElementById('btn-fill-add-time');
     if (stopBtn) stopBtn.disabled = true;
+    if (addTimeBtn) addTimeBtn.disabled = true;
     if (!_lastFillScores) {
       App.showToast('Validez la correction pour afficher les scores.', 'error');
     }
@@ -1930,6 +1944,7 @@ const FillActivity = (() => {
     launchFillActivity,
     startFillGame,
     stopTimer,
+    addTime,
     openCorrectionModal,
     closeCorrectionModal,
     dragWordStart,
