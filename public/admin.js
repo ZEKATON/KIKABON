@@ -1757,9 +1757,10 @@ const FillActivity = (() => {
     modal.style.display = '';
     _renderCorrectionText();
     _renderWordBank();
+    _attachZoneClickEvents();
     const hint = document.getElementById('fill-correction-hint');
     if (hint) hint.textContent = _currentActivity.level === 1
-      ? 'Faites glisser les mots dans les trous.'
+      ? 'Cliquez sur un mot placé pour le remettre dans la liste.'
       : 'Saisissez les mots manquants dans les champs.';
     const btn = document.getElementById('btn-fill-validate');
     if (btn) {
@@ -1768,6 +1769,44 @@ const FillActivity = (() => {
         ? '✅ Correction envoyée - cliquer pour renvoyer'
         : '✅ Valider la correction';
     }
+  }
+
+  function _attachZoneClickEvents() {
+    if (_currentActivity.level !== 1) return; // Seulement pour le niveau 1 (drag & drop)
+    document.querySelectorAll('#fill-correction-text .fill-drop-zone.filled').forEach(zone => {
+      zone.style.cursor = 'pointer';
+      zone.onclick = () => _removeWordFromZone(zone);
+    });
+  }
+
+  function _removeWordFromZone(zone) {
+    const word = zone.getAttribute('data-placed');
+    if (!word) return;
+    
+    // Remettre le mot dans la banque
+    const bank = document.getElementById('fill-word-bank');
+    if (bank) {
+      const chip = document.createElement('span');
+      chip.className = 'fill-word-chip';
+      chip.setAttribute('data-word', escHtml(word));
+      chip.setAttribute('data-hole-id', zone.getAttribute('data-hole-id'));
+      chip.setAttribute('draggable', 'true');
+      chip.setAttribute('ondragstart', `FillActivity.dragWordStart(event, '${word.replace(/'/g, "\\'")}')`);
+      chip.setAttribute('ondblclick', `FillActivity.editWordChip(this)`);
+      chip.textContent = word;
+      bank.appendChild(chip);
+    }
+    
+    // Vider la zone
+    zone.textContent = '_____';
+    zone.classList.remove('filled');
+    zone.removeAttribute('data-placed');
+    zone.style.cursor = 'default';
+    zone.onclick = null;
+    
+    // Notifier les joueurs
+    const holeId = Number(zone.getAttribute('data-hole-id'));
+    _broadcastFill('fillWordRemoved', { holeId });
   }
 
   function closeCorrectionModal() {
@@ -1813,8 +1852,9 @@ const FillActivity = (() => {
     // Mélanger les mots
     const words = [..._currentActivity.holes].sort(() => Math.random() - 0.5);
     bank.innerHTML = words.map(h =>
-      `<span class="fill-word-chip" draggable="true" data-word="${escHtml(h.word)}"
-        ondragstart="FillActivity.dragWordStart(event, '${h.word.replace(/'/g,"\\'")}')">
+      `<span class="fill-word-chip" draggable="true" data-word="${escHtml(h.word)}" data-hole-id="${h.id}"
+        ondragstart="FillActivity.dragWordStart(event, '${h.word.replace(/'/g,"\\'")})"
+        ondblclick="FillActivity.editWordChip(this)">
         ${escHtml(h.word)}
       </span>`
     ).join('');
@@ -1845,6 +1885,8 @@ const FillActivity = (() => {
     zone.textContent = word;
     zone.classList.add('filled');
     zone.setAttribute('data-placed', word);
+    zone.style.cursor = 'pointer';
+    zone.onclick = () => _removeWordFromZone(zone);
     _broadcastFill('fillWordPlaced', { holeId, word });
   }
 
