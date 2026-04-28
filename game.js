@@ -774,42 +774,77 @@ const Game = (() => {
   // ---- Podium ----
   function showPodium() {
     const players = [...App.state.players].sort((a, b) => {
-      if (b.position !== a.position) return b.position - a.position;
-      return b.score - a.score;
+      if (b.score !== a.score) return b.score - a.score; // Tri par score d'abord
+      return b.position - a.position; // Puis par position si égalité
     });
 
     // Confettis
     launchConfetti();
 
-    // Podium des 3 premiers
+    // Podium des 3 premiers (gestion des égalités)
     const podiumEl = document.getElementById('podium-stage');
     podiumEl.innerHTML = '';
-    const podiumOrder = [1, 0, 2]; // 2ème, 1er, 3ème pour l'affichage
-    const classes = ['second', 'first', 'third'];
-    const medals = ['🥈', '🥇', '🥉'];
-    const heights = ['90px', '120px', '70px'];
 
-    podiumOrder.forEach((rank, displayPos) => {
-      const p = players[rank];
-      if (!p) return;
+    // Animation pour faire descendre le podium
+    podiumEl.style.animation = 'podiumDescend 1s ease-out forwards';
+
+    // Grouper les joueurs par score pour gérer les égalités
+    const scoreGroups = {};
+    players.forEach(p => {
+      const score = p.score;
+      if (!scoreGroups[score]) scoreGroups[score] = [];
+      scoreGroups[score].push(p);
+    });
+
+    const uniqueScores = Object.keys(scoreGroups).map(Number).sort((a, b) => b - a);
+    const podiumPositions = [];
+
+    // Créer les positions du podium (max 3 niveaux)
+    for (let i = 0; i < Math.min(uniqueScores.length, 3); i++) {
+      const score = uniqueScores[i];
+      const playersAtScore = scoreGroups[score];
+      podiumPositions.push({
+        score: score,
+        players: playersAtScore,
+        rank: i + 1,
+        height: i === 0 ? '120px' : i === 1 ? '90px' : '70px',
+        medal: i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉',
+        className: i === 0 ? 'first' : i === 1 ? 'second' : 'third'
+      });
+    }
+
+    // Afficher le podium
+    podiumPositions.forEach((pos, index) => {
       const div = document.createElement('div');
-      div.className = `podium-place ${classes[displayPos]}`;
-      div.style.animationDelay = `${displayPos * 0.15}s`;
+      div.className = `podium-place ${pos.className}`;
+      div.style.animationDelay = `${index * 0.15}s`;
+
+      // Si plusieurs joueurs au même score, les afficher tous
+      const playerElements = pos.players.map((p, playerIndex) => `
+        <div class="podium-player" style="margin-bottom: ${playerIndex > 0 ? '8px' : '0'}">
+          ${index === 0 && playerIndex === 0 ? '<div class="podium-crown">👑</div>' : ''}
+          <div class="podium-avatar">${p.avatar}</div>
+          <div class="podium-player-name" style="color:${p.color}">${p.name}</div>
+          <div class="podium-score">${p.score} pts</div>
+        </div>
+      `).join('');
+
       div.innerHTML = `
-        ${displayPos === 1 ? '<div class="podium-crown">👑</div>' : ''}
-        <div class="podium-avatar">${p.avatar}</div>
-        <div class="podium-player-name" style="color:${p.color}">${p.name}</div>
-        <div class="podium-score">${p.score} pts</div>
-        <div class="podium-block" style="height:${heights[displayPos]}">${medals[displayPos]}</div>
+        ${playerElements}
+        <div class="podium-block" style="height:${pos.height}">${pos.medal}</div>
       `;
       podiumEl.appendChild(div);
     });
 
-    // Tous les scores
+    // Tous les scores (avec pourcentages)
     const scoresEl = document.getElementById('all-scores');
     scoresEl.innerHTML = '';
+    const totalQuestions = Math.max(App.state.questions.length, 1);
+    const maxPossibleScore = totalQuestions * 100;
     const maxScore = players[0]?.score || 1;
+
     players.forEach((p, i) => {
+      const percentage = Math.round((p.score / maxPossibleScore) * 100);
       const row = document.createElement('div');
       const isMe = App.state.currentPlayer && p.id === App.state.currentPlayer.id;
       row.className = `score-row${isMe ? ' is-me' : ''}`;
@@ -820,7 +855,7 @@ const Game = (() => {
         <div class="score-bar-wrap">
           <div class="score-bar" style="width:${(p.score / maxScore) * 100}%"></div>
         </div>
-        <span class="score-val">${p.score}</span>
+        <span class="score-val">${percentage}%</span>
       `;
       scoresEl.appendChild(row);
     });

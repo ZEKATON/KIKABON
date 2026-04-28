@@ -883,6 +883,7 @@ html, body {
 .finish-flag { font-size: 20px; }
 .finish-trophy { font-size: 24px; animation: bounce 1s ease infinite; }
 @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes podiumDescend { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .track-lanes { flex: 1; display: flex; flex-direction: column; padding: 8px; gap: 4px; overflow-y: auto; }
 .track-lane {
   display: flex; align-items: center; gap: 8px;
@@ -2354,6 +2355,10 @@ html, body {
 .podium-place.second .podium-block { height: 90px; background: linear-gradient(180deg, #c0c0c0, #808080); color: #1a1530; }
 .podium-place.third .podium-block { height: 70px; background: linear-gradient(180deg, #cd7f32, #8b4513); color: #1a1530; }
 .podium-crown { font-size: 32px; }
+.podium-player {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+}
 
 .all-scores {
   width: 100%; background: var(--card);
