@@ -1664,7 +1664,7 @@ html, body {
   min-height: 100dvh;
   background:
     radial-gradient(circle at top, rgba(247,201,72,0.14), transparent 30%),
-    linear-gradient(180deg, #140f23 0%, #0f0c1a 100%);
+    linear-gradient(180deg, #140f23 0%, #0f0c1a 100%) !important;
 }
 
 .player-shell #screen-join,
@@ -2893,7 +2893,7 @@ html, body {
   text-align: center;
 }
 .fill-drop-zone.over { background: rgba(124,58,237,.3); border-style: solid; }
-.fill-drop-zone.filled { background: #7c3aed; color: #fff; border-style: solid; cursor: default; }
+.fill-drop-zone.filled { background: #7c3aed; color: #fff; border-style: solid; cursor: pointer; }
 .fill-type-input {
   display: inline-block;
   min-width: 90px; max-width: 150px;
