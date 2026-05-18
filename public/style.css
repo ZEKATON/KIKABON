@@ -1368,6 +1368,11 @@ html, body {
   word-break: break-word !important;
   overflow-wrap: anywhere !important;
 }
+.admin-shell #projected-overlay,
+.admin-shell .proj-question,
+.admin-shell .proj-choices {
+  display: none !important;
+}
 
 .admin-shell #screen-game.is-summary-view .question-zone {
   flex: 0 0 auto;
