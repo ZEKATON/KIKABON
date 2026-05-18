@@ -1832,6 +1832,8 @@ html, body {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 22px;
   padding: 18px;
+  /* Espace pour ne pas être collé à l'en-tête sticky */
+  margin-top: 8px;
   box-shadow: var(--shadow);
 }
 
@@ -1855,6 +1857,11 @@ html, body {
   font-family: var(--font-display);
   font-size: clamp(26px, 6vw, 34px);
   line-height: 1.15;
+  /* Autoriser le retour à la ligne et éviter les débordements
+     pour que les questions longues s'affichent entièrement */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .player-shell .choices-grid {
