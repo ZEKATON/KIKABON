@@ -1105,8 +1105,9 @@ html, body {
   order: 1;
   padding-bottom: 4px;
   padding-top: 4px;
-  flex: 0 0 12vh;
-  max-height: 12vh;
+  flex: 0 0 auto;
+  min-height: 18vh;
+  max-height: 28vh;
   gap: 4px;
   overflow: visible;
 }
@@ -1349,11 +1350,13 @@ html, body {
 
 /* Admin: masquer tout ce qui est au-dessus des contrôles prof */
 .admin-shell .timer-bar-wrap,
-.admin-shell #question-card,
 .admin-shell #question-result,
 .admin-shell .game-status,
 .admin-shell .qcm-vote-recap {
   display: none !important;
+}
+.admin-shell #question-card {
+  display: flex !important;
 }
 
 .admin-shell #screen-game.is-summary-view .question-zone {
