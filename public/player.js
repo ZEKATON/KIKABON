@@ -4,6 +4,7 @@
 // ============================================================
 
 // ---- Constantes ----
+const API_ORIGIN = 'https://kikabon.onrender.com';
 const AVATARS = [
   '\ud83d\udc3c','\ud83d\udc0a','\ud83d\udc38','\ud83d\udc81','\ud83d\udc2f','\ud83d\udc28',
   '\ud83d\udc84','\ud83d\udc3a','\ud83d\udc3b','\ud83d\udc9d','\ud83d\udc19','\ud83d\udc0b',
@@ -33,6 +34,15 @@ const playerState = {
 };
 let reconnectTimeout = null;
 let playerAudioCtx = null;
+
+function apiUrl(path) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const localHosts = ['localhost', '127.0.0.1'];
+  if (localHosts.includes(window.location.hostname) || window.location.hostname.endsWith('onrender.com')) {
+    return normalizedPath;
+  }
+  return `${API_ORIGIN}${normalizedPath}`;
+}
 let heartbeatTimer = null;
 let heartbeatFailureCount = 0;
 let _lastScoreShownAt = 0;
@@ -244,7 +254,7 @@ async function tryRestoreSession() {
   try { saved = JSON.parse(localStorage.getItem('kikabon_session') || 'null'); } catch (e) { saved = null; }
   if (!saved || !saved.playerId || !saved.gameCode) return false;
   try {
-    const activeRes = await fetch('/api/game-active').catch(() => null);
+    const activeRes = await fetch(apiUrl('/api/game-active')).catch(() => null);
     if (activeRes && activeRes.ok) {
       const activeData = await activeRes.json().catch(() => ({}));
       const activeCode = String(activeData.code || '').trim();
@@ -254,7 +264,7 @@ async function tryRestoreSession() {
       }
     }
 
-    const res = await fetch('/api/game/' + saved.gameCode);
+      const res = await fetch(apiUrl('/api/game/' + saved.gameCode));
     if (!res.ok) {
       const gameErr = await res.json().catch(() => ({}));
       if (res.status === 409 && /^\d{4}$/.test(String(gameErr.redirectCode || ''))) {
@@ -267,7 +277,7 @@ async function tryRestoreSession() {
 
     const gameMeta = await res.json().catch(() => ({}));
     if (gameMeta && gameMeta.gamePhase === 'ended') {
-      const activeRes = await fetch('/api/game-active').catch(() => null);
+      const activeRes = await fetch(apiUrl('/api/game-active')).catch(() => null);
       if (activeRes && activeRes.ok) {
         const activeData = await activeRes.json().catch(() => ({}));
         const redirectCode = String(activeData.code || '').trim();
@@ -280,7 +290,7 @@ async function tryRestoreSession() {
       return false;
     }
 
-    const joinRes = await fetch('/api/join/' + saved.gameCode, {
+    const joinRes = await fetch(apiUrl('/api/join/' + saved.gameCode), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -357,13 +367,13 @@ async function tryAutoJoinByStoredName() {
   if (!storedName) return false;
 
   try {
-    const activeRes = await fetch('/api/game-active');
+    const activeRes = await fetch(apiUrl('/api/game-active'));
     if (!activeRes.ok) return false;
     const activeData = await activeRes.json().catch(() => ({}));
     const code = String(activeData.code || '').trim();
     if (!/^\d{4}$/.test(code)) return false;
 
-    const joinRes = await fetch('/api/join/' + code, {
+    const joinRes = await fetch(apiUrl('/api/join/' + code), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -494,7 +504,7 @@ async function pingServerWithTimeout(timeoutMs) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch('/api/ping', { cache: 'no-store', signal: controller.signal });
+    const response = await fetch(apiUrl('/api/ping'), { cache: 'no-store', signal: controller.signal });
     if (!response.ok) return null;
     return await response.json().catch(() => null);
   } catch (e) {
@@ -598,7 +608,7 @@ async function goToJoinStep(step) {
       return;
     }
     try {
-      const res = await fetch('/api/game/' + code);
+      const res = await fetch(apiUrl('/api/game/' + code));
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (res.status === 409 && /^\d{4}$/.test(String(err.redirectCode || ''))) {
@@ -641,7 +651,7 @@ async function joinGameWithCode() {
 
   if (!code) {
     try {
-      const activeRes = await fetch('/api/game-active');
+      const activeRes = await fetch(apiUrl('/api/game-active'));
       if (!activeRes.ok) {
         showToast('Aucune partie en cours. Attends que le professeur lance le jeu.', 'error');
         return;
@@ -668,7 +678,7 @@ async function joinGameWithCode() {
   );
 
   const performJoin = async (targetCode, canResumeForCode) => {
-    return fetch('/api/join/' + targetCode, {
+    return fetch(apiUrl('/api/join/' + targetCode), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -754,7 +764,7 @@ function connectSSE(code) {
   clearTimeout(reconnectTimeout);
 
   try {
-    const sse = new EventSource('/api/events/' + code);
+    const sse = new EventSource(apiUrl('/api/events/' + code));
     playerState.sse = sse;
     startHeartbeat();
 
@@ -907,7 +917,7 @@ function connectSSE(code) {
 
       const currentCode = String(playerState.gameCode || '').trim();
       if (currentCode) {
-        fetch('/api/game-active')
+        fetch(apiUrl('/api/game-active'))
           .then(r => r.ok ? r.json() : null)
           .then(activeData => {
             const activeCode = String(activeData && activeData.code ? activeData.code : '').trim();
@@ -1104,7 +1114,7 @@ const PlayerGame = (function() {
     const code = playerState.gameCode;
     if (player && code) {
       try {
-        const res = await fetch('/api/answer/' + code, {
+        const res = await fetch(apiUrl('/api/answer/' + code), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1610,7 +1620,7 @@ function submitFillAnswers() {
 
 function _sendFillAnswersWithRetry(answers, retriesLeft) {
   if (!playerState.gameCode || !playerState.currentPlayer) return;
-  fetch('/api/fill-answer/' + playerState.gameCode, {
+  fetch(apiUrl('/api/fill-answer/' + playerState.gameCode), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

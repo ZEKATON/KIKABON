@@ -3,6 +3,7 @@
 // ============================================================
 
 const Admin = (() => {
+  const API_ORIGIN = 'https://kikabon.onrender.com';
   const MAX_IMPORTED_QUESTIONS = 20;
   const MODULES_STORAGE_KEY = 'quizrace_modules';
   const UNCLASSIFIED_MODULE_ID = 'uncategorized';
@@ -14,6 +15,15 @@ const Admin = (() => {
   let adminSSE = null;
   let dragQuizId = null;
   let dragModuleId = null;
+
+  function apiUrl(path) {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const localHosts = ['localhost', '127.0.0.1'];
+    if (localHosts.includes(window.location.hostname) || window.location.hostname.endsWith('onrender.com')) {
+      return normalizedPath;
+    }
+    return `${API_ORIGIN}${normalizedPath}`;
+  }
 
   function normalizeModuleName(name) {
     return String(name || '').trim();
@@ -1047,7 +1057,7 @@ const Admin = (() => {
 
   function connectAdminSSE(code) {
     if (adminSSE) { adminSSE.close(); adminSSE = null; }
-    adminSSE = new EventSource(`/api/events/${code}`);
+    adminSSE = new EventSource(apiUrl(`/api/events/${code}`));
 
     adminSSE.addEventListener('playerJoin', e => {
       const player = JSON.parse(e.data);
@@ -1088,7 +1098,7 @@ const Admin = (() => {
       return;
     }
     try {
-      const res = await fetch('/api/host', {
+      const res = await fetch(apiUrl('/api/host'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1524,7 +1534,7 @@ const FillActivity = (() => {
     _currentActivity = activity;
     _fillPlayerAnswers = {};
     // Créer session jeu via /api/host (questions factices pour compatibilité)
-    fetch('/api/host', {
+    fetch(apiUrl('/api/host'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ questions: [{ text: '__fill__', type: 'fill' }] }),
@@ -1603,7 +1613,7 @@ const FillActivity = (() => {
 
   function _broadcastFill(type, payload) {
     if (!App.state.gameCode || !App.state.adminToken) return;
-    fetch(`/api/admin/${App.state.gameCode}/broadcast`, {
+    fetch(apiUrl(`/api/admin/${App.state.gameCode}/broadcast`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminToken: App.state.adminToken, type, payload }),
@@ -1628,7 +1638,7 @@ const FillActivity = (() => {
 
   function _connectFillSSE(code) {
     if (_fillAdminSSE) { _fillAdminSSE.close(); _fillAdminSSE = null; }
-    const sse = new EventSource('/api/events/' + code);
+    const sse = new EventSource(apiUrl('/api/events/' + code));
     _fillAdminSSE = sse;
     sse.addEventListener('fillPlayerSubmit', function(e) {
       const data = JSON.parse(e.data);
