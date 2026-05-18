@@ -883,6 +883,7 @@ html, body {
 .finish-flag { font-size: 20px; }
 .finish-trophy { font-size: 24px; animation: bounce 1s ease infinite; }
 @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes podiumDescend { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .track-lanes { flex: 1; display: flex; flex-direction: column; padding: 8px; gap: 4px; overflow-y: auto; }
 .track-lane {
   display: flex; align-items: center; gap: 8px;
@@ -1683,7 +1684,7 @@ html, body {
   min-height: 100dvh;
   background:
     radial-gradient(circle at top, rgba(247,201,72,0.14), transparent 30%),
-    linear-gradient(180deg, #140f23 0%, #0f0c1a 100%);
+    linear-gradient(180deg, #140f23 0%, #0f0c1a 100%) !important;
 }
 
 .player-shell #screen-join,
@@ -1850,6 +1851,8 @@ html, body {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 22px;
   padding: 18px;
+  /* Espace pour ne pas être collé à l'en-tête sticky */
+  margin-top: 8px;
   box-shadow: var(--shadow);
 }
 
@@ -1873,6 +1876,11 @@ html, body {
   font-family: var(--font-display);
   font-size: clamp(26px, 6vw, 34px);
   line-height: 1.15;
+  /* Autoriser le retour à la ligne et éviter les débordements
+     pour que les questions longues s'affichent entièrement */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .player-shell .choices-grid {
@@ -2373,6 +2381,10 @@ html, body {
 .podium-place.second .podium-block { height: 90px; background: linear-gradient(180deg, #c0c0c0, #808080); color: #1a1530; }
 .podium-place.third .podium-block { height: 70px; background: linear-gradient(180deg, #cd7f32, #8b4513); color: #1a1530; }
 .podium-crown { font-size: 32px; }
+.podium-player {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+}
 
 .all-scores {
   width: 100%; background: var(--card);
@@ -2912,7 +2924,7 @@ html, body {
   text-align: center;
 }
 .fill-drop-zone.over { background: rgba(124,58,237,.3); border-style: solid; }
-.fill-drop-zone.filled { background: #7c3aed; color: #fff; border-style: solid; cursor: default; }
+.fill-drop-zone.filled { background: #7c3aed; color: #fff; border-style: solid; cursor: pointer; }
 .fill-type-input {
   display: inline-block;
   min-width: 90px; max-width: 150px;

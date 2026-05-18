@@ -1007,9 +1007,6 @@ const PlayerGame = (function() {
         btn.className = 'choice-btn';
         btn.type = 'button';
         btn.innerHTML = '<span class="choice-letter">' + letters[i] + '</span>' + choice;
-        btn.addEventListener('pointerdown', function(event) {
-          event.preventDefault();
-        });
         btn.addEventListener('click', function(event) {
           event.preventDefault();
           event.stopPropagation();
