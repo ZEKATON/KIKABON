@@ -1358,11 +1358,22 @@ html, body {
 }
 .admin-shell #question-card {
   display: flex !important;
+  flex-direction: column;
+  min-height: 0;
+  overflow: visible !important;
+}
+.admin-shell .question-text {
+  font-size: 16px !important;
+  line-height: 1.4 !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
 }
 
 .admin-shell #screen-game.is-summary-view .question-zone {
-  flex: 0 0 34vh;
-  max-height: 34vh;
+  flex: 0 0 auto;
+  min-height: 24vh;
+  max-height: none;
   overflow-y: auto;
   gap: 8px;
   padding-bottom: 10px;
