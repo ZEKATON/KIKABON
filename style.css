@@ -1422,12 +1422,6 @@ html, body {
   padding: 0 4px;
 }
 
-/* Admin: réduire la taille de la police de la question affichée */
-.admin-shell .question-text {
-  font-size: 11px !important;
-  line-height: 1.2 !important;
-}
-
 .admin-shell #screen-game.is-summary-view .qcm-vote-recap {
   display: grid !important;
   margin-top: 0;
