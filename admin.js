@@ -1545,7 +1545,7 @@ const FillActivity = (() => {
     let text = '';
     segments.forEach((seg, i) => {
       text += String(seg || '');
-      if i < holes.length) text += ' ____ ';
+      if (i < holes.length) text += ' ____ ';
     });
     const compact = text.replace(/\s+/g, ' ').trim();
     return compact.length > maxLen ? compact.slice(0, maxLen - 1) + '…' : compact;
