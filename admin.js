@@ -17,12 +17,12 @@ const Admin = (() => {
   let dragModuleId = null;
 
   function apiUrl(path) {
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    const localHosts = ['localhost', '127.0.0.1'];
-    if (localHosts.includes(window.location.hostname) || window.location.hostname.endsWith('onrender.com')) {
+    const normalizedPath = String(path || '').startsWith('/') ? String(path) : `/${String(path || '')}`;
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('onrender.com')) {
       return normalizedPath;
     }
-    return `${API_ORIGIN}${normalizedPath}`;
+    return `https://kikabon.onrender.com${normalizedPath}`;
   }
 
   function normalizeModuleName(name) {
@@ -1164,6 +1164,45 @@ const FillActivity = (() => {
   let _savedFillSort = 'newest';
   let _savedFillQuery = '';
 
+  function apiUrl(path) {
+    const normalizedPath = String(path || '').startsWith('/') ? String(path) : `/${String(path || '')}`;
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('onrender.com')) {
+      return normalizedPath;
+    }
+    return `https://kikabon.onrender.com${normalizedPath}`;
+  }
+
+  function _resetFillRuntimeState() {
+    clearInterval(_fillTimerInterval);
+    _fillTimerInterval = null;
+    _fillTimerSeconds = 300;
+    _fillTimerTotal = 300;
+    _fillPlayerAnswers = {};
+    _lastFillScores = null;
+    _lastFillCorrectionPayload = null;
+    _fillCorrectionValidated = false;
+    _fillGameStarted = false;
+    if (_fillAdminSSE) {
+      _fillAdminSSE.close();
+      _fillAdminSSE = null;
+    }
+    const modal = document.getElementById('fill-correction-modal');
+    if (modal) modal.style.display = 'none';
+    const timerText = document.getElementById('fill-timer-text');
+    if (timerText) timerText.textContent = '5:00';
+    const progressCounter = document.getElementById('fill-progress-counter');
+    if (progressCounter) progressCounter.textContent = '0 / 0 terminé(s)';
+  }
+
+  function _normalizeCurrentFillActivity(activity) {
+    const normalized = FillUtils && typeof FillUtils.normalizeFillActivity === 'function'
+      ? FillUtils.normalizeFillActivity(activity)
+      : (activity && typeof activity === 'object' ? activity : {});
+    if (!normalized || !normalized.isValid) return null;
+    return normalized;
+  }
+
   function _refreshFillProgressCounter() {
     const counter = document.getElementById('fill-progress-counter');
     if (!counter) return;
@@ -1175,8 +1214,9 @@ const FillActivity = (() => {
 
   function _renderAdminFillTextPreview() {
     const box = document.getElementById('fill-admin-text-preview');
-    if (!box || !_currentActivity) return;
-    const { segments, holes } = _currentActivity;
+    const activity = _normalizeCurrentFillActivity(_currentActivity);
+    if (!box || !activity) return;
+    const { segments, holes } = activity;
     let html = '';
     segments.forEach((seg, i) => {
       html += escHtml(seg).replace(/\n/g, '<br>');
@@ -1349,27 +1389,27 @@ const FillActivity = (() => {
   }
 
   function editFillActivity(id) {
-    const activity = (App.state.savedFillActivities || []).find(f => f.id === id);
-    if (!activity) { App.showToast('Activité introuvable.', 'error'); return; }
+    const safeActivity = _normalizeCurrentFillActivity((App.state.savedFillActivities || []).find(f => Number(f.id) === Number(id)) || null);
+    if (!safeActivity) { App.showToast('Activité introuvable.', 'error'); return; }
 
     const tokens = [];
-    const segments = Array.isArray(activity.segments) ? activity.segments : [];
-    const holes = Array.isArray(activity.holes) ? activity.holes : [];
+    const segments = Array.isArray(safeActivity.segments) ? safeActivity.segments : [];
+    const holes = Array.isArray(safeActivity.holes) ? safeActivity.holes : [];
     segments.forEach((seg, i) => {
       tokens.push(..._tokenizeFillText(seg, false));
       if (i < holes.length) tokens.push(..._tokenizeFillText((holes[i] && holes[i].word) || '', true));
     });
 
-    _editingFillId = id;
+    _editingFillId = safeActivity.id;
     _builderState.tokens = tokens;
-    _builderState.name = activity.name || 'Texte sans titre';
-    setLevel(activity.level || 1);
+    _builderState.name = safeActivity.name || 'Texte sans titre';
+    setLevel(safeActivity.level || 1);
 
     const nameInput = document.getElementById('fill-name-input');
     const textInput = document.getElementById('fill-text-input');
     const area = document.getElementById('fill-token-area');
     if (nameInput) nameInput.value = _builderState.name;
-    if (textInput) textInput.value = _activityToRawText(activity);
+    if (textInput) textInput.value = _activityToRawText(safeActivity);
     if (area) area.style.display = '';
     renderTokenList();
 
@@ -1382,12 +1422,12 @@ const FillActivity = (() => {
   function saveFillActivity() {
     const nameInput = document.getElementById('fill-name-input');
     const name = (nameInput ? nameInput.value.trim() : '') || _builderState.name || 'Texte sans titre';
-    const holes = _builderState.tokens.filter(t => !t.isPunct && t.isBlank);
+    const holes = (_builderState.tokens || []).filter(t => !t.isPunct && t.isBlank);
     if (holes.length === 0) { App.showToast('Sélectionnez au moins un mot comme trou.', 'error'); return; }
     const { segments, holes: holeList } = _buildActivityData();
-    const existing = (App.state.savedFillActivities || []).find(f => f.id === _editingFillId);
+    const existing = (App.state.savedFillActivities || []).find(f => Number(f.id) === Number(_editingFillId));
     const activity = {
-      id: _editingFillId || Date.now(),
+      id: Number(_editingFillId) || Date.now(),
       name,
       date: existing && existing.date ? existing.date : new Date().toLocaleDateString('fr-FR'),
       level: _builderState.level,
@@ -1423,7 +1463,8 @@ const FillActivity = (() => {
     if (queryEl && queryEl.value !== _savedFillQuery) queryEl.value = _savedFillQuery;
 
     const fills = (App.state.savedFillActivities || [])
-      .filter(f => Array.isArray(f && f.segments) && Array.isArray(f && f.holes))
+      .map(f => FillUtils.normalizeFillActivity(f))
+      .filter(f => f && f.isValid)
       .slice();
     fills.sort((a, b) => {
       const holesA = Array.isArray(a.holes) ? a.holes.length : 0;
@@ -1496,18 +1537,24 @@ const FillActivity = (() => {
   }
 
   function _buildFillPreviewText(activity, maxLen = 180) {
+    if (typeof FillUtils !== 'undefined' && typeof FillUtils.buildFillPreviewText === 'function') {
+      return FillUtils.buildFillPreviewText(activity, maxLen);
+    }
     const segments = Array.isArray(activity && activity.segments) ? activity.segments : [];
     const holes = Array.isArray(activity && activity.holes) ? activity.holes : [];
     let text = '';
     segments.forEach((seg, i) => {
       text += String(seg || '');
-      if (i < holes.length) text += ' ____ ';
+      if i < holes.length) text += ' ____ ';
     });
     const compact = text.replace(/\s+/g, ' ').trim();
     return compact.length > maxLen ? compact.slice(0, maxLen - 1) + '…' : compact;
   }
 
   function _buildFillSearchText(activity) {
+    if (typeof FillUtils !== 'undefined' && typeof FillUtils.buildFillSearchText === 'function') {
+      return FillUtils.buildFillSearchText(activity);
+    }
     const name = String(activity && activity.name ? activity.name : '');
     const text = _buildFillPreviewText(activity, 2000);
     return (name + ' ' + text).toLowerCase();
@@ -1529,9 +1576,11 @@ const FillActivity = (() => {
 
   // ---- Lancer une activité ----
   function launchFillActivity(id) {
-    const activity = (App.state.savedFillActivities || []).find(f => f.id === id);
-    if (!activity) { App.showToast('Activité introuvable.', 'error'); return; }
-    _currentActivity = activity;
+    const activity = (App.state.savedFillActivities || []).find(f => Number(f.id) === Number(id));
+    const sanitized = _normalizeCurrentFillActivity(activity);
+    if (!sanitized) { App.showToast('Activité introuvable ou invalide.', 'error'); return; }
+    _resetFillRuntimeState();
+    _currentActivity = sanitized;
     _fillPlayerAnswers = {};
     // Créer session jeu via /api/host (questions factices pour compatibilité)
     fetch(apiUrl('/api/host'), {
@@ -1539,7 +1588,12 @@ const FillActivity = (() => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ questions: [{ text: '__fill__', type: 'fill' }] }),
     })
-    .then(r => r.json())
+    .then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'Impossible de créer la partie');
+      if (!data.code || !data.adminToken) throw new Error('Réponse du serveur invalide');
+      return data;
+    })
     .then(data => {
       App.state.gameCode    = data.code;
       App.state.adminToken  = data.adminToken;
@@ -1547,7 +1601,7 @@ const FillActivity = (() => {
       _connectFillSSE(data.code);
       // Aller vers screen-fill-game
       const titleEl = document.getElementById('fill-game-title');
-      if (titleEl) titleEl.textContent = activity.name;
+      if (titleEl) titleEl.textContent = sanitized.name;
       App.showScreen('screen-fill-game');
       _renderFillJoinQRCode();
       _lastFillScores = null;
@@ -1577,12 +1631,21 @@ const FillActivity = (() => {
         validateBtn.textContent = '✅ Valider la correction';
       }
     })
-    .catch(() => App.showToast('Erreur lors du lancement.', 'error'));
+    .catch(error => {
+      App.state.gameCode = null;
+      App.state.adminToken = null;
+      App.showToast(error && error.message ? error.message : 'Erreur lors du lancement.', 'error');
+    });
   }
 
   function startFillGame() {
-    if (!_currentActivity || _fillGameStarted) return;
-    _fillGameStarted = true;
+    const activity = _normalizeCurrentFillActivity(_currentActivity);
+    if (!activity || _fillGameStarted) return;
+    if (!App.state.gameCode || !App.state.adminToken) {
+      App.showToast('Partie non créée. Relancez l’activité.', 'error');
+      return;
+    }
+    _currentActivity = activity;
     _fillCorrectionValidated = false;
     _lastFillScores = null;
     const launchBtn = document.getElementById('btn-fill-launch');
@@ -1590,10 +1653,8 @@ const FillActivity = (() => {
     const addTimeBtn = document.getElementById('btn-fill-add-time');
     if (launchBtn) {
       launchBtn.disabled = true;
-      launchBtn.textContent = '✅ Jeu lancé';
+      launchBtn.textContent = '⏳ Démarrage…';
     }
-    if (stopBtn) stopBtn.disabled = false;
-    if (addTimeBtn) addTimeBtn.disabled = false;
 
     _renderAdminFillTextPreview();
     _broadcastFill('fillStart', {
@@ -1603,21 +1664,36 @@ const FillActivity = (() => {
       segments: _currentActivity.segments,
       holes: _currentActivity.holes.map(h => ({ id: h.id, word: (_currentActivity.level === 1 ? h.word : null) })),
       timeLimit: 300,
+    }).then(() => {
+      _fillGameStarted = true;
+      if (launchBtn) launchBtn.textContent = '✅ Jeu lancé';
+      if (stopBtn) stopBtn.disabled = false;
+      if (addTimeBtn) addTimeBtn.disabled = false;
+      startTimer();
+      App.showToast('Jeu lancé: les joueurs peuvent répondre.', 'success');
+    }).catch(() => {
+      if (launchBtn) {
+        launchBtn.disabled = false;
+        launchBtn.textContent = '▶️ Lancer le jeu';
+      }
+      App.showToast('Impossible de lancer le jeu. Vérifiez la connexion puis réessayez.', 'error');
     });
-    startTimer();
-    App.showToast('Jeu lancé: les joueurs peuvent répondre.', 'success');
   }
 
   // Pour le niveau 1 : les mots sont fournis (pour les joueurs les voir dans la bank)
   // Pour le niveau 2 : les mots ne sont pas fournis (joueurs tapent)
 
   function _broadcastFill(type, payload) {
-    if (!App.state.gameCode || !App.state.adminToken) return;
-    fetch(apiUrl(`/api/admin/${App.state.gameCode}/broadcast`), {
+    if (!App.state.gameCode || !App.state.adminToken) return Promise.reject(new Error('Session inexistante'));
+    return fetch(apiUrl(`/api/admin/${App.state.gameCode}/broadcast`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminToken: App.state.adminToken, type, payload }),
-    }).catch(() => {});
+    }).then(async response => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Échec de diffusion');
+      return data;
+    });
   }
 
   function _renderFillJoinQRCode() {
@@ -1761,7 +1837,8 @@ const FillActivity = (() => {
 
   // ---- Modale correction ----
   function openCorrectionModal() {
-    if (!_currentActivity) return;
+    const activity = _normalizeCurrentFillActivity(_currentActivity);
+    if (!activity) return;
     const modal = document.getElementById('fill-correction-modal');
     if (!modal) return;
     modal.style.display = '';
@@ -1769,7 +1846,7 @@ const FillActivity = (() => {
     _renderWordBank();
     _attachZoneClickEvents();
     const hint = document.getElementById('fill-correction-hint');
-    if (hint) hint.textContent = _currentActivity.level === 1
+    if (hint) hint.textContent = activity.level === 1
       ? 'Cliquez sur un mot placé pour le remettre dans la liste.'
       : 'Saisissez les mots manquants dans les champs.';
     const btn = document.getElementById('btn-fill-validate');
@@ -1809,6 +1886,13 @@ const FillActivity = (() => {
     const bank = document.getElementById('fill-word-bank');
     if (!bank) return;
     bank.appendChild(_createFillWordChip(word, holeId));
+  }
+
+  function _findWordChip(bank, word) {
+    if (!bank || !word) return null;
+    const target = String(word).trim();
+    const chips = Array.from(bank.children || []);
+    return chips.find(chip => String(chip.getAttribute('data-word') || '').trim() === target) || null;
   }
 
   function _removeWordFromZone(zone) {
@@ -1901,16 +1985,13 @@ const FillActivity = (() => {
       cancelWordEdit(input, originalChip, originalChip.getAttribute('data-word'));
       return;
     }
-    // Update the hole word
-    const hole = _currentActivity.holes.find(h => h.id === holeId);
+    if (!_currentActivity || !Array.isArray(_currentActivity.holes)) return;
+    const hole = _currentActivity.holes.find(h => Number(h.id) === Number(holeId));
     if (hole) hole.word = newWord;
-    // Update the chip
     originalChip.setAttribute('data-word', newWord);
     originalChip.setAttribute('ondragstart', `FillActivity.dragWordStart(event, '${newWord.replace(/'/g,"\\'")}')`);
     originalChip.textContent = newWord;
-    // Replace back
     input.parentNode.replaceChild(originalChip, input);
-    // Update any placed zone with this hole id
     const zone = document.querySelector(`#fill-correction-text .fill-drop-zone[data-hole-id="${holeId}"]`);
     if (zone && zone.classList.contains('filled')) {
       const placed = zone.getAttribute('data-placed');
@@ -1919,7 +2000,7 @@ const FillActivity = (() => {
         zone.textContent = newWord;
       }
     }
-    zone.setAttribute('data-correct', newWord);
+    if (zone) zone.setAttribute('data-correct', newWord);
   }
 
   function cancelWordEdit(input, originalChip, originalWord) {
@@ -1934,15 +2015,15 @@ const FillActivity = (() => {
 
   function dropWord(event, holeId) {
     event.preventDefault();
-    const word = event.dataTransfer.getData('text/plain');
     const zone = event.currentTarget;
-    if (!zone) return;
+    if (!zone || !event.dataTransfer) return;
+    const word = String(event.dataTransfer.getData('text/plain') || '').trim();
+    if (!word) return;
     zone.classList.remove('over');
     _placeWordInZone(holeId, word, zone);
-    // Retirer le chip du bank
     const bank = document.getElementById('fill-word-bank');
     if (bank) {
-      const chip = bank.querySelector(`[data-word="${escHtml(word)}"]`);
+      const chip = _findWordChip(bank, word);
       if (chip) chip.remove();
     }
   }
@@ -1966,10 +2047,10 @@ const FillActivity = (() => {
 
   // ---- Valider la correction ----
   function validateCorrection() {
-    if (!_currentActivity) return;
-    // Récupérer toutes les réponses placées par l'admin (les bonnes réponses)
-    const correctAnswers = {}; // holeId -> word
-    if (_currentActivity.level === 1) {
+    const activity = _normalizeCurrentFillActivity(_currentActivity);
+    if (!activity) return;
+    const correctAnswers = {};
+    if (activity.level === 1) {
       document.querySelectorAll('#fill-correction-text .fill-drop-zone').forEach(zone => {
         const holeId = Number(zone.getAttribute('data-hole-id'));
         const placed = zone.getAttribute('data-placed') || '';
@@ -1987,21 +2068,21 @@ const FillActivity = (() => {
     allPlayers.forEach(row => {
       const playerId = Number(row.getAttribute('data-player-id'));
       const playerAnswers = _fillPlayerAnswers[playerId] || [];
-      const results = _currentActivity.holes.map(hole => {
-        const playerAns = playerAnswers.find(a => a.holeId === hole.id);
+      const results = activity.holes.map(hole => {
+        const playerAns = playerAnswers.find(a => Number(a.holeId) === Number(hole.id));
         const playerWord = String(playerAns ? playerAns.word : '').trim().toLowerCase();
         const adminWord = String(correctAnswers[hole.id] || hole.word || '').trim().toLowerCase();
         return { holeId: hole.id, correct: playerWord === adminWord };
       });
       const correctCount = results.filter(r => r.correct).length;
-      const totalHoles = _currentActivity.holes.length;
+      const totalHoles = activity.holes.length;
       const delta = correctCount * totalHoles > 0 ? Math.round(correctCount / totalHoles * 100) : 0;
       scores.push({ playerId, delta, correctCount, totalHoles, results });
     });
     const correctionPayload = {
       scores,
       correctAnswers,
-      holes: _currentActivity.holes,
+      holes: activity.holes,
     };
     _broadcastFill('fillCorrectionEnd', correctionPayload);
     _lastFillCorrectionPayload = correctionPayload;
@@ -2031,13 +2112,26 @@ const FillActivity = (() => {
   }
 
   function endFillGame() {
-    clearInterval(_fillTimerInterval);
-    if (_fillAdminSSE) { _fillAdminSSE.close(); _fillAdminSSE = null; }
-    _fillGameStarted = false;
+    _resetFillRuntimeState();
     App.state.gameCode = null;
     App.state.adminToken = null;
     _currentActivity = null;
     _fillPlayerAnswers = {};
+    const modal = document.getElementById('fill-correction-modal');
+    if (modal) modal.style.display = 'none';
+    const launchBtn = document.getElementById('btn-fill-launch');
+    if (launchBtn) {
+      launchBtn.disabled = false;
+      launchBtn.textContent = '▶️ Lancer le jeu';
+    }
+    const stopBtn = document.getElementById('btn-fill-stop');
+    if (stopBtn) stopBtn.disabled = true;
+    const addTimeBtn = document.getElementById('btn-fill-add-time');
+    if (addTimeBtn) addTimeBtn.disabled = true;
+    const timerText = document.getElementById('fill-timer-text');
+    if (timerText) timerText.textContent = '5:00';
+    const bar = document.getElementById('fill-timer-bar');
+    if (bar) bar.style.width = '100%';
     goToActivities();
   }
 
